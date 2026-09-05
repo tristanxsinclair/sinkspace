@@ -1,0 +1,8 @@
+{
+  "site": "Sink Space",
+  "canonical": "https://sinkspace.com.au/",
+  "release": "studio-v2",
+  "released_on": "2026-09-06",
+  "artifact_root": "dist",
+  "hosting": "GitHub Pages"
+}

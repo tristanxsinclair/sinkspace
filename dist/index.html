@@ -1,181 +1,208 @@
 <!doctype html>
-<html lang="en">
+<html lang="en-AU">
   <head>
     <meta charset="UTF-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <meta
-      name="description"
-      content="Sink Space builds focused software for learning, work, and everyday life. Explore Eblocki and WorkProof."
-    />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="description" content="Sink Space is an independent Perth software studio building focused products for learning, work and evidence-based progress." />
     <meta name="theme-color" content="#071014" />
+    <meta name="robots" content="index,follow" />
+    <link rel="canonical" href="https://sinkspace.com.au/" />
+
+    <meta property="og:type" content="website" />
+    <meta property="og:site_name" content="Sink Space" />
+    <meta property="og:title" content="Sink Space — Useful systems for real life" />
+    <meta property="og:description" content="Focused software for learning, work and evidence-based progress. Built independently in Perth, Western Australia." />
+    <meta property="og:url" content="https://sinkspace.com.au/" />
+    <meta name="twitter:card" content="summary" />
+    <meta name="twitter:title" content="Sink Space — Useful systems for real life" />
+    <meta name="twitter:description" content="Focused software for learning, work and evidence-based progress." />
+
     <title>Sink Space — Useful systems for real life</title>
     <link rel="icon" href="./mark.svg" type="image/svg+xml" />
     <link rel="stylesheet" href="./styles.css" />
+
+    <script type="application/ld+json">
+      {
+        "@context": "https://schema.org",
+        "@graph": [
+          {
+            "@type": "Organization",
+            "@id": "https://sinkspace.com.au/#studio",
+            "name": "Sink Space",
+            "url": "https://sinkspace.com.au/",
+            "description": "Independent software studio building focused systems for learning, work and everyday life.",
+            "founder": { "@type": "Person", "name": "Tristan Sinclair" },
+            "address": {
+              "@type": "PostalAddress",
+              "addressLocality": "Perth",
+              "addressRegion": "WA",
+              "addressCountry": "AU"
+            }
+          },
+          {
+            "@type": "WebSite",
+            "@id": "https://sinkspace.com.au/#website",
+            "url": "https://sinkspace.com.au/",
+            "name": "Sink Space",
+            "publisher": { "@id": "https://sinkspace.com.au/#studio" }
+          }
+        ]
+      }
+    </script>
   </head>
+
   <body>
+    <a class="skip-link" href="#main">Skip to content</a>
     <div class="ambient ambient-one" aria-hidden="true"></div>
     <div class="ambient ambient-two" aria-hidden="true"></div>
 
     <header class="site-header">
       <a class="wordmark" href="#top" aria-label="Sink Space home">
-        <span class="mark" aria-hidden="true">
-          <span></span><span></span><span></span>
-        </span>
+        <span class="mark" aria-hidden="true"><span></span><span></span><span></span></span>
         <span>SINK SPACE</span>
       </a>
 
       <nav aria-label="Main navigation">
-        <a href="#products">Apps</a>
-        <a href="#principles">Approach</a>
+        <a href="#products">Products</a>
+        <a href="#studio">Studio</a>
+        <a href="#standard">Standard</a>
       </nav>
     </header>
 
-    <main id="top">
-      <section class="hero" aria-labelledby="hero-title">
-        <div class="eyebrow">
-          <span class="status-dot" aria-hidden="true"></span>
-          Independent software studio · Perth, WA
-        </div>
-
-        <h1 id="hero-title">
-          Useful systems
-          <span>for real life.</span>
-        </h1>
-
-        <p class="hero-copy">
-          Sink Space builds focused apps that help people understand where they
-          are, make a better next move, and produce evidence of real progress.
-        </p>
-
-        <a class="primary-link" href="#products">
-          Explore the apps
-          <span aria-hidden="true">↓</span>
-        </a>
-
-        <div class="orbit" aria-hidden="true">
-          <div class="orbit-ring ring-one"></div>
-          <div class="orbit-ring ring-two"></div>
-          <div class="orbit-core">
-            <span>SS</span>
+    <main id="main">
+      <section class="hero" id="top" aria-labelledby="hero-title">
+        <div class="hero-copy-wrap">
+          <p class="eyebrow"><span class="status-dot" aria-hidden="true"></span>Independent software studio · Perth, WA</p>
+          <h1 id="hero-title">Useful systems<br /><span>for real life.</span></h1>
+          <p class="hero-copy">
+            Sink Space builds focused software that helps people understand their current state, make a better next move and turn real activity into useful evidence.
+          </p>
+          <div class="hero-actions">
+            <a class="button button-primary" href="#products">Explore products <span aria-hidden="true">↓</span></a>
+            <a class="button button-quiet" href="#studio">How we build</a>
           </div>
-          <div class="orbit-node node-one">E</div>
-          <div class="orbit-node node-two">W</div>
         </div>
+
+        <aside class="system-panel" aria-label="Current Sink Space products">
+          <div class="panel-head">
+            <span>CURRENT SYSTEMS</span>
+            <span class="panel-live"><i aria-hidden="true"></i> BUILDING</span>
+          </div>
+          <a class="system-row" href="https://www.eblocki.space" target="_blank" rel="noopener noreferrer">
+            <span class="system-id system-id-e">E</span>
+            <span class="system-name"><strong>Eblocki</strong><small>Learning · improvement</small></span>
+            <span class="state state-live">LIVE</span>
+          </a>
+          <a class="system-row" href="https://workproof.tristan01sinclair.chatgpt.site" target="_blank" rel="noopener noreferrer">
+            <span class="system-id system-id-w">W</span>
+            <span class="system-name"><strong>WorkProof</strong><small>Work · capability</small></span>
+            <span class="state state-pilot">PILOT</span>
+          </a>
+          <div class="panel-foot">
+            <span>Perth, Western Australia</span>
+            <span>2 active products</span>
+          </div>
+        </aside>
       </section>
 
-      <section class="products" id="products" aria-labelledby="products-title">
-        <div class="section-intro">
-          <p class="section-number">01 / PRODUCTS</p>
+      <section class="proof-strip" aria-label="Sink Space product status">
+        <div><strong>02</strong><span>active products</span></div>
+        <div><strong>01</strong><span>publicly live</span></div>
+        <div><strong>01</strong><span>in pilot development</span></div>
+        <div><strong>WA</strong><span>built in Perth</span></div>
+      </section>
+
+      <section class="products section" id="products" aria-labelledby="products-title">
+        <div class="section-heading">
+          <p class="section-kicker">01 / PRODUCTS</p>
           <div>
-            <h2 id="products-title">Different problems.<br />Dedicated apps.</h2>
-            <p>
-              Each branch has one clear job. The products share a standard:
-              practical value must be visible in what the user can do next.
-            </p>
+            <h2 id="products-title">One problem.<br />One focused system.</h2>
+            <p>Sink Space products are deliberately narrow at the start. Each one exists to make a recurring real-world problem easier to understand, act on and verify.</p>
           </div>
         </div>
 
         <div class="product-grid">
           <article class="product-card eblocki-card">
-            <div class="card-topline">
-              <span class="product-index">01</span>
-              <span class="product-state">LIVE</span>
-            </div>
-            <div class="product-icon" aria-hidden="true">E</div>
-            <div class="product-copy">
-              <p class="product-domain">LEARNING · IMPROVEMENT</p>
-              <h3>Eblocki</h3>
-              <p>
-                Turn real academic work into an honest verdict, a visible gap,
-                and a precise next correction.
-              </p>
-            </div>
-            <a
-              class="card-link"
-              href="https://www.eblocki.space"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Visit Eblocki"
-            >
-              Visit Eblocki <span aria-hidden="true">↗</span>
-            </a>
+            <div class="card-meta"><span>PRODUCT 01</span><span class="state state-live">LIVE</span></div>
+            <div class="product-mark system-id-e">E</div>
+            <p class="product-domain">LEARNING · FEEDBACK · CORRECTION</p>
+            <h3>Eblocki</h3>
+            <p class="product-description">Turn real academic work into an honest verdict, a visible gap and a precise next correction.</p>
+            <div class="flow" aria-label="Eblocki workflow"><span>Work</span><b>→</b><span>Verdict</span><b>→</b><span>Gap</span><b>→</b><span>Correction</span></div>
+            <a class="card-link" href="https://www.eblocki.space" target="_blank" rel="noopener noreferrer">Open Eblocki <span aria-hidden="true">↗</span></a>
           </article>
 
           <article class="product-card workproof-card">
-            <div class="card-topline">
-              <span class="product-index">02</span>
-              <span class="product-state pilot">PILOT</span>
-            </div>
-            <div class="product-icon" aria-hidden="true">W</div>
-            <div class="product-copy">
-              <p class="product-domain">WORK · CAPABILITY</p>
-              <h3>WorkProof</h3>
-              <p>
-                Capture real workplace experience, verify capability claims,
-                and build a portable record of what you can actually do.
-              </p>
-            </div>
-            <a
-              class="card-link"
-              href="https://workproof.tristan01sinclair.chatgpt.site"
-              target="_blank"
-              rel="noopener noreferrer"
-              aria-label="Explore WorkProof"
-            >
-              Explore WorkProof <span aria-hidden="true">↗</span>
-            </a>
+            <div class="card-meta"><span>PRODUCT 02</span><span class="state state-pilot">PILOT</span></div>
+            <div class="product-mark system-id-w">W</div>
+            <p class="product-domain">WORK · EVIDENCE · CAPABILITY</p>
+            <h3>WorkProof</h3>
+            <p class="product-description">Capture real workplace experience, ground capability claims in evidence and build a portable record of what you can actually do.</p>
+            <div class="flow" aria-label="WorkProof workflow"><span>Experience</span><b>→</b><span>Evidence</span><b>→</b><span>Verify</span><b>→</b><span>Record</span></div>
+            <a class="card-link" href="https://workproof.tristan01sinclair.chatgpt.site" target="_blank" rel="noopener noreferrer">View WorkProof pilot <span aria-hidden="true">↗</span></a>
           </article>
         </div>
       </section>
 
-      <section class="principles" id="principles" aria-labelledby="principles-title">
-        <div class="section-intro compact">
-          <p class="section-number">02 / APPROACH</p>
+      <section class="studio section" id="studio" aria-labelledby="studio-title">
+        <div class="section-heading">
+          <p class="section-kicker">02 / STUDIO</p>
           <div>
-            <h2 id="principles-title">Built against reality.</h2>
+            <h2 id="studio-title">Not an app factory.</h2>
+            <p>Sink Space is an independent software studio. New products begin with a specific recurring problem, not a feature list. The goal is to ship the smallest system that can create a useful result and then improve it against real use.</p>
           </div>
         </div>
 
-        <div class="principle-list">
-          <div class="principle-row">
+        <div class="studio-grid">
+          <article>
             <span>01</span>
-            <h3>Specific before broad</h3>
-            <p>One recurring human problem. One focused product outcome.</p>
-          </div>
-          <div class="principle-row">
+            <h3>Start with the friction</h3>
+            <p>Identify the point where people repeatedly lose clarity, evidence or momentum.</p>
+          </article>
+          <article>
             <span>02</span>
-            <h3>Proof before claims</h3>
-            <p>Progress should be visible in evidence, not marketing language.</p>
-          </div>
-          <div class="principle-row">
+            <h3>Ship the useful loop</h3>
+            <p>Build the shortest path from input to a decision, correction or verified output.</p>
+          </article>
+          <article>
             <span>03</span>
-            <h3>Action before complexity</h3>
-            <p>The next useful move matters more than another dashboard.</p>
-          </div>
+            <h3>Earn complexity</h3>
+            <p>Add infrastructure only after real use proves that the next layer is needed.</p>
+          </article>
         </div>
       </section>
 
-      <section class="next-branch" aria-label="Future products">
-        <p class="section-number">03 / WHAT'S NEXT</p>
-        <div class="next-copy">
-          <h2>More branches will come.<br />Only when the problem earns one.</h2>
-          <p>
-            Sink Space is designed to grow across everyday life without turning
-            every idea into a product. New apps begin with a real user, a
-            recurring problem, and a result worth proving.
-          </p>
+      <section class="standard section" id="standard" aria-labelledby="standard-title">
+        <div class="standard-lead">
+          <p class="section-kicker">03 / OPERATING STANDARD</p>
+          <h2 id="standard-title">Built against reality.</h2>
+        </div>
+        <div class="standard-list">
+          <div class="standard-row"><span>01</span><h3>Proof over claims</h3><p>If a result cannot be shown, it is not treated as finished.</p></div>
+          <div class="standard-row"><span>02</span><h3>Action over decoration</h3><p>The next useful move matters more than another screen or dashboard.</p></div>
+          <div class="standard-row"><span>03</span><h3>Honest states</h3><p>Live, pilot and unverified are different states and should be labelled accordingly.</p></div>
+          <div class="standard-row"><span>04</span><h3>Feedback over ego</h3><p>Real user behaviour has more authority than the original product idea.</p></div>
+        </div>
+      </section>
+
+      <section class="founder section" aria-labelledby="founder-title">
+        <div>
+          <p class="section-kicker">04 / INDEPENDENT BY DESIGN</p>
+          <h2 id="founder-title">Built in Perth.<br />Tested in the real world.</h2>
+        </div>
+        <div class="founder-copy">
+          <p>Sink Space is built by Tristan Sinclair in Perth, Western Australia. The studio is intentionally small: product decisions stay close to the people using the software, and each product has to justify its own complexity.</p>
+          <a class="button button-primary" href="#products">See current products <span aria-hidden="true">↑</span></a>
         </div>
       </section>
     </main>
 
     <footer>
       <a class="wordmark footer-mark" href="#top">
-        <span class="mark" aria-hidden="true">
-          <span></span><span></span><span></span>
-        </span>
+        <span class="mark" aria-hidden="true"><span></span><span></span><span></span></span>
         <span>SINK SPACE</span>
       </a>
-      <p>Built by Tristan Sinclair in Perth, Western Australia.</p>
+      <p>Independent software studio · Perth, Western Australia</p>
       <p>© <span id="year">2026</span> Sink Space</p>
     </footer>
 

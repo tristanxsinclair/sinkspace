@@ -1,38 +1,51 @@
 # Sink Space
 
-Sink Space is an independent software studio based in Perth, Western Australia. It builds focused systems for learning, work, and everyday life.
+Sink Space is an independent software studio based in Perth, Western Australia. It builds focused systems for learning, work and everyday life.
 
-Live site: [sinkspace.tristan01sinclair.chatgpt.site](https://sinkspace.tristan01sinclair.chatgpt.site)
+Canonical site: https://sinkspace.com.au/
 
-## Products
+## Current products
 
-- [Eblocki](https://www.eblocki.space) — turns academic work into a verdict, visible gap, and next correction.
-- [WorkProof](https://workproof.tristan01sinclair.chatgpt.site) — captures workplace experience and turns it into verified evidence of capability.
+- [Eblocki](https://www.eblocki.space) — turns academic work into an honest verdict, visible gap and next correction.
+- [WorkProof](https://workproof.tristan01sinclair.chatgpt.site) — captures workplace experience and turns it into grounded evidence of capability. Currently in pilot development.
 
-## Project structure
+## Production structure
 
-The site is a lightweight static build with no runtime dependencies:
+Sink Space is intentionally lightweight. The production site has no runtime framework or external dependency.
 
-- `dist/index.html` — page structure and content
+- `dist/index.html` — production homepage and metadata
 - `dist/styles.css` — responsive visual system
 - `dist/app.js` — current-year footer behaviour
-- `dist/mark.svg` — Sink Space browser icon
-- `.openai/hosting.json` — ChatGPT Sites hosting configuration
+- `dist/mark.svg` — browser icon
+- `dist/404.html` — static not-found page
+- `dist/robots.txt` — crawler policy
+- `dist/sitemap.xml` — canonical sitemap
+- `dist/release.json` — small deployment verification artifact
+- `.github/workflows/static.yml` — GitHub Pages deployment workflow
+- `.openai/hosting.json` — previous ChatGPT Sites hosting configuration retained for reference
+
+GitHub Pages must publish `./dist`, not the repository root.
 
 ## Run locally
 
-Serve the repository root with any static web server and open `/dist/`.
-
-For example:
-
 ```bash
-python3 -m http.server 8000
+python3 -m http.server 8000 -d dist
 ```
 
-Then visit `http://localhost:8000/dist/`.
+Then open `http://localhost:8000/`.
+
+## Production verification
+
+A release is considered served correctly when:
+
+1. `https://sinkspace.com.au/` returns the current homepage.
+2. `https://sinkspace.com.au/release.json` returns the current release marker.
+3. Styles and the SVG mark load without 404s.
+4. The GitHub Pages Actions deployment for the same commit is successful.
+5. HTTPS is valid and `www.sinkspace.com.au` resolves consistently with the canonical domain.
 
 ## Status
 
-Sink Space is live. Eblocki is live and WorkProof is in pilot development.
+Eblocki is live. WorkProof is in pilot development. Sink Space is the studio layer that houses both products.
 
-Built by Tristan Sinclair.
+Built by Tristan Sinclair in Perth, Western Australia.
