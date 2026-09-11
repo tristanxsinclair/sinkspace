@@ -1,8 +1,17 @@
 # Sink Space
 
-Sink Space is an independent software studio based in Perth, Western Australia. It builds focused systems for learning, work and everyday life.
+Sink Space is a Perth digital systems business. It builds websites, customer systems and focused software around what a small business actually needs.
 
 Canonical site: https://sinkspace.com.au/
+
+## Commercial focus
+
+- Business and service websites
+- Lead capture, quote and customer intake systems
+- Focused custom software
+- AI and automation where it creates measurable value
+
+The production enquiry form prepares a structured brief locally and opens a pre-addressed message to the verified `tjsinkspace@gmail.com` address. Instagram remains available as a fallback. The site does not claim that data was transmitted until the visitor sends the message from their email app.
 
 ## Current products
 
