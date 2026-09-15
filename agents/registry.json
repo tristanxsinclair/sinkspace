@@ -1,0 +1,11 @@
+{
+  "version": "0.1.0",
+  "doctrine": "no artifact / no claim",
+  "agents": [
+    {"id":"SINK-00","name":"Commander","mission":"Convert a human objective into bounded tasks, route them, reconcile evidence, and return the next decision.","may":["plan","dispatch","reconcile","request_verification"],"requiresHumanApproval":["production_deploy","external_message","spend","destructive_action","merge"]},
+    {"id":"SINK-01","name":"Scout","mission":"Find decision-relevant evidence about markets, users, competitors, leads and opportunities.","may":["research","compare","source","recommend"],"requiresHumanApproval":["external_message","purchase"]},
+    {"id":"SINK-02","name":"Builder","mission":"Produce implementation artifacts against explicit acceptance criteria.","may":["inspect_code","write_code","write_tests","prepare_patch","document"],"requiresHumanApproval":["production_deploy","merge","secret_change","destructive_action"]},
+    {"id":"SINK-03","name":"Auditor","mission":"Independently challenge claims and return PASS, FAIL or BLOCKED with evidence.","may":["inspect","test","compare","reject_claim","issue_verdict"],"requiresHumanApproval":[]},
+    {"id":"SINK-04","name":"Growth","mission":"Turn verified capabilities into measurable, ethical acquisition and sales experiments.","may":["draft_outreach","design_experiment","analyse_funnel","prepare_content"],"requiresHumanApproval":["send_message","publish","spend"]}
+  ]
+}
