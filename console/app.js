@@ -1,49 +1,93 @@
 const state = {
-  selectedRun: null,
-  current: null
+  runs: [],
+  selectedRun: null
 };
 
 const $ = id =>
   document.getElementById(id);
 
-function escapeHtml(value) {
-  return String(value ?? '')
-    .replaceAll('&', '&amp;')
-    .replaceAll('<', '&lt;')
-    .replaceAll('>', '&gt;')
-    .replaceAll('"', '&quot;')
-    .replaceAll("'", '&#039;');
+function escapeHtml(
+  value
+) {
+  return String(
+    value ?? ''
+  )
+    .replaceAll(
+      '&',
+      '&amp;'
+    )
+    .replaceAll(
+      '<',
+      '&lt;'
+    )
+    .replaceAll(
+      '>',
+      '&gt;'
+    )
+    .replaceAll(
+      '"',
+      '&quot;'
+    )
+    .replaceAll(
+      "'",
+      '&#039;'
+    );
 }
 
-function short(value, length = 10) {
-  if (!value) return '—';
+async function api(
+  url,
+  options = {}
+) {
+  const response =
+    await fetch(
+      url,
+      {
+        cache:
+          'no-store',
 
-  return value.length > length
-    ? `${value.slice(0, length)}…`
-    : value;
+        ...options
+      }
+    );
+
+  const payload =
+    await response
+      .json()
+      .catch(
+        () => ({})
+      );
+
+  if (!response.ok) {
+    throw new Error(
+      payload.message ??
+      payload.error ??
+      `${response.status} ${response.statusText}`
+    );
+  }
+
+  return payload;
 }
 
-function date(value) {
-  if (!value) return '—';
-
-  const parsed = new Date(value);
-
-  return Number.isNaN(parsed.getTime())
-    ? value
-    : parsed.toLocaleString();
-}
-
-function statusClass(status) {
+function classForStatus(
+  status
+) {
   if (
-    ['COMPLETED', 'PASS', 'PASS_WITH_LIMITATIONS']
-      .includes(status)
+    [
+      'COMPLETED',
+      'PASS',
+      'PASS_WITH_LIMITATIONS',
+      'VERIFYING'
+    ].includes(status)
   ) {
     return 'good';
   }
 
   if (
-    ['FAILED', 'BLOCKED', 'FAIL']
-      .includes(status)
+    [
+      'FAILED',
+      'FAIL',
+      'BLOCKED',
+      'CANCELLED'
+    ].includes(status)
   ) {
     return 'bad';
   }
@@ -51,353 +95,693 @@ function statusClass(status) {
   return 'warn';
 }
 
-async function api(url) {
-  const response = await fetch(url, {
-    cache: 'no-store'
-  });
-
-  if (!response.ok) {
-    throw new Error(
-      `${response.status} ${response.statusText}`
-    );
+function shortSha(
+  value
+) {
+  if (!value) {
+    return '—';
   }
 
-  return response.json();
+  return value.slice(
+    0,
+    12
+  );
 }
 
-function renderAgents(run) {
-  $('agent-count').textContent =
-    String(run.agents.length);
+function shortId(
+  value
+) {
+  if (!value) {
+    return '—';
+  }
 
-  $('agents').innerHTML =
-    run.agents.map(agent => `
-      <article class="agent">
-        <div class="agent-head">
-          <span class="agent-id">
-            ${escapeHtml(agent.id)}
-          </span>
-
-          <span class="agent-state state-${escapeHtml(agent.state)}">
-            ${escapeHtml(agent.state)}
-          </span>
-        </div>
-
-        <h3>${escapeHtml(agent.name)}</h3>
-
-        <p>
-          ${escapeHtml(agent.purpose)}
-        </p>
-      </article>
-    `).join('');
+  return value.slice(
+    0,
+    8
+  );
 }
 
-function renderKnowledge(run) {
-  const claims = run.claims ?? [];
-
-  const known = claims.filter(
-    claim =>
-      claim.classification === 'KNOWN'
-  );
-
-  const inferred = claims.filter(
-    claim =>
-      claim.classification === 'INFERRED'
-  );
-
-  const unknown = claims.filter(
-    claim =>
-      claim.classification === 'UNKNOWN'
-  );
-
-  $('claim-count').textContent =
-    String(claims.length);
-
-  const rows = [
-    ['FACT / KNOWN', known.length],
-    ['HYPOTHESIS / INFERRED', inferred.length],
-    ['UNKNOWN', unknown.length],
-    ['UNCERTAINTY', run.uncertainty.length]
-  ];
-
-  $('knowledge').innerHTML =
-    rows.map(([label, count]) => `
-      <div class="knowledge-row">
-        <strong>${escapeHtml(label)}</strong>
-        <span>${count} entries</span>
-      </div>
-    `).join('');
-}
-
-function renderVerdicts(run) {
-  if (!run.verdicts.length) {
-    $('verdicts').innerHTML =
-      '<p class="empty">No verification verdicts found.</p>';
+function renderList(
+  container,
+  items,
+  emptyText
+) {
+  if (!items?.length) {
+    container.innerHTML =
+      `<div class="empty">${escapeHtml(
+        emptyText
+      )}</div>`;
 
     return;
   }
 
-  $('verdicts').innerHTML =
-    run.verdicts.map(item => `
-      <div class="verdict">
-        <strong>
-          ${escapeHtml(item.agent)}
-        </strong>
-
-        <span class="${statusClass(item.verdict)}">
-          ${escapeHtml(item.verdict)}
-        </span>
-
-        ${
-          item.criticism
-            ? `<p>${escapeHtml(item.criticism)}</p>`
-            : ''
-        }
-      </div>
-    `).join('');
+  container.innerHTML =
+    items
+      .map(
+        item =>
+          `<div class="stack-item">${escapeHtml(
+            item
+          )}</div>`
+      )
+      .join('');
 }
 
-function renderList(id, values, emptyText) {
-  const node = $(id);
+function stageName(
+  agent
+) {
+  const names = {
+    'SINK-01':
+      'Scout',
 
-  if (!values?.length) {
-    node.innerHTML =
-      `<li>${escapeHtml(emptyText)}</li>`;
+    'SINK-05':
+      'Analyst',
 
-    return;
-  }
+    'SINK-02':
+      'Builder',
 
-  node.innerHTML =
-    values.map(value => `
-      <li>${escapeHtml(value)}</li>
-    `).join('');
+    'SINK-03':
+      'Auditor',
+
+    'RED-SINK':
+      'Red Sink'
+  };
+
+  return names[agent] ??
+    agent;
 }
 
-function renderEvents(run) {
-  const events = [...run.events]
-    .reverse()
-    .slice(0, 120);
+function renderPipeline(
+  stages
+) {
+  const root =
+    $('pipeline');
 
-  $('event-count').textContent =
-    `${run.events.length} events`;
+  root.innerHTML =
+    (stages ?? [])
+      .map(
+        stage => `
+          <div class="stage">
+            <div class="stage-agent">
+              ${escapeHtml(
+                stage.agent_id
+              )}
+            </div>
 
-  if (!events.length) {
-    $('events').innerHTML =
-      '<p class="empty">No events recorded.</p>';
+            <div class="stage-name">
+              ${escapeHtml(
+                stageName(
+                  stage.agent_id
+                )
+              )}
+            </div>
 
-    return;
-  }
+            <div class="stage-objective">
+              ${escapeHtml(
+                stage.objective ??
+                'No task created.'
+              )}
+            </div>
 
-  $('events').innerHTML =
-    events.map(event => `
-      <article class="event">
-        <time>
-          ${escapeHtml(date(event.timestamp))}
-        </time>
+            <div class="stage-footer">
+              <span class="stage-meta">
+                ${stage.artifacts} artifacts
+              </span>
 
-        <span class="event-agent">
-          ${escapeHtml(event.agent_id ?? 'SYSTEM')}
-        </span>
-
-        <span class="event-type">
-          ${escapeHtml(event.type)}
-        </span>
-
-        <span>
-          ${escapeHtml(event.summary ?? '')}
-        </span>
-      </article>
-    `).join('');
+              <span class="stage-status ${classForStatus(
+                stage.status
+              )}">
+                ${escapeHtml(
+                  stage.status
+                )}
+              </span>
+            </div>
+          </div>
+        `
+      )
+      .join('');
 }
 
-function renderArtifacts(run) {
-  $('artifact-count').textContent =
-    String(run.artifacts.length);
-
-  if (!run.artifacts.length) {
-    $('artifacts').innerHTML =
-      '<p class="empty">No artifacts recorded.</p>';
-
-    return;
-  }
-
-  $('artifacts').innerHTML =
-    run.artifacts.map(artifact => `
-      <article class="artifact">
-        <strong>
-          ${escapeHtml(artifact.agent_id)}
-        </strong>
-
-        <span>
-          ${escapeHtml(artifact.media_type)}
-        </span>
-
-        <span>
-          ${escapeHtml(date(artifact.created_at))}
-        </span>
-
-        <code>
-          sha256 ${escapeHtml(short(artifact.sha256, 16))}
-        </code>
-      </article>
-    `).join('');
-}
-
-function render(run) {
-  state.current = run;
-
-  $('run-status').textContent =
-    run.status ?? 'UNKNOWN';
-
-  $('run-status').className =
-    statusClass(run.status);
-
-  $('adapter').textContent =
-    run.adapter ?? '—';
-
-  $('run-id').textContent =
-    run.run_id ?? '—';
-
-  $('commit').textContent =
-    `commit ${run.commit_sha ?? '—'}`;
-
-  $('completed-at').textContent =
-    run.completed_at
-      ? `Completed ${date(run.completed_at)}`
-      : `Started ${date(run.created_at)}`;
-
-  $('evidence-count').textContent =
-    String(run.evidence.length);
-
-  if (run.receipt.available) {
-    $('receipt-state').textContent =
-      'SEALED / AVAILABLE';
-
-    $('receipt-state').className =
-      'receipt-state good';
-  } else {
-    $('receipt-state').textContent =
-      'NOT AVAILABLE';
-
-    $('receipt-state').className =
-      'receipt-state warn';
-  }
-
-  renderAgents(run);
-  renderKnowledge(run);
-  renderVerdicts(run);
-
-  renderList(
-    'uncertainty',
-    run.uncertainty,
-    'No recorded uncertainty.'
-  );
-
-  renderList(
-    'errors',
-    run.errors,
-    'No recorded errors.'
-  );
-
-  renderEvents(run);
-  renderArtifacts(run);
-}
-
-async function loadRuns() {
-  const runs = await api('/api/runs');
-  const selector = $('run-selector');
-
-  const existing =
-    state.selectedRun ??
-    selector.value;
-
-  selector.innerHTML =
-    runs.map(run => `
-      <option value="${escapeHtml(run.run_id)}">
-        ${escapeHtml(run.status)} ·
-        ${escapeHtml(short(run.run_id, 8))} ·
-        ${escapeHtml(short(run.commit_sha, 8))}
-      </option>
-    `).join('');
+function renderVerification(
+  verification
+) {
+  const root =
+    $('verification');
 
   if (
-    existing &&
-    runs.some(run => run.run_id === existing)
+    !verification?.length
   ) {
-    selector.value = existing;
+    root.innerHTML =
+      '<div class="empty">No independent verdicts yet.</div>';
+
+    return;
   }
 
-  return runs;
+  root.innerHTML =
+    verification
+      .map(
+        item => `
+          <div class="verification-item">
+            <div class="verification-head">
+              <strong class="mono">
+                ${escapeHtml(
+                  item.agent_id
+                )}
+              </strong>
+
+              <span class="verdict-pill ${classForStatus(
+                item.verdict
+              )}">
+                ${escapeHtml(
+                  item.verdict
+                )}
+              </span>
+            </div>
+
+            ${
+              (
+                item.reasons ??
+                []
+              )
+                .map(
+                  reason =>
+                    `<div class="verification-reason">${escapeHtml(
+                      reason
+                    )}</div>`
+                )
+                .join('')
+            }
+          </div>
+        `
+      )
+      .join('');
+}
+
+function renderArtifacts(
+  artifacts
+) {
+  const root =
+    $('artifacts');
+
+  if (
+    !artifacts?.length
+  ) {
+    root.innerHTML =
+      '<div class="empty">No artifacts yet.</div>';
+
+    return;
+  }
+
+  root.innerHTML =
+    artifacts
+      .slice()
+      .reverse()
+      .map(
+        artifact => `
+          <div class="artifact-item">
+            <div class="artifact-head">
+              <strong class="mono">
+                ${escapeHtml(
+                  artifact.agent_id
+                )}
+              </strong>
+
+              <span class="artifact-id">
+                ${escapeHtml(
+                  shortId(
+                    artifact.artifact_id
+                  )
+                )}
+              </span>
+            </div>
+
+            <div class="artifact-meta">
+              ${escapeHtml(
+                artifact.media_type
+              )}
+              · task
+              ${escapeHtml(
+                shortId(
+                  artifact.task_id
+                )
+              )}
+              · sha256
+              ${escapeHtml(
+                shortSha(
+                  artifact.sha256
+                )
+              )}
+            </div>
+          </div>
+        `
+      )
+      .join('');
+}
+
+function renderEvents(
+  events
+) {
+  const root =
+    $('events');
+
+  if (
+    !events?.length
+  ) {
+    root.innerHTML =
+      '<div class="empty">No run events yet.</div>';
+
+    return;
+  }
+
+  root.innerHTML =
+    events
+      .slice(
+        -120
+      )
+      .reverse()
+      .map(
+        event => `
+          <div class="event">
+            <div class="event-agent">
+              ${escapeHtml(
+                event.agent_id ??
+                'SYSTEM'
+              )}
+            </div>
+
+            <div class="event-type">
+              ${escapeHtml(
+                event.type
+              )}
+            </div>
+
+            <div>
+              <div class="event-summary">
+                ${escapeHtml(
+                  event.summary
+                )}
+              </div>
+
+              <div class="event-time">
+                ${escapeHtml(
+                  event.timestamp ??
+                  ''
+                )}
+              </div>
+            </div>
+          </div>
+        `
+      )
+      .join('');
+}
+
+function renderRun(
+  run
+) {
+  if (!run) {
+    return;
+  }
+
+  $('run-status')
+    .textContent =
+      run.status ?? '—';
+
+  $('run-status')
+    .className =
+      `status-pill ${classForStatus(
+        run.status
+      )}`;
+
+  $('run-adapter')
+    .textContent =
+      run.adapter ?? '—';
+
+  $('run-commit')
+    .textContent =
+      shortSha(
+        run.commit_sha
+      );
+
+  $('objective')
+    .textContent =
+      run.objective ??
+      'No objective.';
+
+  $('receipt-state')
+    .textContent =
+      run.receipt?.sealed
+        ? 'SEALED'
+        : 'UNSEALED';
+
+  $('receipt-state')
+    .className =
+      `receipt-state ${
+        run.receipt?.sealed
+          ? 'good'
+          : 'warn'
+      }`;
+
+  $('receipt-confidence')
+    .textContent =
+      run.receipt
+        ?.confidence ??
+      '—';
+
+  $('receipt-hash')
+    .textContent =
+      run.receipt?.hash ??
+      'No sealed receipt hash.';
+
+  $('metric-known')
+    .textContent =
+      run.counts?.known ??
+      0;
+
+  $('metric-inferred')
+    .textContent =
+      run.counts?.inferred ??
+      0;
+
+  $('metric-evidence')
+    .textContent =
+      run.counts?.evidence ??
+      0;
+
+  $('metric-artifacts')
+    .textContent =
+      run.counts?.artifacts ??
+      0;
+
+  $('metric-uncertainty')
+    .textContent =
+      run.counts
+        ?.uncertainties ??
+      0;
+
+  renderPipeline(
+    run.stages
+  );
+
+  const analyst =
+    run.analyst ?? {
+      facts: [],
+      hypotheses: [],
+      uncertainties: [],
+      next_actions: []
+    };
+
+  $('analyst-facts-count')
+    .textContent =
+      analyst.facts.length;
+
+  $('analyst-hypotheses-count')
+    .textContent =
+      analyst.hypotheses
+        .length;
+
+  $('analyst-uncertainties-count')
+    .textContent =
+      analyst.uncertainties
+        .length;
+
+  const analystContent = [
+    ...analyst.facts.map(
+      value =>
+        `FACT — ${value}`
+    ),
+
+    ...analyst.hypotheses.map(
+      value =>
+        `HYPOTHESIS — ${value}`
+    ),
+
+    ...analyst.uncertainties.map(
+      value =>
+        `UNCERTAINTY — ${value}`
+    )
+  ];
+
+  renderList(
+    $('analyst-content'),
+    analystContent,
+    'No Analyst artifact available for this run.'
+  );
+
+  renderVerification(
+    run.verification
+  );
+
+  renderList(
+    $('uncertainty'),
+    run.uncertainty,
+    'No preserved uncertainty.'
+  );
+
+  renderList(
+    $('red-findings'),
+    run.red_sink_findings,
+    'No Red Sink findings.'
+  );
+
+  renderArtifacts(
+    run.artifacts
+  );
+
+  renderEvents(
+    run.events
+  );
 }
 
 async function loadSelected() {
-  const id =
-    state.selectedRun ??
-    $('run-selector').value;
-
-  if (!id) {
-    const latest = await api('/api/latest');
-    render(latest);
+  if (
+    !state.selectedRun
+  ) {
     return;
   }
 
-  const run = await api(
-    `/api/runs/${encodeURIComponent(id)}`
-  );
+  const run =
+    await api(
+      `/api/runs/${encodeURIComponent(
+        state.selectedRun
+      )}`
+    );
 
-  render(run);
+  renderRun(run);
+}
+
+function renderRunSelector() {
+  const select =
+    $('run-selector');
+
+  const prior =
+    state.selectedRun;
+
+  select.innerHTML =
+    state.runs
+      .map(
+        run => `
+          <option
+            value="${escapeHtml(
+              run.run_id
+            )}"
+          >
+            ${escapeHtml(
+              shortId(
+                run.run_id
+              )
+            )}
+            ·
+            ${escapeHtml(
+              run.status
+            )}
+          </option>
+        `
+      )
+      .join('');
+
+  if (
+    prior &&
+    state.runs.some(
+      run =>
+        run.run_id === prior
+    )
+  ) {
+    select.value =
+      prior;
+  }
 }
 
 async function refresh() {
   try {
-    const runs = await loadRuns();
+    const runs =
+      await api(
+        '/api/runs'
+      );
+
+    state.runs =
+      runs;
 
     if (
       !state.selectedRun &&
       runs.length
     ) {
-      $('run-selector').value =
+      state.selectedRun =
         runs[0].run_id;
     }
 
-    await loadSelected();
+    renderRunSelector();
+
+    if (
+      state.selectedRun
+    ) {
+      await loadSelected();
+    }
 
     $('connection-dot')
-      .className = 'dot online';
+      .className =
+        'dot connected';
 
-    $('connection-text').textContent =
-      'Live · localhost';
-  } catch (error) {
+    $('connection-text')
+      .textContent =
+        'Runtime connected';
+  } catch (
+    error
+  ) {
     $('connection-dot')
-      .className = 'dot offline';
+      .className =
+        'dot error';
 
-    $('connection-text').textContent =
-      `Disconnected · ${error.message}`;
+    $('connection-text')
+      .textContent =
+        error.message;
   }
 }
 
-$('run-selector').addEventListener(
-  'change',
-  async event => {
-    state.selectedRun =
-      event.target.value;
+async function updateRunControl() {
+  const button =
+    $('launch-run');
 
-    await loadSelected();
+  try {
+    const status =
+      await api(
+        '/api/run/status'
+      );
+
+    button.disabled =
+      status.running;
+
+    button.textContent =
+      status.running
+        ? 'RUNNING…'
+        : 'RUN SINK CLONES';
+  } catch {
+    button.disabled =
+      true;
+
+    button.textContent =
+      'RUN UNAVAILABLE';
   }
-);
+}
 
-refresh();
+async function launchRun() {
+  const button =
+    $('launch-run');
+
+  button.disabled =
+    true;
+
+  button.textContent =
+    'LAUNCHING…';
+
+  try {
+    state.selectedRun =
+      null;
+
+    await api(
+      '/api/run',
+      {
+        method:
+          'POST'
+      }
+    );
+
+    $('connection-text')
+      .textContent =
+        'Sink Clones executing';
+
+    setTimeout(
+      refresh,
+      350
+    );
+  } catch (
+    error
+  ) {
+    $('connection-text')
+      .textContent =
+        error.message;
+  }
+
+  setTimeout(
+    updateRunControl,
+    500
+  );
+}
+
+$('run-selector')
+  .addEventListener(
+    'change',
+    async event => {
+      state.selectedRun =
+        event.target.value;
+
+      await loadSelected();
+    }
+  );
+
+$('launch-run')
+  .addEventListener(
+    'click',
+    launchRun
+  );
+
+await refresh();
+await updateRunControl();
 
 setInterval(
   async () => {
-    if (state.selectedRun) {
+    if (
+      state.selectedRun
+    ) {
       try {
+        const newest =
+          await api(
+            '/api/runs'
+          );
+
+        state.runs =
+          newest;
+
+        if (
+          newest.length &&
+          !state.runs.some(
+            run =>
+              run.run_id ===
+              state.selectedRun
+          )
+        ) {
+          state.selectedRun =
+            newest[0].run_id;
+        }
+
+        renderRunSelector();
         await loadSelected();
       } catch {
-        // Main refresh handles visible connection errors.
+        // Main refresh handles visible errors.
       }
     } else {
       await refresh();
     }
+
+    await updateRunControl();
   },
-  2000
+  1000
 );

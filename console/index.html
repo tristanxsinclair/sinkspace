@@ -5,10 +5,12 @@
 
   <meta
     name="viewport"
-    content="width=device-width,initial-scale=1"
+    content="width=device-width, initial-scale=1.0"
   />
 
-  <title>Sink Clones Command Console</title>
+  <title>
+    Sink Clones Mission Control
+  </title>
 
   <link
     rel="stylesheet"
@@ -17,229 +19,346 @@
 </head>
 
 <body>
-  <main class="shell">
+  <div class="shell">
 
     <header class="topbar">
       <div>
-        <p class="eyebrow">
+        <div class="eyebrow">
           SINK SPACE / EXECUTION NETWORK
-        </p>
+        </div>
 
-        <h1>Sink Clones</h1>
+        <h1>
+          Sink Clones
+        </h1>
 
-        <p class="subtitle">
-          Live local command console
-        </p>
+        <div class="subtitle">
+          Evidence-bound agent mission control
+        </div>
       </div>
 
-      <div class="connection">
-        <span
-          id="connection-dot"
-          class="dot"
-        ></span>
+      <div class="top-actions">
+        <button
+          id="launch-run"
+          class="launch-button"
+          type="button"
+        >
+          RUN SINK CLONES
+        </button>
 
-        <span id="connection-text">
-          Connecting
-        </span>
+        <div class="connection">
+          <span
+            id="connection-dot"
+            class="dot"
+          ></span>
+
+          <span
+            id="connection-text"
+          >
+            Connecting
+          </span>
+        </div>
       </div>
     </header>
 
 
-    <section class="hero-grid">
-
-      <article class="panel status-panel">
-        <div class="panel-label">
-          CURRENT RUN
-        </div>
-
-        <div class="run-line">
-          <strong id="run-status">
-            —
-          </strong>
-
-          <span id="adapter">
-            —
-          </span>
-        </div>
-
-        <code id="run-id">
-          No run loaded
-        </code>
-
-        <div class="metrics">
-          <div>
-            <strong id="agent-count">0</strong>
-            <span>agents</span>
-          </div>
-
-          <div>
-            <strong id="evidence-count">0</strong>
-            <span>evidence</span>
-          </div>
-
-          <div>
-            <strong id="claim-count">0</strong>
-            <span>claims</span>
-          </div>
-
-          <div>
-            <strong id="artifact-count">0</strong>
-            <span>artifacts</span>
-          </div>
-        </div>
-      </article>
-
-
-      <article class="panel receipt-panel">
-        <div class="panel-label">
-          RECEIPT
-        </div>
-
-        <div
-          id="receipt-state"
-          class="receipt-state"
-        >
-          —
-        </div>
-
-        <code id="commit">
-          —
-        </code>
-
-        <p id="completed-at">
-          —
-        </p>
-      </article>
-
-    </section>
-
-
-    <section class="section">
-      <div class="section-head">
-        <div>
-          <p class="panel-label">
-            AGENT NETWORK
-          </p>
-
-          <h2>Execution chain</h2>
-        </div>
+    <section class="run-strip">
+      <div class="run-selector-wrap">
+        <span class="label">
+          RUN
+        </span>
 
         <select
           id="run-selector"
-          aria-label="Select run"
         ></select>
       </div>
 
-      <div
-        id="agents"
-        class="agent-grid"
-      ></div>
-    </section>
+      <div class="run-meta">
+        <span
+          id="run-status"
+          class="status-pill"
+        >
+          —
+        </span>
 
+        <span
+          id="run-adapter"
+          class="mono"
+        >
+          —
+        </span>
 
-    <section class="work-grid">
-
-      <article class="panel">
-        <div class="panel-label">
-          KNOWLEDGE STATE
-        </div>
-
-        <div id="knowledge">
-          <p class="empty">
-            Waiting for run data.
-          </p>
-        </div>
-      </article>
-
-
-      <article class="panel">
-        <div class="panel-label">
-          INDEPENDENT VERIFICATION
-        </div>
-
-        <div id="verdicts">
-          <p class="empty">
-            No verdict data.
-          </p>
-        </div>
-      </article>
-
-    </section>
-
-
-    <section class="work-grid">
-
-      <article class="panel">
-        <div class="panel-label">
-          UNCERTAINTY
-        </div>
-
-        <ul
-          id="uncertainty"
-          class="stack-list"
-        ></ul>
-      </article>
-
-
-      <article class="panel">
-        <div class="panel-label">
-          ERRORS / BLOCKERS
-        </div>
-
-        <ul
-          id="errors"
-          class="stack-list"
-        ></ul>
-      </article>
-
-    </section>
-
-
-    <section class="section">
-
-      <div class="section-head">
-        <div>
-          <p class="panel-label">
-            LIVE TRACE
-          </p>
-
-          <h2>Run events</h2>
-        </div>
-
-        <span id="event-count">
-          0 events
+        <span
+          id="run-commit"
+          class="mono subtle"
+        >
+          —
         </span>
       </div>
-
-      <div
-        id="events"
-        class="timeline"
-      ></div>
-
     </section>
 
 
-    <section class="section">
+    <main>
 
-      <div class="section-head">
-        <div>
-          <p class="panel-label">
-            OUTPUTS
-          </p>
+      <section class="hero-grid">
+        <article class="card objective-card">
+          <div class="card-label">
+            ACTIVE OBJECTIVE
+          </div>
 
-          <h2>Artifacts</h2>
+          <div
+            id="objective"
+            class="objective"
+          >
+            No run loaded.
+          </div>
+        </article>
+
+        <article class="card receipt-card">
+          <div class="card-label">
+            RECEIPT
+          </div>
+
+          <div class="receipt-row">
+            <span
+              id="receipt-state"
+              class="receipt-state"
+            >
+              —
+            </span>
+
+            <span
+              id="receipt-confidence"
+              class="mono subtle"
+            >
+              —
+            </span>
+          </div>
+
+          <div
+            id="receipt-hash"
+            class="hash mono"
+          >
+            —
+          </div>
+        </article>
+      </section>
+
+
+      <section>
+        <div class="section-header">
+          <div>
+            <div class="section-kicker">
+              EXECUTION GRAPH
+            </div>
+
+            <h2>
+              Live Agent Pipeline
+            </h2>
+          </div>
         </div>
-      </div>
 
-      <div
-        id="artifacts"
-        class="artifact-grid"
-      ></div>
+        <div
+          id="pipeline"
+          class="pipeline"
+        ></div>
+      </section>
 
-    </section>
 
-  </main>
+      <section class="metrics-grid">
+        <article class="metric">
+          <div
+            id="metric-known"
+            class="metric-number"
+          >
+            0
+          </div>
 
-  <script src="/app.js"></script>
+          <div class="metric-label">
+            KNOWN
+          </div>
+        </article>
+
+        <article class="metric">
+          <div
+            id="metric-inferred"
+            class="metric-number"
+          >
+            0
+          </div>
+
+          <div class="metric-label">
+            INFERRED
+          </div>
+        </article>
+
+        <article class="metric">
+          <div
+            id="metric-evidence"
+            class="metric-number"
+          >
+            0
+          </div>
+
+          <div class="metric-label">
+            EVIDENCE
+          </div>
+        </article>
+
+        <article class="metric">
+          <div
+            id="metric-artifacts"
+            class="metric-number"
+          >
+            0
+          </div>
+
+          <div class="metric-label">
+            ARTIFACTS
+          </div>
+        </article>
+
+        <article class="metric">
+          <div
+            id="metric-uncertainty"
+            class="metric-number"
+          >
+            0
+          </div>
+
+          <div class="metric-label">
+            UNCERTAINTY
+          </div>
+        </article>
+      </section>
+
+
+      <section class="two-col">
+
+        <article class="card">
+          <div class="card-label">
+            SINK-05 ANALYST
+          </div>
+
+          <div class="analyst-grid">
+            <div>
+              <div class="mini-label">
+                FACTS
+              </div>
+
+              <div
+                id="analyst-facts-count"
+                class="analyst-number"
+              >
+                0
+              </div>
+            </div>
+
+            <div>
+              <div class="mini-label">
+                HYPOTHESES
+              </div>
+
+              <div
+                id="analyst-hypotheses-count"
+                class="analyst-number"
+              >
+                0
+              </div>
+            </div>
+
+            <div>
+              <div class="mini-label">
+                UNCERTAINTIES
+              </div>
+
+              <div
+                id="analyst-uncertainties-count"
+                class="analyst-number"
+              >
+                0
+              </div>
+            </div>
+          </div>
+
+          <div
+            id="analyst-content"
+            class="stack-list"
+          ></div>
+        </article>
+
+
+        <article class="card">
+          <div class="card-label">
+            VERIFICATION
+          </div>
+
+          <div
+            id="verification"
+            class="verification-list"
+          ></div>
+        </article>
+
+      </section>
+
+
+      <section class="two-col">
+
+        <article class="card">
+          <div class="card-label">
+            PRESERVED UNCERTAINTY
+          </div>
+
+          <div
+            id="uncertainty"
+            class="stack-list"
+          ></div>
+        </article>
+
+
+        <article class="card">
+          <div class="card-label">
+            RED-SINK FINDINGS
+          </div>
+
+          <div
+            id="red-findings"
+            class="stack-list"
+          ></div>
+        </article>
+
+      </section>
+
+
+      <section class="card">
+        <div class="card-label">
+          ARTIFACT LEDGER
+        </div>
+
+        <div
+          id="artifacts"
+          class="artifact-list"
+        ></div>
+      </section>
+
+
+      <section class="card">
+        <div class="card-label">
+          LIVE EVENT STREAM
+        </div>
+
+        <div
+          id="events"
+          class="events"
+        ></div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <script
+    type="module"
+    src="/app.js"
+  ></script>
 </body>
 </html>
