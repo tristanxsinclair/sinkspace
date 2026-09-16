@@ -24,7 +24,9 @@ async function main():Promise<void> {
   const runner=new Orchestrator(store,services(repository));
   if(command==='run') {
     const created=await runner.create(healthIntake);const run=await runner.run(created.run_id);
-    const preserved=resolve(repository.root,'agents/runs',run.run_id);
+    const runsRoot=resolve(repository.root,'agents/runs');
+    await mkdir(runsRoot,{recursive:true,mode:0o700});
+    const preserved=resolve(runsRoot,run.run_id);
     await mkdir(preserved,{recursive:false,mode:0o700});
     const report=run.artifacts.find(a=>a.agent_id==='SINK-02'&&a.media_type==='text/markdown');
     if(!report||!run.receipt)throw new Error('Completed run is missing its report artifact or receipt.');

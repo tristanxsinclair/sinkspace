@@ -155,7 +155,6 @@ export async function redSink(ctx: ExecutionContext, raw: WorkerOutput, prior: V
   }
   const tree = freshSources.get('git:tree');
   if (tree) {
-    const paths = inventoryPaths(tree);
     const recommendations = output.claims.filter(c => c.classification === 'INFERRED');
     if (recommendations.length !== 1 || recommendations[0]?.statement !== RECOMMENDATION) failures.push('The bounded inventory limitation is missing or changed.');
   } else failures.push('No repository inventory establishes the scope of the recommendation.');
