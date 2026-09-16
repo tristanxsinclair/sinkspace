@@ -46,7 +46,7 @@ test('cancellation interrupts a stalled adapter and revokes its context',async()
   assert.equal(r.status,'CANCELLED');assert.equal(r.receipt!.final_status,'CANCELLED');assert.throws(()=>capture!.artifact('late forged output'),/CONTEXT_EXPIRED/);
 });
 test('duplicate worker claims fail cleanly and still produce a failure receipt',async()=>{
-  const h=harness({...localAdapter,research:async ctx=>{const raw=await localAdapter.research(ctx) as {claims:unknown[]};raw.claims.push(raw.claims[0]);return raw;}});
+  const h=harness({...localAdapter,research:async ctx=>{const raw=await localAdapter.research!(ctx) as {claims:unknown[]};raw.claims.push(raw.claims[0]);return raw;}});
   const r=await h.run();assert.equal(r.status,'FAILED');assert.equal(r.receipt!.final_status,'FAILED');
 });
 test('server validates authority transport, fixed intake, real history, and forbidden files',async()=>{

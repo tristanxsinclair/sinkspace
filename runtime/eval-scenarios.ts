@@ -22,7 +22,7 @@ export function harness(adapter:RuntimeAdapter=localAdapter,repository=fixtureRe
   return {store,runner,run:async(budget:Budget=DEFAULT_BUDGET)=>{const r=await runner.create(healthIntake,budget);return runner.run(r.run_id);}};
 }
 function mutateWorker(change:(output:WorkerOutput)=>void):RuntimeAdapter {
-  return {...localAdapter,research:async ctx=>{const output=await localAdapter.research(ctx) as WorkerOutput;change(output);return output;}};
+  return {...localAdapter,research:async ctx=>{const output=await localAdapter.research!(ctx) as WorkerOutput;change(output);return output;}};
 }
 function authorityFixture(run:Run):{task:Task;agent:AgentDefinition} {
   run.status='RUNNING';const task=run.tasks[0]!;task.status='RUNNING';task.permissions=['send_message'];
