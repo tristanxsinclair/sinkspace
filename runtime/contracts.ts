@@ -5,6 +5,64 @@ import { BlackboardEntrySchema } from './blackboard.js';
 export const Id = z.string().min(1).max(120).regex(/^[a-zA-Z0-9_-]+$/);
 const Text = z.string().min(1).max(20000);
 const Timestamp = z.iso.datetime();
+export const WorkflowSchema = z.enum([
+  'capability-inventory',
+  'crypto-mining'
+]);
+
+export type Workflow =
+  z.infer<typeof WorkflowSchema>;
+
+export const MiningModeSchema = z.enum([
+  'ASSESS',
+  'BENCHMARK',
+  'MINE'
+]);
+
+export const CryptoMiningMissionSchema = z.strictObject({
+  mode: MiningModeSchema,
+
+  miner: z.literal('xmrig').default('xmrig'),
+
+  pool: z
+    .string()
+    .min(1)
+    .max(300)
+    .nullable()
+    .default(null),
+
+  wallet: z
+    .string()
+    .min(1)
+    .max(300)
+    .nullable()
+    .default(null),
+
+  worker: z
+    .string()
+    .min(1)
+    .max(64)
+    .regex(/^[a-zA-Z0-9_-]+$/)
+    .default('sink-clone'),
+
+  max_minutes: z
+    .number()
+    .int()
+    .min(1)
+    .max(60)
+    .default(15),
+
+  threads: z
+    .number()
+    .int()
+    .min(1)
+    .max(32)
+    .default(1)
+});
+
+export type CryptoMiningMission =
+  z.infer<typeof CryptoMiningMissionSchema>;
+
 export const StatusSchema = z.enum(['QUEUED', 'PLANNING', 'WAITING_FOR_APPROVAL', 'RUNNING', 'WAITING_ON_DEPENDENCY', 'VERIFYING', 'COMPLETED', 'FAILED', 'BLOCKED', 'CANCELLED']);
 export type Status = z.infer<typeof StatusSchema>;
 export const VerdictSchema = z.enum(['PASS', 'PASS_WITH_LIMITATIONS', 'FAIL', 'BLOCKED', 'UNVERIFIED']);
@@ -55,7 +113,11 @@ export const EventSchema = z.strictObject({event_id: Id, type: z.enum(['RUN_CREA
 export type Event = z.infer<typeof EventSchema>;
 export const ReceiptSchema = z.strictObject({
   schema_version: z.literal('1.0.0'), receipt_id: Id, run_id: Id, objective: Text, agent: Id,
-  adapter: Text, commit_sha: z.string(), started_at: Timestamp, completed_at: Timestamp,
+  adapter: Text,
+  commit_sha: z.string(),
+  mission: CryptoMiningMissionSchema.nullable().default(null),
+  started_at: Timestamp,
+  completed_at: Timestamp,
   actions_taken: z.array(EventSchema), artifacts_created: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema),
   verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).default([]), tests: z.array(Text), unresolved_items: z.array(Text), red_sink_findings: z.array(Text),
   confidence: z.enum(['BOUNDED', 'UNVERIFIED']), cost: UsageSchema, human_approvals: z.array(ApprovalSchema), final_status: StatusSchema,
@@ -63,15 +125,46 @@ export const ReceiptSchema = z.strictObject({
 });
 export type Receipt = z.infer<typeof ReceiptSchema>;
 export const RunSchema = z.strictObject({
-  schema_version: z.literal('1.0.0'), run_id: Id, objective: Text, workflow: z.literal('capability-inventory'), adapter: Text,
+  schema_version: z.literal('1.0.0'),
+  run_id: Id,
+  objective: Text,
+  workflow: WorkflowSchema,
+  mission: CryptoMiningMissionSchema.nullable().default(null),
+  adapter: Text,
   status: StatusSchema, commit_sha: z.string(), repository: Text, created_at: Timestamp, started_at: Timestamp.nullable(), completed_at: Timestamp.nullable(),
   tasks: z.array(TaskSchema), artifacts: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema), verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).default([]),
   approvals: z.array(ApprovalSchema), events: z.array(EventSchema), errors: z.array(Text), uncertainty: z.array(Text), red_sink_findings: z.array(Text),
   usage: UsageSchema, budget: BudgetSchema, agent_configs: z.array(AgentDefinitionSchema), receipt: ReceiptSchema.nullable(),
 });
 export type Run = z.infer<typeof RunSchema>;
-export const IntakeSchema = z.strictObject({workflow: z.literal('capability-inventory'), objective: z.literal('Inspect the Sink Space repository and produce a concise capability inventory identifying the major current product/business capabilities visible in repository evidence.')});
-export const HEALTH_OBJECTIVE = IntakeSchema.shape.objective.value;
+export const HEALTH_OBJECTIVE =
+  'Inspect the Sink Space repository and produce a concise capability inventory identifying the major current product/business capabilities visible in repository evidence.';
+
+export const IntakeSchema = z.strictObject({
+  workflow: z.literal('capability-inventory'),
+  objective: z.literal(HEALTH_OBJECTIVE),
+  mission: z.null().default(null)
+});
+
+export const CryptoMiningIntakeSchema = z.strictObject({
+  workflow: z.literal('crypto-mining'),
+
+  objective: z
+    .string()
+    .min(1)
+    .max(20000),
+
+  mission: CryptoMiningMissionSchema
+});
+
+export const MissionIntakeSchema = z.union([
+  IntakeSchema,
+  CryptoMiningIntakeSchema
+]);
+
+export type MissionIntake =
+  z.infer<typeof MissionIntakeSchema>;
+
 export const MemorySchema = z.strictObject({id: Id, kind: z.enum(['RUN','WORKING','PROJECT','OPERATOR','EVIDENCE','PERFORMANCE']), scope: Text, content: Text, source: Text, timestamp: Timestamp, confidence: z.number().min(0).max(1), provenance: z.array(Text).min(1), expires_at: Timestamp.nullable(), supersedes: Id.nullable()});
 export function memoryFreshness(item: z.infer<typeof MemorySchema>, now: Date): 'FRESH' | 'STALE' | 'UNKNOWN' {
   MemorySchema.parse(item);

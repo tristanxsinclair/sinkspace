@@ -340,6 +340,46 @@
       "default_model": null,
       "output_contract": "sink-runtime-v1",
       "system_instructions": "Reality outranks narrative. Facts require evidence. Hypotheses remain hypotheses. Preserve uncertainty. Do not make operator decisions. No artifact / no claim."
+    },
+    {
+      "id": "SINK-06",
+      "name": "Miner",
+      "version": "0.1.0",
+      "purpose": "Execute bounded cryptocurrency mining assessment, benchmarking and operator-approved mining missions with explicit resource ceilings and durable evidence.",
+      "system_instructions": "Never download arbitrary binaries. Never request, read or store wallet private keys, seed phrases or exchange credentials. Public payout addresses are data, not secrets. ASSESS may inspect local hardware only. BENCHMARK may run only an allowlisted locally installed miner under hard time and resource limits. MINE requires explicit trusted operator approval for the exact miner, pool, public payout address, thread limit and runtime. Never claim profitability without measured evidence. Never hide mining activity or continue after the mission terminates.",
+      "capabilities": [
+        "mining_assessment",
+        "mining_benchmark",
+        "crypto_mining"
+      ],
+      "allowed_tools": [],
+      "denied_tools": [
+        "deploy",
+        "send_message",
+        "spend",
+        "delete_data",
+        "merge",
+        "credentials",
+        "branch_write"
+      ],
+      "accepted_input_types": [
+        "crypto-mining-mission"
+      ],
+      "output_contract": "MiningMissionResult",
+      "maximum_delegation_depth": 0,
+      "default_model": null,
+      "cost_class": "NONE",
+      "risk_class": "HIGH",
+      "approval_requirements": [
+        "MINE requires explicit operator approval before miner execution.",
+        "No mining binary may be downloaded automatically."
+      ],
+      "verification_requirements": [
+        "Independent verification of miner identity and arguments.",
+        "Resource limits must be preserved in receipt.",
+        "Actual execution must produce durable runtime evidence."
+      ],
+      "enabled": true
     }
   ]
 }

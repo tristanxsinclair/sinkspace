@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { AgentDefinitionSchema, BudgetSchema, DEFAULT_BUDGET, HEALTH_OBJECTIVE, IntakeSchema, ReceiptSchema, RunSchema, TaskSchema, VerificationSchema, WorkerOutputSchema, type AgentDefinition, type Artifact, type Budget, type Event, type Receipt, type Run, type Task, type Verification, type WorkerOutput } from './contracts.js';
+import { AgentDefinitionSchema, BudgetSchema, DEFAULT_BUDGET, HEALTH_OBJECTIVE, MissionIntakeSchema, ReceiptSchema, RunSchema, TaskSchema, VerificationSchema, WorkerOutputSchema, type AgentDefinition, type Artifact, type Budget, type Event, type Receipt, type Run, type Task, type Verification, type WorkerOutput } from './contracts.js';
 import type { ExecutionContext, Observation, RuntimeServices } from './context.js';
 import { loadRegistry, specialist } from './registry.js';
 import { authorize, ControlError, enforceBudget, hash, redact, validateGraph } from './security.js';
@@ -53,9 +53,15 @@ export class Orchestrator {
     this.registry = registry.map(a=>AgentDefinitionSchema.parse(a));
   }
   async create(input: unknown, budget: Budget = DEFAULT_BUDGET): Promise<Run> {
-    const intake=IntakeSchema.parse(input); const now=this.now();
+    const intake=MissionIntakeSchema.parse(input); const now=this.now();
     const run:Run = RunSchema.parse({schema_version:'1.0.0',run_id:this.services.id(),...intake,adapter:this.adapter.name,status:'QUEUED',commit_sha:'',repository:this.services.repository.root,created_at:now,started_at:null,completed_at:null,tasks:[],artifacts:[],evidence:[],claims:[],verification:[],blackboard_entries:[],approvals:[],events:[],errors:[],uncertainty:[],red_sink_findings:[],usage:{tool_calls:0,tokens:0,estimated_cost_usd:0,model:null},budget:BudgetSchema.parse(budget),agent_configs:structuredClone(this.registry),receipt:null});
-    this.event(run,'RUN_CREATED','SINK-PRIME',null,'Accepted the capability-inventory objective; local deterministic adapter, no model execution.');
+    this.event(
+      run,
+      'RUN_CREATED',
+      'SINK-PRIME',
+      null,
+      `Accepted ${run.workflow} mission; local deterministic runtime.`
+    );
     await this.store.save(run); return structuredClone(run);
   }
   private now(): string { return this.services.now().toISOString(); }
@@ -65,6 +71,118 @@ export class Orchestrator {
   private state(run:Run,next:Run['status'],verified=false): void { run.status=transition(run.status,next,verified); this.event(run,'STATE_CHANGED','SINK-00',null,`Run entered ${next}.`); }
   private guard(run:Run): void { if (this.cancelled.has(run.run_id)) throw new ControlError('CANCELLED'); enforceBudget(run,this.services.now().getTime()); }
   private plan(run:Run): void {
+
+    if (run.workflow === 'crypto-mining') {
+      if (!run.mission) {
+        throw new ControlError(
+          'INVALID_OUTPUT',
+          'Crypto mining mission configuration is missing.'
+        );
+      }
+
+      const capability =
+        run.mission.mode === 'ASSESS'
+          ? 'mining_assessment'
+          : run.mission.mode === 'BENCHMARK'
+            ? 'mining_benchmark'
+            : 'crypto_mining';
+
+      const agent =
+        specialist(
+          run.agent_configs,
+          capability
+        );
+
+      const id =
+        this.services.id();
+
+      const objective =
+        run.mission.mode === 'ASSESS'
+          ? 'Assess local hardware and mining readiness without launching a miner.'
+          : run.mission.mode === 'BENCHMARK'
+            ? 'Run a bounded local mining benchmark without connecting to a live mining pool.'
+            : 'Execute a bounded operator-approved cryptocurrency mining session.';
+
+      const task =
+        TaskSchema.parse({
+          task_id: id,
+          parent_task_id: null,
+          run_id: run.run_id,
+          objective,
+
+          success_criteria: [
+            'Produce durable evidence of what was actually executed.',
+            'Preserve uncertainty and resource limits.',
+            'Do not download arbitrary mining binaries.',
+            'Do not access wallet private keys or seed phrases.',
+            'Do not claim profitability without measured evidence.'
+          ],
+
+          assigned_agent: agent.id,
+          agent_version: agent.version,
+          status: 'QUEUED',
+          priority: 0,
+          dependencies: [],
+
+          inputs: [
+            run.commit_sha,
+            `mode:${run.mission.mode}`,
+            `miner:${run.mission.miner}`
+          ],
+
+          constraints: [
+            'No arbitrary binary downloads.',
+            'No wallet private keys or seed phrases.',
+            'No hidden or background mining.',
+            'MINE requires explicit trusted operator approval.',
+            `Maximum requested runtime: ${run.mission.max_minutes} minutes.`,
+            `Maximum requested threads: ${run.mission.threads}.`
+          ],
+
+          permissions: agent.allowed_tools,
+          budget: run.budget,
+
+          created_at: this.now(),
+          started_at: null,
+          completed_at: null,
+
+          artifacts: [],
+          evidence: [],
+          uncertainty: [],
+          errors: [],
+
+          verification_status: 'UNVERIFIED',
+          auditor: null,
+          next_action: 'Await governed mining executor.',
+          attempts: 0
+        });
+
+      run.tasks = [task];
+
+      validateGraph(
+        run.tasks,
+        run.budget
+      );
+
+      this.event(
+        run,
+        'TASK_CREATED',
+        'SINK-00',
+        task.task_id,
+        task.objective
+      );
+
+      this.event(
+        run,
+        'PLAN_CREATED',
+        'SINK-00',
+        null,
+        `Crypto mining mission planned: ${run.mission.mode}.`
+      );
+
+      return;
+    }
+
     const capabilities = [
       'repository_research',
       'evidence_analysis',
@@ -367,7 +485,7 @@ export class Orchestrator {
       this.event(run,next==='CANCELLED'?'RUN_CANCELLED':'RUN_FAILED','SINK-00',null,run.errors.at(-1)!);
     } finally {this.active.delete(id);this.cancelled.delete(id);this.aborters.delete(id);this.busy=false;}
     run.completed_at=this.now();
-    const receipt:Receipt=ReceiptSchema.parse({schema_version:'1.0.0',receipt_id:this.services.id(),run_id:run.run_id,objective:run.objective,agent:'SINK-00',adapter:run.adapter,commit_sha:run.commit_sha,started_at:run.started_at??run.created_at,completed_at:run.completed_at,actions_taken:run.events,artifacts_created:run.artifacts,evidence:run.evidence,claims:run.claims,verification:run.verification,blackboard_entries:run.blackboard_entries,tests:['Only deterministic committed-file assertions executed; no repository scripts, browser or production tests.'],unresolved_items:[...run.uncertainty,...run.errors],red_sink_findings:run.red_sink_findings,confidence:run.status==='COMPLETED'?'BOUNDED':'UNVERIFIED',cost:run.usage,human_approvals:run.approvals,final_status:run.status,agent_configs:run.agent_configs,hash:'0'.repeat(64)});
+    const receipt:Receipt=ReceiptSchema.parse({schema_version:'1.0.0',receipt_id:this.services.id(),run_id:run.run_id,objective:run.objective,agent:'SINK-00',adapter:run.adapter,commit_sha:run.commit_sha,mission:run.mission,started_at:run.started_at??run.created_at,completed_at:run.completed_at,actions_taken:run.events,artifacts_created:run.artifacts,evidence:run.evidence,claims:run.claims,verification:run.verification,blackboard_entries:run.blackboard_entries,tests:['Only deterministic committed-file assertions executed; no repository scripts, browser or production tests.'],unresolved_items:[...run.uncertainty,...run.errors],red_sink_findings:run.red_sink_findings,confidence:run.status==='COMPLETED'?'BOUNDED':'UNVERIFIED',cost:run.usage,human_approvals:run.approvals,final_status:run.status,agent_configs:run.agent_configs,hash:'0'.repeat(64)});
     receipt.hash=receiptDigest(receipt); await this.store.seal(receipt);run.receipt=receipt;await this.store.save(run);return structuredClone(run);
   }
   async cancel(id:string):Promise<Run> {

@@ -18,8 +18,10 @@ function fixture(contents: Record<string, string> = files) {
   let sequence = 0;
   const id = () => `id_${++sequence}`;
   const run: Run = {
-    schema_version: '1.0.0', run_id: 'run_1', objective: HEALTH_OBJECTIVE, workflow: 'capability-inventory', adapter: 'deterministic-development', status: 'RUNNING', commit_sha: 'a'.repeat(40), repository: '/repository', created_at: now, started_at: now, completed_at: null,
-    tasks: [], artifacts: [], evidence: [], claims: [], verification: [], approvals: [], events: [], errors: [], uncertainty: [], red_sink_findings: [], usage: {tool_calls: 0, tokens: 0, estimated_cost_usd: 0, model: null}, budget: {...DEFAULT_BUDGET}, agent_configs: loadRegistry(), receipt: null,
+    schema_version: '1.0.0', run_id: 'run_1', objective: HEALTH_OBJECTIVE, workflow: 'capability-inventory',
+    mission: null, adapter: 'deterministic-development', status: 'RUNNING', commit_sha: 'a'.repeat(40), repository: '/repository', created_at: now, started_at: now, completed_at: null,
+    tasks: [], artifacts: [], evidence: [], claims: [], verification: [],
+    blackboard_entries: [], approvals: [], events: [], errors: [], uncertainty: [], red_sink_findings: [], usage: {tool_calls: 0, tokens: 0, estimated_cost_usd: 0, model: null}, budget: {...DEFAULT_BUDGET}, agent_configs: loadRegistry(), receipt: null,
   };
   function context(agent: string): ExecutionContext {
     const task: Task = {task_id: id(), parent_task_id: null, run_id: run.run_id, objective: HEALTH_OBJECTIVE, success_criteria: ['Bounded evidence'], assigned_agent: agent, agent_version: '0.2.0', status: 'RUNNING', priority: 0, dependencies: [], inputs: [], constraints: [], permissions: ['repo_inventory', 'repo_read'], budget: {...DEFAULT_BUDGET}, created_at: now, started_at: now, completed_at: null, artifacts: [], evidence: [], uncertainty: [], errors: [], verification_status: 'UNVERIFIED', auditor: null, next_action: 'Inspect', attempts: 1};
