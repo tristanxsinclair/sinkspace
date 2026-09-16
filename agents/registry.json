@@ -181,7 +181,8 @@
       ],
       "allowed_tools": [
         "repo_read",
-        "repo_inventory"
+        "repo_inventory",
+        "system_probe"
       ],
       "denied_tools": [
         "deploy",
@@ -225,7 +226,8 @@
       ],
       "allowed_tools": [
         "repo_read",
-        "repo_inventory"
+        "repo_inventory",
+        "system_probe"
       ],
       "denied_tools": [
         "deploy",
@@ -352,7 +354,9 @@
         "mining_benchmark",
         "crypto_mining"
       ],
-      "allowed_tools": [],
+      "allowed_tools": [
+        "system_probe"
+      ],
       "denied_tools": [
         "deploy",
         "send_message",

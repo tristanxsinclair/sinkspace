@@ -8,6 +8,7 @@ export interface ExecutionContext {
   id(): string;
   read(path: string): Promise<Observation>;
   inventory(): Promise<Observation>;
+  systemProbe?(): Promise<Observation>;
   artifact(content: string, mediaType?: string): Artifact;
   emit(type: Event['type'], summary: string): void;
 }

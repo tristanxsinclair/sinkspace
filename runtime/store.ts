@@ -15,9 +15,92 @@ export function verifyReceipt(receipt: Receipt): void {
     const a = artifacts.get(e.artifact_id);
     if (!a || a.agent_id !== e.agent_id || a.task_id !== e.task_id || e.commit_sha !== receipt.commit_sha) throw new ControlError('EVIDENCE_MISMATCH');
   }
+  const miningReceipt =
+    receipt.mission !== undefined &&
+    receipt.mission !== null;
+
   for (const c of receipt.claims) {
-    if (c.evidence_ids.some(id=>!evidence.has(id))) throw new ControlError('MISSING_EVIDENCE');
-    if (receipt.final_status === 'COMPLETED' && c.classification === 'KNOWN' && (!c.predicate || c.evidence_ids.length === 0)) throw new ControlError('UNSUPPORTED_CLAIM');
+    if (
+      c.evidence_ids.some(
+        id => !evidence.has(id)
+      )
+    ) {
+      throw new ControlError(
+        'MISSING_EVIDENCE'
+      );
+    }
+
+    if (
+      receipt.final_status === 'COMPLETED' &&
+      c.classification === 'KNOWN'
+    ) {
+      if (miningReceipt) {
+        if (
+          c.agent_id !== 'SINK-06' ||
+          c.predicate !== null ||
+          c.evidence_ids.length === 0
+        ) {
+          throw new ControlError(
+            'UNSUPPORTED_CLAIM'
+          );
+        }
+
+        for (const evidenceId of c.evidence_ids) {
+          const item =
+            evidence.get(evidenceId);
+
+          if (
+            !item ||
+            item.agent_id !== 'SINK-06' ||
+            item.tool !== 'system_probe' ||
+            item.source !== 'host:system_probe'
+          ) {
+            throw new ControlError(
+              'UNSUPPORTED_CLAIM'
+            );
+          }
+        }
+      } else if (
+        !c.predicate ||
+        c.evidence_ids.length === 0
+      ) {
+        throw new ControlError(
+          'UNSUPPORTED_CLAIM'
+        );
+      }
+    }
+  }
+
+  for (
+    const entry
+    of receipt.blackboard_entries ?? []
+  ) {
+    if (
+      entry.run_id !== receipt.run_id
+    ) {
+      throw new ControlError(
+        'BLACKBOARD_RUN_MISMATCH'
+      );
+    }
+
+    if (
+      entry.kind === 'FACT' &&
+      entry.evidence_ids.length === 0
+    ) {
+      throw new ControlError(
+        'BLACKBOARD_FACT_REQUIRES_EVIDENCE'
+      );
+    }
+
+    if (
+      entry.evidence_ids.some(
+        id => !evidence.has(id)
+      )
+    ) {
+      throw new ControlError(
+        'BLACKBOARD_EVIDENCE_MISMATCH'
+      );
+    }
   }
   for (const v of receipt.verification) {
     if (v.evidence_ids.some(id=>!evidence.has(id) || evidence.get(id)!.agent_id!==v.agent_id)) throw new ControlError('VERIFIER_EVIDENCE_MISMATCH');

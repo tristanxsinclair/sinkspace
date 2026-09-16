@@ -10,6 +10,12 @@ import type { IntelligenceAdapter } from './adapters/intelligence.js';
 import { intelligenceAdapter } from './adapters/index.js';
 import { runAnalysisPipeline } from './analysis-pipeline.js';
 import { Blackboard } from './blackboard.js';
+import { probeSystem } from './system-probe.js';
+import {
+  miningAssessment,
+  auditMining,
+  redSinkMining
+} from './mining.js';
 
 export interface RuntimeAdapter {
   readonly name: string;
@@ -73,91 +79,105 @@ export class Orchestrator {
   private plan(run:Run): void {
 
     if (run.workflow === 'crypto-mining') {
-      if (!run.mission) {
+      if (
+        !run.mission ||
+        run.mission.mode !== 'ASSESS'
+      ) {
         throw new ControlError(
-          'INVALID_OUTPUT',
-          'Crypto mining mission configuration is missing.'
+          'TOOL_NOT_IMPLEMENTED',
+          'Only crypto-mining ASSESS is currently implemented.'
         );
       }
 
-      const capability =
-        run.mission.mode === 'ASSESS'
-          ? 'mining_assessment'
-          : run.mission.mode === 'BENCHMARK'
-            ? 'mining_benchmark'
-            : 'crypto_mining';
+      const capabilities = [
+        'mining_assessment',
+        'evidence_analysis',
+        'independent_audit',
+        'adversarial_review'
+      ];
 
-      const agent =
-        specialist(
-          run.agent_configs,
-          capability
+      const objectives = [
+        'Inspect bounded local host metadata without launching a miner',
+        'Separate observed host facts from preserved uncertainty',
+        'Independently re-probe and verify the host assessment',
+        'Challenge evidence and unsupported mining conclusions'
+      ];
+
+      let previous:string|null=null;
+
+      run.tasks =
+        capabilities.map(
+          (capability,index) => {
+            const agent =
+              specialist(
+                run.agent_configs,
+                capability
+              );
+
+            const id =
+              this.services.id();
+
+            const task =
+              TaskSchema.parse({
+                task_id:id,
+                parent_task_id:null,
+                run_id:run.run_id,
+                objective:objectives[index],
+                success_criteria:[
+                  'Produce durable evidence.',
+                  'Do not launch a miner.',
+                  'Do not connect to a mining pool.',
+                  'Do not download mining software.',
+                  'Preserve profitability uncertainty.'
+                ],
+                assigned_agent:agent.id,
+                agent_version:agent.version,
+                status:'QUEUED',
+                priority:index,
+                dependencies:
+                  previous
+                    ? [previous]
+                    : [],
+                inputs:[
+                  run.commit_sha,
+                  'mode:ASSESS'
+                ],
+                constraints:[
+                  'Host metadata observation only.',
+                  'No wallet secrets.',
+                  'No mining workload.'
+                ],
+                permissions:
+                  agent.allowed_tools,
+                budget:run.budget,
+                created_at:this.now(),
+                started_at:null,
+                completed_at:null,
+                artifacts:[],
+                evidence:[],
+                uncertainty:[],
+                errors:[],
+                verification_status:
+                  'UNVERIFIED',
+                auditor:null,
+                next_action:
+                  'Wait for dependencies.',
+                attempts:0
+              });
+
+            previous=id;
+
+            this.event(
+              run,
+              'TASK_CREATED',
+              'SINK-00',
+              id,
+              task.objective
+            );
+
+            return task;
+          }
         );
-
-      const id =
-        this.services.id();
-
-      const objective =
-        run.mission.mode === 'ASSESS'
-          ? 'Assess local hardware and mining readiness without launching a miner.'
-          : run.mission.mode === 'BENCHMARK'
-            ? 'Run a bounded local mining benchmark without connecting to a live mining pool.'
-            : 'Execute a bounded operator-approved cryptocurrency mining session.';
-
-      const task =
-        TaskSchema.parse({
-          task_id: id,
-          parent_task_id: null,
-          run_id: run.run_id,
-          objective,
-
-          success_criteria: [
-            'Produce durable evidence of what was actually executed.',
-            'Preserve uncertainty and resource limits.',
-            'Do not download arbitrary mining binaries.',
-            'Do not access wallet private keys or seed phrases.',
-            'Do not claim profitability without measured evidence.'
-          ],
-
-          assigned_agent: agent.id,
-          agent_version: agent.version,
-          status: 'QUEUED',
-          priority: 0,
-          dependencies: [],
-
-          inputs: [
-            run.commit_sha,
-            `mode:${run.mission.mode}`,
-            `miner:${run.mission.miner}`
-          ],
-
-          constraints: [
-            'No arbitrary binary downloads.',
-            'No wallet private keys or seed phrases.',
-            'No hidden or background mining.',
-            'MINE requires explicit trusted operator approval.',
-            `Maximum requested runtime: ${run.mission.max_minutes} minutes.`,
-            `Maximum requested threads: ${run.mission.threads}.`
-          ],
-
-          permissions: agent.allowed_tools,
-          budget: run.budget,
-
-          created_at: this.now(),
-          started_at: null,
-          completed_at: null,
-
-          artifacts: [],
-          evidence: [],
-          uncertainty: [],
-          errors: [],
-
-          verification_status: 'UNVERIFIED',
-          auditor: null,
-          next_action: 'Await governed mining executor.',
-          attempts: 0
-        });
-
-      run.tasks = [task];
 
       validateGraph(
         run.tasks,
@@ -166,18 +186,10 @@ export class Orchestrator {
 
       this.event(
         run,
-        'TASK_CREATED',
-        'SINK-00',
-        task.task_id,
-        task.objective
-      );
-
-      this.event(
-        run,
         'PLAN_CREATED',
         'SINK-00',
         null,
-        `Crypto mining mission planned: ${run.mission.mode}.`
+        'SINK-06 → SINK-05 → SINK-03 → RED-SINK → receipt.'
       );
 
       return;
@@ -231,7 +243,99 @@ export class Orchestrator {
       this.event(run,'TOOL_COMPLETED',agent.id,task.task_id,`${tool} completed; evidence ${e.evidence_id}.`); this.event(run,'EVIDENCE_ATTACHED',agent.id,task.task_id,e.evidence_id);
       await this.store.save(run); return {content:a.content,artifact:structuredClone(a),evidence:structuredClone(e)};
     };
-    return {get run(){return structuredClone(run);},get task(){return structuredClone(task);},now:()=>this.now(),id:()=>this.services.id(),read:path=>observe('repo_read',path),inventory:()=>observe('repo_inventory'),artifact,emit:(type,summary)=>{guard();this.event(run,type,agent.id,task.task_id,summary);}};
+    const observeSystem=async():Promise<Observation>=>{
+      guard();
+      authorize(agent,task,'system_probe');
+      enforceBudget(
+        run,
+        this.services.now().getTime(),
+        {tools:1,tokens:0,cost:0}
+      );
+      run.usage.tool_calls++;
+
+      this.event(
+        run,
+        'TOOL_REQUESTED',
+        agent.id,
+        task.task_id,
+        'system_probe'
+      );
+
+      const content =
+        JSON.stringify(
+          await probeSystem()
+        );
+
+      guard();
+
+      const a =
+        artifact(
+          content,
+          'application/json'
+        );
+
+      const e={
+        evidence_id:this.services.id(),
+        artifact_id:a.artifact_id,
+        commit_sha:run.commit_sha,
+        tool:'system_probe',
+        agent_id:agent.id,
+        task_id:task.task_id,
+        timestamp:this.now(),
+        source:'host:system_probe',
+        trust:'UNTRUSTED_DATA' as const
+      };
+
+      run.evidence.push(e);
+      task.evidence.push(
+        e.evidence_id
+      );
+
+      this.event(
+        run,
+        'TOOL_COMPLETED',
+        agent.id,
+        task.task_id,
+        `system_probe completed; evidence ${e.evidence_id}.`
+      );
+
+      this.event(
+        run,
+        'EVIDENCE_ATTACHED',
+        agent.id,
+        task.task_id,
+        e.evidence_id
+      );
+
+      await this.store.save(run);
+
+      return {
+        content:a.content,
+        artifact:structuredClone(a),
+        evidence:structuredClone(e)
+      };
+    };
+
+    return {
+      get run(){return structuredClone(run);},
+      get task(){return structuredClone(task);},
+      now:()=>this.now(),
+      id:()=>this.services.id(),
+      read:path=>observe('repo_read',path),
+      inventory:()=>observe('repo_inventory'),
+      systemProbe:()=>observeSystem(),
+      artifact,
+      emit:(type,summary)=>{
+        guard();
+        this.event(
+          run,
+          type,
+          agent.id,
+          task.task_id,
+          summary
+        );
+      }
+    };
   }
   private async execute<T>(run:Run,task:Task,operation:(ctx:ExecutionContext)=>Promise<T>):Promise<T> {
     this.guard(run);
@@ -271,6 +375,249 @@ export class Orchestrator {
     run.verification.push(verdict); task.verification_status=verdict.verdict;
     this.event(run,['PASS','PASS_WITH_LIMITATIONS'].includes(verdict.verdict)?'AUDIT_PASSED':'AUDIT_FAILED',task.assigned_agent,task.task_id,verdict.reasons.join(' ')); return verdict;
   }
+  private async runCryptoMiningAssessment(
+    run: Run
+  ): Promise<void> {
+    const [
+      miner,
+      analyst,
+      auditor,
+      red
+    ] =
+      run.tasks as [
+        Task,
+        Task,
+        Task,
+        Task
+      ];
+
+    const output =
+      WorkerOutputSchema.parse(
+        await this.execute(
+          run,
+          miner,
+          ctx =>
+            miningAssessment(ctx)
+        )
+      );
+
+    run.claims =
+      output.claims;
+
+    run.uncertainty =
+      output.uncertainty;
+
+    miner.uncertainty = [
+      ...output.uncertainty
+    ];
+
+    for (const claim of output.claims) {
+      this.event(
+        run,
+        'CLAIM_CREATED',
+        'SINK-06',
+        miner.task_id,
+        claim.statement
+      );
+    }
+
+    const analysis =
+      await this.execute(
+        run,
+        analyst,
+        async ctx => {
+          const board =
+            new Blackboard({
+              id:() =>
+                this.services.id(),
+              now:() =>
+                this.now()
+            });
+
+          const result =
+            runAnalysisPipeline({
+              run_id:run.run_id,
+              task_id:miner.task_id,
+              scout_output:
+                structuredClone(
+                  output
+                ),
+              source_agent_id:
+                'SINK-06',
+              board
+            });
+
+          ctx.artifact(
+            JSON.stringify(
+              {
+                analyst:'SINK-05',
+                source_agent:'SINK-06',
+                source_task_id:
+                  miner.task_id,
+                facts:
+                  result.analyst.facts,
+                hypotheses:
+                  result.analyst.hypotheses,
+                uncertainties:
+                  result.analyst.uncertainties,
+                next_actions:
+                  result.analyst.next_actions,
+                blackboard_entries:
+                  result.blackboard_entries
+              },
+              null,
+              2
+            ),
+            'application/json'
+          );
+
+          return result;
+        }
+      );
+
+    run.blackboard_entries =
+      analysis.blackboard_entries
+        .map(entry => ({
+          ...entry,
+          evidence_ids:[
+            ...entry.evidence_ids
+          ]
+        }));
+
+    for (
+      const entry
+      of run.blackboard_entries
+    ) {
+      this.event(
+        run,
+        'BLACKBOARD_ENTRY_CREATED',
+        'SINK-05',
+        analyst.task_id,
+        `${entry.kind} ${entry.entry_id} preserved.`
+      );
+    }
+
+    this.state(
+      run,
+      'VERIFYING'
+    );
+
+    this.event(
+      run,
+      'AUDIT_STARTED',
+      auditor.assigned_agent,
+      auditor.task_id,
+      'Independent host re-probe.'
+    );
+
+    const verdict =
+      this.recordVerification(
+        run,
+        auditor,
+        await this.execute(
+          run,
+          auditor,
+          ctx =>
+            auditMining(
+              ctx,
+              structuredClone(
+                output
+              )
+            )
+        )
+      );
+
+    const challenge =
+      await this.execute(
+        run,
+        red,
+        ctx =>
+          redSinkMining(
+            ctx,
+            structuredClone(
+              output
+            ),
+            structuredClone(
+              verdict
+            )
+          )
+      );
+
+    const redVerdict =
+      this.recordVerification(
+        run,
+        red,
+        challenge.verification
+      );
+
+    run.red_sink_findings =
+      challenge.findings.map(
+        item =>
+          redact(item)
+      );
+
+    this.event(
+      run,
+      'RED_SINK_COMPLETED',
+      red.assigned_agent,
+      red.task_id,
+      run.red_sink_findings.join(' ')
+    );
+
+    if (
+      ![
+        verdict,
+        redVerdict
+      ].every(
+        item =>
+          [
+            'PASS',
+            'PASS_WITH_LIMITATIONS'
+          ].includes(
+            item.verdict
+          )
+      )
+    ) {
+      throw new ControlError(
+        'INSUFFICIENT_EVIDENCE'
+      );
+    }
+
+    for (const task of run.tasks) {
+      task.status =
+        transition(
+          task.status,
+          'COMPLETED',
+          true
+        );
+
+      task.completed_at =
+        this.now();
+
+      task.verification_status =
+        'PASS_WITH_LIMITATIONS';
+
+      task.next_action =
+        'Inspect sealed assessment receipt.';
+    }
+
+    this.guard(run);
+
+    this.state(
+      run,
+      'COMPLETED',
+      true
+    );
+
+    this.event(
+      run,
+      'RUN_COMPLETED',
+      'SINK-00',
+      null,
+      'Bounded mining readiness assessment verified. No mining workload executed.'
+    );
+  }
+
   async run(id:string):Promise<Run> {
     if (this.busy) throw new ControlError('RUNNER_BUSY'); this.busy=true;
     let run:Run|undefined;
@@ -281,6 +628,15 @@ export class Orchestrator {
       this.event(run,'TOOL_REQUESTED','SINK-00',null,'Resolve authorised repository HEAD.'); run.commit_sha=await this.services.repository.pin();
       this.event(run,'TOOL_COMPLETED','SINK-00',null,`Pinned commit ${run.commit_sha}; working tree excluded.`);
       this.guard(run); this.plan(run); this.state(run,'RUNNING'); await this.store.save(run);
+
+      if (
+        run.workflow === 'crypto-mining'
+      ) {
+        await this.runCryptoMiningAssessment(
+          run
+        );
+      } else {
+
       const [research,analyst,build,auditor,red] =
         run.tasks as [Task,Task,Task,Task,Task];
       const raw=await this.execute(
@@ -476,6 +832,7 @@ export class Orchestrator {
       if (!run.claims.some(c=>c.classification==='KNOWN') || !build.artifacts.length || !run.uncertainty.length) throw new ControlError('UNVERIFIED_COMPLETION');
       for (const task of run.tasks) {task.status=transition(task.status,'COMPLETED',true);task.completed_at=this.now();task.verification_status='PASS_WITH_LIMITATIONS';task.auditor=task.assigned_agent==='SINK-03'?'RED-SINK':'SINK-03';task.next_action='Inspect receipt; runtime and production remain unverified.';}
       this.guard(run); this.state(run,'COMPLETED',true); this.event(run,'RUN_COMPLETED','SINK-00',null,'Bounded report verified; no production or commercial outcome claimed.');
+      }
     } catch(error) {
       if (!run || TERMINAL.includes(run.status)) throw error;
       const code=error instanceof ControlError?error.code:'INVALID_OUTPUT';

@@ -11,9 +11,13 @@ export function runAnalysisPipeline(input: {
   run_id: string;
   task_id: string;
   scout_output: WorkerOutput;
+  source_agent_id?: string;
   board?: Blackboard;
 }): AnalysisPipelineResult {
   const board = input.board ?? new Blackboard();
+
+  const sourceAgent =
+    input.source_agent_id ?? 'SINK-01';
 
   for (const claim of input.scout_output.claims) {
     if (claim.classification === 'KNOWN') {
@@ -25,7 +29,7 @@ export function runAnalysisPipeline(input: {
 
       board.add({
         run_id: input.run_id,
-        agent_id: 'SINK-01',
+        agent_id: sourceAgent,
         task_id: input.task_id,
         kind: 'FACT',
         content: claim.statement,
@@ -38,7 +42,7 @@ export function runAnalysisPipeline(input: {
     if (claim.classification === 'INFERRED') {
       board.add({
         run_id: input.run_id,
-        agent_id: 'SINK-01',
+        agent_id: sourceAgent,
         task_id: input.task_id,
         kind: 'HYPOTHESIS',
         content: claim.statement,
@@ -50,7 +54,7 @@ export function runAnalysisPipeline(input: {
 
     board.add({
       run_id: input.run_id,
-      agent_id: 'SINK-01',
+      agent_id: sourceAgent,
       task_id: input.task_id,
       kind: 'UNCERTAINTY',
       content: claim.statement,
@@ -61,7 +65,7 @@ export function runAnalysisPipeline(input: {
   for (const uncertainty of input.scout_output.uncertainty) {
     board.add({
       run_id: input.run_id,
-      agent_id: 'SINK-01',
+      agent_id: sourceAgent,
       task_id: input.task_id,
       kind: 'UNCERTAINTY',
       content: uncertainty

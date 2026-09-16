@@ -17,7 +17,9 @@ export function redact(text: string): string {
     .replace(/((?:api[_-]?key|password|secret|token)\s*["']?\s*[:=]\s*["']?)[^\s"',;}]+/gi, '$1[REDACTED]');
 }
 export const TOOL_POLICY = Object.freeze({
-  repo_read: {risk: 'LOW', executable: true}, repo_inventory: {risk: 'LOW', executable: true},
+  repo_read: {risk: 'LOW', executable: true},
+  repo_inventory: {risk: 'LOW', executable: true},
+  system_probe: {risk: 'LOW', executable: true},
   deploy: {risk: 'HIGH', executable: false}, send_message: {risk: 'HIGH', executable: false},
   spend: {risk: 'HIGH', executable: false}, delete_data: {risk: 'HIGH', executable: false},
   merge: {risk: 'HIGH', executable: false}, credentials: {risk: 'HIGH', executable: false},

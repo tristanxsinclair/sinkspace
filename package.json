@@ -16,7 +16,8 @@
     "clones:serve": "tsx runtime/cli.ts serve",
     "clones:verify": "tsx runtime/cli.ts verify",
     "schemas": "tsx runtime/export-schemas.ts",
-    "clones:console": "tsx runtime/console-server.ts"
+    "clones:console": "tsx runtime/console-server.ts",
+    "clones:mission": "tsx runtime/cli.ts mission"
   },
   "dependencies": {
     "openai": "^7.15.0",
