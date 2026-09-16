@@ -6,7 +6,7 @@ import type {
 } from './intelligence.js';
 
 import type { ExecutionContext } from '../context.js';
-import type { Task, WorkerOutput } from '../contracts.js';
+import { WorkerOutputSchema, type Task, type WorkerOutput } from '../contracts.js';
 
 import { scout } from '../specialists.js';
 
@@ -45,7 +45,7 @@ export const localIntelligenceAdapter: IntelligenceAdapter = {
     ctx: ExecutionContext,
     _task: Task
   ): Promise<WorkerOutput> {
-    return scout(ctx);
+    return WorkerOutputSchema.parse(await scout(ctx));
   },
 
   async build(

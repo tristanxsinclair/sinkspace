@@ -6,20 +6,48 @@ import { authorize, ControlError, enforceBudget, hash, redact, validateGraph } f
 import { TERMINAL, transition } from './state.js';
 import { receiptDigest, type RunStore } from './store.js';
 import { scout, audit, redSink } from './specialists.js';
+import type { IntelligenceAdapter } from './adapters/intelligence.js';
+import { localIntelligenceAdapter } from './adapters/local-intelligence.js';
 
 export interface RuntimeAdapter {
   readonly name: string;
-  research(ctx: ExecutionContext): Promise<unknown>;
+
+  /**
+   * Transitional compatibility hook.
+   *
+   * Intelligence belongs in IntelligenceAdapter, but older tests and
+   * synthetic evals still inject research failures through RuntimeAdapter.
+   *
+   * Remove this once the entire test harness has migrated.
+   */
+  research?(ctx: ExecutionContext): Promise<unknown>;
+
   audit(ctx: ExecutionContext, output: WorkerOutput): Promise<Verification>;
-  challenge(ctx: ExecutionContext, output: WorkerOutput, verdict: Verification): Promise<{verification:Verification;findings:string[]}>;
+
+  challenge(
+    ctx: ExecutionContext,
+    output: WorkerOutput,
+    verdict: Verification
+  ): Promise<{verification:Verification;findings:string[]}>;
 }
-export const localAdapter: RuntimeAdapter = {name:'local-deterministic-v1', research:scout, audit, challenge:redSink};
+export const localAdapter: RuntimeAdapter = {
+  name:'local-deterministic-v1',
+  research: scout,
+  audit,
+  challenge:redSink
+};
 export class Orchestrator {
   private active = new Map<string,Run>();
   private cancelled = new Set<string>();
   private busy = false;
   private aborters = new Map<string,AbortController>();
-  constructor(private readonly store: RunStore, private readonly services: RuntimeServices, private readonly adapter: RuntimeAdapter = localAdapter, private readonly registry: AgentDefinition[] = loadRegistry()) {
+  constructor(
+    private readonly store: RunStore,
+    private readonly services: RuntimeServices,
+    private readonly adapter: RuntimeAdapter = localAdapter,
+    private readonly registry: AgentDefinition[] = loadRegistry(),
+    private readonly intelligence: IntelligenceAdapter = localIntelligenceAdapter
+  ) {
     this.registry = registry.map(a=>AgentDefinitionSchema.parse(a));
   }
   async create(input: unknown, budget: Budget = DEFAULT_BUDGET): Promise<Run> {
@@ -114,7 +142,13 @@ export class Orchestrator {
       this.event(run,'TOOL_COMPLETED','SINK-00',null,`Pinned commit ${run.commit_sha}; working tree excluded.`);
       this.guard(run); this.plan(run); this.state(run,'RUNNING'); await this.store.save(run);
       const [research,build,auditor,red]=run.tasks as [Task,Task,Task,Task];
-      const raw=await this.execute(run,research,ctx=>this.adapter.research(ctx));
+      const raw=await this.execute(
+        run,
+        research,
+        ctx => this.adapter.research
+          ? this.adapter.research(ctx)
+          : this.intelligence.research(ctx,research)
+      );
       const output=WorkerOutputSchema.parse(raw);
       if (redact(JSON.stringify(output))!==JSON.stringify(output)) throw new ControlError('SECRET_OUTPUT_BLOCKED');
       if(new Set(output.claims.map(c=>c.claim_id)).size!==output.claims.length)throw new ControlError('DUPLICATE_CLAIM');
