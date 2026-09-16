@@ -1,6 +1,11 @@
 {
-  "name": "sink-empire", "version": "0.2.0", "private": true, "type": "module",
-  "engines": {"node": ">=22.13.0"},
+  "name": "sink-empire",
+  "version": "0.2.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=22.13.0"
+  },
   "scripts": {
     "build": "tsc -p tsconfig.json",
     "typecheck": "tsc -p tsconfig.json --noEmit",
@@ -10,8 +15,18 @@
     "clones:run": "tsx runtime/cli.ts run",
     "clones:serve": "tsx runtime/cli.ts serve",
     "clones:verify": "tsx runtime/cli.ts verify",
-    "schemas": "tsx runtime/export-schemas.ts"
+    "schemas": "tsx runtime/export-schemas.ts",
+    "clones:console": "tsx runtime/console-server.ts"
   },
-  "dependencies": {"zod": "^4.1.0"},
-  "devDependencies": {"@types/node": "^22.0.0", "typescript": "^5.9.0", "tsx": "^4.20.0", "eslint": "^9.0.0", "typescript-eslint": "^8.0.0"}
+  "dependencies": {
+    "openai": "^7.15.0",
+    "zod": "^4.1.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.0.0",
+    "eslint": "^9.0.0",
+    "tsx": "^4.20.0",
+    "typescript": "^5.9.0",
+    "typescript-eslint": "^8.0.0"
+  }
 }

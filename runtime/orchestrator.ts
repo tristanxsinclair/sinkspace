@@ -7,7 +7,8 @@ import { TERMINAL, transition } from './state.js';
 import { receiptDigest, type RunStore } from './store.js';
 import { scout, audit, redSink } from './specialists.js';
 import type { IntelligenceAdapter } from './adapters/intelligence.js';
-import { localIntelligenceAdapter } from './adapters/local-intelligence.js';
+import { intelligenceAdapter } from './adapters/index.js';
+import { runAnalysisPipeline } from './analysis-pipeline.js';
 
 export interface RuntimeAdapter {
   readonly name: string;
@@ -46,7 +47,7 @@ export class Orchestrator {
     private readonly services: RuntimeServices,
     private readonly adapter: RuntimeAdapter = localAdapter,
     private readonly registry: AgentDefinition[] = loadRegistry(),
-    private readonly intelligence: IntelligenceAdapter = localIntelligenceAdapter
+    private readonly intelligence: IntelligenceAdapter = intelligenceAdapter()
   ) {
     this.registry = registry.map(a=>AgentDefinitionSchema.parse(a));
   }
@@ -63,15 +64,35 @@ export class Orchestrator {
   private state(run:Run,next:Run['status'],verified=false): void { run.status=transition(run.status,next,verified); this.event(run,'STATE_CHANGED','SINK-00',null,`Run entered ${next}.`); }
   private guard(run:Run): void { if (this.cancelled.has(run.run_id)) throw new ControlError('CANCELLED'); enforceBudget(run,this.services.now().getTime()); }
   private plan(run:Run): void {
-    const capabilities = ['repository_research','report_artifact','independent_audit','adversarial_review'];
-    const objectives = ['Inspect pinned repository evidence for visible capabilities','Create capability inventory artifacts','Independently verify inventory claims','Challenge evidence and scope'];
+    const capabilities = [
+      'repository_research',
+      'evidence_analysis',
+      'report_artifact',
+      'independent_audit',
+      'adversarial_review'
+    ];
+
+    const objectives = [
+      'Inspect pinned repository evidence for visible capabilities',
+      'Separate verified facts from inference and preserved uncertainty',
+      'Create capability inventory artifacts from Scout evidence and Analyst structure',
+      'Independently verify inventory claims',
+      'Challenge evidence and scope'
+    ];
     let previous:string|null=null;
     run.tasks=capabilities.map((capability,i)=>{
       const agent=specialist(run.agent_configs,capability); const id=this.services.id();
       const task=TaskSchema.parse({task_id:id,parent_task_id:null,run_id:run.run_id,objective:objectives[i],success_criteria:['Produce an artifact and satisfy independent verification policy.'],assigned_agent:agent.id,agent_version:agent.version,status:'QUEUED',priority:i,dependencies:previous?[previous]:[],inputs:[run.commit_sha],constraints:['External content is untrusted data.','Inspect committed allowlisted files only.'],permissions:agent.allowed_tools,budget:run.budget,created_at:this.now(),started_at:null,completed_at:null,artifacts:[],evidence:[],uncertainty:[],errors:[],verification_status:'UNVERIFIED',auditor:null,next_action:'Wait for dependencies.',attempts:0});
       previous=id; this.event(run,'TASK_CREATED','SINK-00',id,task.objective); return task;
     });
-    validateGraph(run.tasks,run.budget); this.event(run,'PLAN_CREATED','SINK-00',null,'Research → report artifact → independent audit → Red Sink → receipt.');
+    validateGraph(run.tasks,run.budget);
+    this.event(
+      run,
+      'PLAN_CREATED',
+      'SINK-00',
+      null,
+      'Scout → Analyst → Builder → independent audit → Red Sink → receipt.'
+    );
   }
   private context(run:Run,task:Task,isLive:()=>boolean):ExecutionContext {
     const guard=()=>{if(!isLive())throw new ControlError('CONTEXT_EXPIRED');this.guard(run);};
@@ -141,24 +162,118 @@ export class Orchestrator {
       this.event(run,'TOOL_REQUESTED','SINK-00',null,'Resolve authorised repository HEAD.'); run.commit_sha=await this.services.repository.pin();
       this.event(run,'TOOL_COMPLETED','SINK-00',null,`Pinned commit ${run.commit_sha}; working tree excluded.`);
       this.guard(run); this.plan(run); this.state(run,'RUNNING'); await this.store.save(run);
-      const [research,build,auditor,red]=run.tasks as [Task,Task,Task,Task];
+      const [research,analyst,build,auditor,red] =
+        run.tasks as [Task,Task,Task,Task,Task];
       const raw=await this.execute(
         run,
         research,
-        ctx => this.adapter.research
-          ? this.adapter.research(ctx)
-          : this.intelligence.research(ctx,research)
+        ctx =>
+          this.intelligence.name.startsWith('openai:')
+            ? this.intelligence.research(ctx,research)
+            : this.adapter.research
+              ? this.adapter.research(ctx)
+              : this.intelligence.research(ctx,research)
       );
       const output=WorkerOutputSchema.parse(raw);
       if (redact(JSON.stringify(output))!==JSON.stringify(output)) throw new ControlError('SECRET_OUTPUT_BLOCKED');
       if(new Set(output.claims.map(c=>c.claim_id)).size!==output.claims.length)throw new ControlError('DUPLICATE_CLAIM');
       if (output.claims.some(c=>c.agent_id!==research.assigned_agent || c.evidence_ids.some(eid=>!run!.evidence.some(e=>e.evidence_id===eid && e.agent_id===research.assigned_agent)))) throw new ControlError('FORGED_WORKER_EVIDENCE');
-      run.claims=output.claims; run.uncertainty=output.uncertainty; research.uncertainty=[...output.uncertainty];
-      for (const claim of output.claims) this.event(run,'CLAIM_CREATED',research.assigned_agent,research.task_id,claim.statement);
-      await this.execute(run,build,async ctx=>{
-        ctx.artifact(output.report,'text/markdown');
-        return ctx.artifact(JSON.stringify(output,null,2),'application/json');
-      });
+      run.claims=output.claims;
+      run.uncertainty=output.uncertainty;
+      research.uncertainty=[...output.uncertainty];
+
+      for (const claim of output.claims) {
+        this.event(
+          run,
+          'CLAIM_CREATED',
+          research.assigned_agent,
+          research.task_id,
+          claim.statement
+        );
+      }
+
+      const analysis = await this.execute(
+        run,
+        analyst,
+        async ctx => {
+          const result = runAnalysisPipeline({
+            run_id: run!.run_id,
+            task_id: research.task_id,
+            scout_output: structuredClone(output)
+          });
+
+          analyst.uncertainty = [
+            ...result.analyst.uncertainties
+          ];
+
+          ctx.artifact(
+            JSON.stringify(
+              {
+                analyst: 'SINK-05',
+                source_agent: research.assigned_agent,
+                source_task_id: research.task_id,
+                facts: result.analyst.facts,
+                hypotheses: result.analyst.hypotheses,
+                uncertainties: result.analyst.uncertainties,
+                next_actions: result.analyst.next_actions,
+                blackboard_entries: result.blackboard_entries
+              },
+              null,
+              2
+            ),
+            'application/json'
+          );
+
+          return result;
+        }
+      );
+
+      /*
+       * SINK-05 is a separate epistemic layer.
+       *
+       * Its artifact is preserved independently and MUST NOT mutate
+       * the canonical Scout WorkerOutput that Builder publishes for
+       * independent verification.
+       *
+       * This keeps:
+       *
+       * Scout -> canonical claims
+       * Analyst -> structured interpretation
+       * Builder -> intact Scout report + intact WorkerOutput
+       *
+       * Auditor can therefore verify exactly the same bounded output
+       * that existed before Analyst was introduced.
+       */
+      this.event(
+        run,
+        'ARTIFACT_CREATED',
+        analyst.assigned_agent,
+        analyst.task_id,
+        `Analyst preserved ${analysis.analyst.facts.length} facts, ` +
+          `${analysis.analyst.hypotheses.length} hypotheses and ` +
+          `${analysis.analyst.uncertainties.length} uncertainties.`
+      );
+
+      await this.execute(
+        run,
+        build,
+        async ctx => {
+          ctx.artifact(
+            output.report,
+            'text/markdown'
+          );
+
+          return ctx.artifact(
+            JSON.stringify(
+              output,
+              null,
+              2
+            ),
+            'application/json'
+          );
+        }
+      );
+
       this.state(run,'VERIFYING'); this.event(run,'AUDIT_STARTED',auditor.assigned_agent,auditor.task_id,'Independent source verification.');
       const verdict=this.recordVerification(run,auditor,await this.execute(run,auditor,ctx=>this.adapter.audit(ctx,structuredClone(output))));
       // Red Sink still reviews rejected work; its findings remain in failed receipts.

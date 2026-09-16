@@ -19,9 +19,19 @@ import { scout } from '../specialists.js';
 
 const MODEL = process.env.SINK_MODEL ?? 'gpt-5.6-sol';
 
-const client = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY
-});
+function openAIClient(): OpenAI {
+  const apiKey = process.env.OPENAI_API_KEY;
+
+  if (!apiKey) {
+    throw new Error(
+      'MODEL_UNAVAILABLE: OPENAI_API_KEY is not configured. No model inference was performed.'
+    );
+  }
+
+  return new OpenAI({
+    apiKey
+  });
+}
 
 type ModelAnalysis = {
   summary: string;
@@ -145,7 +155,7 @@ export class OpenAIIntelligenceAdapter
     let response;
 
     try {
-      response = await client.responses.create({
+      response = await openAIClient().responses.create({
         model: MODEL,
         store: false,
 

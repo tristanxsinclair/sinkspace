@@ -1,68 +1,245 @@
 <!doctype html>
 <html lang="en">
-  <head>
-    <meta charset="utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1">
-    <meta name="color-scheme" content="dark">
-    <title>Sink Prime · Execution console</title>
-    <link rel="stylesheet" href="./styles.css">
-    <script src="./app.js" defer></script>
-  </head>
-  <body>
-    <a class="skip-link" href="#main">Skip to execution console</a>
-    <header class="masthead">
-      <a class="brand" href="./" aria-label="Sink Prime home"><span class="brand-mark" aria-hidden="true">S.</span><span>SINK PRIME<small>Execution console</small></span></a>
-      <div class="system"><span id="system-indicator" class="dot"></span><span id="system-status" role="status">Connecting</span><span class="environment">Development</span></div>
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width,initial-scale=1"
+  />
+
+  <title>Sink Clones Command Console</title>
+
+  <link
+    rel="stylesheet"
+    href="/styles.css"
+  />
+</head>
+
+<body>
+  <main class="shell">
+
+    <header class="topbar">
+      <div>
+        <p class="eyebrow">
+          SINK SPACE / EXECUTION NETWORK
+        </p>
+
+        <h1>Sink Clones</h1>
+
+        <p class="subtitle">
+          Live local command console
+        </p>
+      </div>
+
+      <div class="connection">
+        <span
+          id="connection-dot"
+          class="dot"
+        ></span>
+
+        <span id="connection-text">
+          Connecting
+        </span>
+      </div>
     </header>
 
-    <div class="workspace">
-      <aside class="sidebar" aria-label="Operations and agents">
-        <section>
-          <div class="section-heading"><h2>Operations</h2><span id="run-count" class="count">0</span></div>
-          <div id="run-list"><p class="muted">Loading run history…</p></div>
-        </section>
-        <section>
-          <div class="section-heading"><h2>Agent registry</h2></div>
-          <div id="agent-list"><p class="muted">Loading definitions…</p></div>
-        </section>
-        <div class="operator"><span class="eyebrow">Human authority</span><strong>Tristan Jack Sinclair</strong><span>Turbo Sink · King of Yangebup Lake</span><small>Identity never changes permissions.</small></div>
-      </aside>
 
-      <main id="main" tabindex="-1">
-        <section class="page-heading">
-          <div><p class="eyebrow">Objective → evidence → receipt</p><h1>One objective.<br>Accountable execution.</h1><p class="intro">Inspect what happened, what the evidence supports, and what comes next.</p></div>
-          <div class="adapter-note"><span class="eyebrow">Execution environment</span><strong>Local deterministic adapter</strong><p>No model calls. This workflow runs bounded repository checks and independent verification.</p><code id="adapter-name">Connecting…</code></div>
-        </section>
+    <section class="hero-grid">
 
-        <div id="connection-error" class="notice error" role="alert" hidden></div>
-        <section class="intake panel" aria-labelledby="intake-heading">
-          <div><p class="eyebrow">Available workflow</p><h2 id="intake-heading">Repository health audit</h2><p id="repository" class="repository">Reading configured repository…</p></div>
-          <form id="run-form">
-            <label for="objective">Objective</label>
-            <textarea id="objective" rows="3" readonly>Inspect the Sink Space repository and produce a concise capability inventory identifying the major current product/business capabilities visible in repository evidence.</textarea>
-            <div class="form-footer"><p>This slice supports this objective only. A completed audit can still report failing repository checks.</p><button id="start-run" type="submit" disabled>Run repository audit <span aria-hidden="true">↗</span></button></div>
-          </form>
-          <p id="action-message" role="status" class="action-message"></p>
-        </section>
+      <article class="panel status-panel">
+        <div class="panel-label">
+          CURRENT RUN
+        </div>
 
-        <section class="needs panel" aria-labelledby="needs-heading"><div><p class="eyebrow">Human authority</p><h2 id="needs-heading">Needs Tristan</h2></div><div id="approval-list"><p class="muted">Loading approval queue…</p></div></section>
+        <div class="run-line">
+          <strong id="run-status">
+            —
+          </strong>
 
-        <section id="empty-run" class="empty panel" hidden><span class="eyebrow">Ready when you are</span><h2>No execution records yet.</h2><p>Run the repository audit to create a real artifact, claim evidence, independent verdicts, and a downloadable receipt.</p></section>
+          <span id="adapter">
+            —
+          </span>
+        </div>
 
-        <section id="run-detail" aria-label="Selected operation" hidden>
-          <header class="run-heading"><div><p class="eyebrow">Selected operation</p><h2 id="run-objective"></h2><p id="run-identity" class="mono muted"></p></div><span id="run-status" class="badge"></span></header>
-          <div class="metrics" id="run-metrics"></div>
-          <div class="decisions">
-            <section class="panel"><p class="eyebrow">What is happening</p><h3 id="current-activity"></h3><p id="next-action" class="muted"></p><button id="cancel-run" class="button-secondary" type="button" hidden>Cancel run</button></section>
-            <section class="panel"><p class="eyebrow">What is proven</p><div id="proven-summary"></div></section>
-            <section class="panel"><p class="eyebrow">What failed</p><div id="failure-summary"></div></section>
+        <code id="run-id">
+          No run loaded
+        </code>
+
+        <div class="metrics">
+          <div>
+            <strong id="agent-count">0</strong>
+            <span>agents</span>
           </div>
-          <section class="panel" aria-labelledby="tasks-heading"><div class="section-heading"><h3 id="tasks-heading">Execution tasks</h3><span class="muted small">Bounded work · explicit state</span></div><div id="task-list"></div></section>
-          <section class="panel" aria-labelledby="receipt-heading"><div class="section-heading"><div><p class="eyebrow">Verification, not assertion</p><h3 id="receipt-heading">Execution receipt</h3></div><button id="download-receipt" class="button-secondary" type="button" hidden>Download JSON ↓</button></div><div id="receipt-content"></div></section>
-          <section class="panel" aria-labelledby="timeline-heading"><div class="section-heading"><h3 id="timeline-heading">Observable actions</h3><span class="muted small">Decision summaries · no hidden reasoning</span></div><ol id="timeline" class="timeline"></ol></section>
-        </section>
-        <footer class="page-footer"><span>Reality &gt; evidence &gt; artifact &gt; claim &gt; presentation.</span><span>Internal development system</span></footer>
-      </main>
-    </div>
-  </body>
+
+          <div>
+            <strong id="evidence-count">0</strong>
+            <span>evidence</span>
+          </div>
+
+          <div>
+            <strong id="claim-count">0</strong>
+            <span>claims</span>
+          </div>
+
+          <div>
+            <strong id="artifact-count">0</strong>
+            <span>artifacts</span>
+          </div>
+        </div>
+      </article>
+
+
+      <article class="panel receipt-panel">
+        <div class="panel-label">
+          RECEIPT
+        </div>
+
+        <div
+          id="receipt-state"
+          class="receipt-state"
+        >
+          —
+        </div>
+
+        <code id="commit">
+          —
+        </code>
+
+        <p id="completed-at">
+          —
+        </p>
+      </article>
+
+    </section>
+
+
+    <section class="section">
+      <div class="section-head">
+        <div>
+          <p class="panel-label">
+            AGENT NETWORK
+          </p>
+
+          <h2>Execution chain</h2>
+        </div>
+
+        <select
+          id="run-selector"
+          aria-label="Select run"
+        ></select>
+      </div>
+
+      <div
+        id="agents"
+        class="agent-grid"
+      ></div>
+    </section>
+
+
+    <section class="work-grid">
+
+      <article class="panel">
+        <div class="panel-label">
+          KNOWLEDGE STATE
+        </div>
+
+        <div id="knowledge">
+          <p class="empty">
+            Waiting for run data.
+          </p>
+        </div>
+      </article>
+
+
+      <article class="panel">
+        <div class="panel-label">
+          INDEPENDENT VERIFICATION
+        </div>
+
+        <div id="verdicts">
+          <p class="empty">
+            No verdict data.
+          </p>
+        </div>
+      </article>
+
+    </section>
+
+
+    <section class="work-grid">
+
+      <article class="panel">
+        <div class="panel-label">
+          UNCERTAINTY
+        </div>
+
+        <ul
+          id="uncertainty"
+          class="stack-list"
+        ></ul>
+      </article>
+
+
+      <article class="panel">
+        <div class="panel-label">
+          ERRORS / BLOCKERS
+        </div>
+
+        <ul
+          id="errors"
+          class="stack-list"
+        ></ul>
+      </article>
+
+    </section>
+
+
+    <section class="section">
+
+      <div class="section-head">
+        <div>
+          <p class="panel-label">
+            LIVE TRACE
+          </p>
+
+          <h2>Run events</h2>
+        </div>
+
+        <span id="event-count">
+          0 events
+        </span>
+      </div>
+
+      <div
+        id="events"
+        class="timeline"
+      ></div>
+
+    </section>
+
+
+    <section class="section">
+
+      <div class="section-head">
+        <div>
+          <p class="panel-label">
+            OUTPUTS
+          </p>
+
+          <h2>Artifacts</h2>
+        </div>
+      </div>
+
+      <div
+        id="artifacts"
+        class="artifact-grid"
+      ></div>
+
+    </section>
+
+  </main>
+
+  <script src="/app.js"></script>
+</body>
 </html>
