@@ -1,0 +1,19 @@
+{
+  "$schema":"https://json-schema.org/draft/2020-12/schema",
+  "$id":"https://sinkspace.com.au/schemas/sink-receipt-v0.json",
+  "title":"Sink Clone Receipt",
+  "type":"object",
+  "additionalProperties":false,
+  "required":["taskId","agentId","claim","artifacts","evidence","verdict","unverifiedClaims","nextAction"],
+  "properties":{
+    "taskId":{"type":"string","minLength":1},
+    "agentId":{"enum":["SINK-00","SINK-01","SINK-02","SINK-03","SINK-04"]},
+    "claim":{"type":"string","minLength":1},
+    "artifacts":{"type":"array","items":{"type":"string"}},
+    "evidence":{"type":"array","items":{"type":"string"}},
+    "verdict":{"enum":["PASS","FAIL","BLOCKED","UNVERIFIED"]},
+    "confidence":{"type":"number","minimum":0,"maximum":1},
+    "unverifiedClaims":{"type":"array","items":{"type":"string"}},
+    "nextAction":{"type":"string","minLength":1}
+  }
+}
