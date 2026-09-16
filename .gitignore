@@ -4,3 +4,7 @@ build/
 .env
 .env.*
 !.env.example
+
+# Local Sink Clones execution artifacts
+agents/runs/
+.sink/runs/
