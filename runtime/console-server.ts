@@ -352,11 +352,264 @@ function findAnalystSnapshot(
   };
 }
 
+function buildProofGraph(
+  run: any,
+  analyst: ReturnType<typeof findAnalystSnapshot>
+): any[] {
+  const evidence =
+    Array.isArray(run.evidence)
+      ? run.evidence
+      : [];
+
+  const artifacts =
+    Array.isArray(run.artifacts)
+      ? run.artifacts
+      : [];
+
+  const tasks =
+    Array.isArray(run.tasks)
+      ? run.tasks
+      : [];
+
+  const entries =
+    Array.isArray(
+      analyst.blackboard_entries
+    )
+      ? analyst.blackboard_entries
+      : [];
+
+  return entries.map(
+    (entry: any) => {
+      const broken: string[] = [];
+
+      const evidenceNodes =
+        (entry.evidence_ids ?? [])
+          .map(
+            (evidenceId: string) => {
+              const evidenceNode =
+                evidence.find(
+                  (candidate: any) =>
+                    candidate.evidence_id ===
+                    evidenceId
+                ) ?? null;
+
+              if (!evidenceNode) {
+                broken.push(
+                  `Missing evidence ${evidenceId}`
+                );
+
+                return {
+                  evidence_id:
+                    evidenceId,
+
+                  found:
+                    false,
+
+                  evidence:
+                    null,
+
+                  artifact:
+                    null,
+
+                  task:
+                    null
+                };
+              }
+
+              const artifact =
+                artifacts.find(
+                  (candidate: any) =>
+                    candidate.artifact_id ===
+                    evidenceNode.artifact_id
+                ) ?? null;
+
+              if (!artifact) {
+                broken.push(
+                  `Evidence ${evidenceId} references missing artifact ${evidenceNode.artifact_id}`
+                );
+              }
+
+              const task =
+                tasks.find(
+                  (candidate: any) =>
+                    candidate.task_id ===
+                    evidenceNode.task_id
+                ) ?? null;
+
+              if (!task) {
+                broken.push(
+                  `Evidence ${evidenceId} references missing task ${evidenceNode.task_id}`
+                );
+              }
+
+              if (
+                evidenceNode.commit_sha !==
+                run.commit_sha
+              ) {
+                broken.push(
+                  `Evidence ${evidenceId} commit does not match pinned run commit`
+                );
+              }
+
+              return {
+                evidence_id:
+                  evidenceId,
+
+                found:
+                  true,
+
+                evidence: {
+                  evidence_id:
+                    evidenceNode.evidence_id,
+
+                  artifact_id:
+                    evidenceNode.artifact_id,
+
+                  commit_sha:
+                    evidenceNode.commit_sha,
+
+                  tool:
+                    evidenceNode.tool,
+
+                  agent_id:
+                    evidenceNode.agent_id,
+
+                  task_id:
+                    evidenceNode.task_id,
+
+                  source:
+                    evidenceNode.source,
+
+                  trust:
+                    evidenceNode.trust,
+
+                  timestamp:
+                    evidenceNode.timestamp
+                },
+
+                artifact:
+                  artifact
+                    ? {
+                        artifact_id:
+                          artifact.artifact_id,
+
+                        agent_id:
+                          artifact.agent_id,
+
+                        task_id:
+                          artifact.task_id,
+
+                        media_type:
+                          artifact.media_type,
+
+                        sha256:
+                          artifact.sha256,
+
+                        created_at:
+                          artifact.created_at
+                      }
+                    : null,
+
+                task:
+                  task
+                    ? {
+                        task_id:
+                          task.task_id,
+
+                        assigned_agent:
+                          task.assigned_agent,
+
+                        agent_version:
+                          task.agent_version,
+
+                        objective:
+                          task.objective,
+
+                        status:
+                          task.status
+                      }
+                    : null
+              };
+            }
+          );
+
+      if (
+        entry.kind === 'FACT' &&
+        evidenceNodes.length === 0
+      ) {
+        broken.push(
+          'FACT has no evidence references'
+        );
+      }
+
+      return {
+        entry_id:
+          entry.entry_id,
+
+        kind:
+          entry.kind,
+
+        content:
+          entry.content,
+
+        agent_id:
+          entry.agent_id,
+
+        task_id:
+          entry.task_id,
+
+        created_at:
+          entry.created_at,
+
+        evidence_ids:
+          entry.evidence_ids ?? [],
+
+        evidence_nodes:
+          evidenceNodes,
+
+        pinned_commit:
+          run.commit_sha ?? null,
+
+        receipt: {
+          sealed:
+            Boolean(
+              run.receipt
+            ),
+
+          receipt_id:
+            run.receipt?.receipt_id ??
+            null,
+
+          hash:
+            run.receipt?.hash ??
+            null,
+
+          final_status:
+            run.receipt?.final_status ??
+            null
+        },
+
+        integrity:
+          broken.length === 0,
+
+        broken_references:
+          broken
+      };
+    }
+  );
+}
+
 function summarizeRun(
   run: any
 ): any {
   const analyst =
     findAnalystSnapshot(run);
+
+  const proofGraph =
+    buildProofGraph(
+      run,
+      analyst
+    );
 
   const stages = [
     'SINK-01',
@@ -535,6 +788,24 @@ function summarizeRun(
 
     stages,
     analyst,
+    proof_graph:
+      proofGraph,
+    proof_integrity: {
+      total:
+        proofGraph.length,
+
+      intact:
+        proofGraph.filter(
+          entry =>
+            entry.integrity
+        ).length,
+
+      broken:
+        proofGraph.filter(
+          entry =>
+            !entry.integrity
+        ).length
+    },
     verification,
 
     uncertainty:

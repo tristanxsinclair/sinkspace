@@ -1,6 +1,8 @@
 const state = {
   runs: [],
-  selectedRun: null
+  selectedRun: null,
+  currentRun: null,
+  selectedProofEntry: null
 };
 
 const $ = id =>
@@ -276,6 +278,488 @@ function renderVerification(
       .join('');
 }
 
+function proofKindClass(
+  kind
+) {
+  if (kind === 'FACT') {
+    return 'proof-fact';
+  }
+
+  if (kind === 'HYPOTHESIS') {
+    return 'proof-hypothesis';
+  }
+
+  return 'proof-uncertainty';
+}
+
+function renderProofDetail(
+  entry
+) {
+  const root =
+    $('proof-detail');
+
+  if (!entry) {
+    root.innerHTML =
+      '<div class="empty">Select a Blackboard entry.</div>';
+
+    return;
+  }
+
+  const evidenceNodes =
+    entry.evidence_nodes ?? [];
+
+  const evidenceHtml =
+    evidenceNodes.length
+      ? evidenceNodes
+          .map(
+            node => {
+              if (!node.found) {
+                return `
+                  <div class="proof-node broken-node">
+                    <div class="proof-node-label">
+                      BROKEN EVIDENCE EDGE
+                    </div>
+
+                    <div class="mono">
+                      ${escapeHtml(
+                        node.evidence_id
+                      )}
+                    </div>
+                  </div>
+                `;
+              }
+
+              return `
+                <div class="proof-edge">
+                  ↓
+                </div>
+
+                <div class="proof-node">
+                  <div class="proof-node-label">
+                    EVIDENCE
+                  </div>
+
+                  <div class="proof-node-title mono">
+                    ${escapeHtml(
+                      shortId(
+                        node.evidence?.evidence_id
+                      )
+                    )}
+                  </div>
+
+                  <div class="proof-row">
+                    <span>source</span>
+                    <strong class="mono">
+                      ${escapeHtml(
+                        node.evidence?.source
+                      )}
+                    </strong>
+                  </div>
+
+                  <div class="proof-row">
+                    <span>tool</span>
+                    <strong class="mono">
+                      ${escapeHtml(
+                        node.evidence?.tool
+                      )}
+                    </strong>
+                  </div>
+
+                  <div class="proof-row">
+                    <span>trust</span>
+                    <strong>
+                      ${escapeHtml(
+                        node.evidence?.trust
+                      )}
+                    </strong>
+                  </div>
+                </div>
+
+                <div class="proof-edge">
+                  ↓
+                </div>
+
+                <div class="proof-node">
+                  <div class="proof-node-label">
+                    SOURCE ARTIFACT
+                  </div>
+
+                  ${
+                    node.artifact
+                      ? `
+                        <div class="proof-node-title mono">
+                          ${escapeHtml(
+                            shortId(
+                              node.artifact.artifact_id
+                            )
+                          )}
+                        </div>
+
+                        <div class="proof-row">
+                          <span>agent</span>
+                          <strong>
+                            ${escapeHtml(
+                              node.artifact.agent_id
+                            )}
+                          </strong>
+                        </div>
+
+                        <div class="proof-row">
+                          <span>type</span>
+                          <strong>
+                            ${escapeHtml(
+                              node.artifact.media_type
+                            )}
+                          </strong>
+                        </div>
+
+                        <div class="proof-row">
+                          <span>sha256</span>
+                          <strong class="mono">
+                            ${escapeHtml(
+                              shortSha(
+                                node.artifact.sha256
+                              )
+                            )}
+                          </strong>
+                        </div>
+                      `
+                      : '<div class="bad">Missing artifact</div>'
+                  }
+                </div>
+
+                <div class="proof-edge">
+                  ↓
+                </div>
+
+                <div class="proof-node">
+                  <div class="proof-node-label">
+                    ORIGIN TASK
+                  </div>
+
+                  ${
+                    node.task
+                      ? `
+                        <div class="proof-node-title">
+                          ${escapeHtml(
+                            node.task.assigned_agent
+                          )}
+                        </div>
+
+                        <div class="proof-row">
+                          <span>task</span>
+                          <strong class="mono">
+                            ${escapeHtml(
+                              shortId(
+                                node.task.task_id
+                              )
+                            )}
+                          </strong>
+                        </div>
+
+                        <div class="proof-row">
+                          <span>version</span>
+                          <strong>
+                            ${escapeHtml(
+                              node.task.agent_version
+                            )}
+                          </strong>
+                        </div>
+                      `
+                      : '<div class="bad">Missing task</div>'
+                  }
+                </div>
+              `;
+            }
+          )
+          .join('')
+      : `
+          <div class="proof-edge">
+            ↓
+          </div>
+
+          <div class="proof-node">
+            <div class="proof-node-label">
+              NO EVIDENCE EDGE
+            </div>
+
+            <div class="subtle">
+              This entry carries no evidence reference.
+            </div>
+          </div>
+        `;
+
+  root.innerHTML = `
+    <div class="proof-node ${proofKindClass(
+      entry.kind
+    )}">
+      <div class="proof-node-label">
+        BLACKBOARD ENTRY
+      </div>
+
+      <div class="proof-node-title">
+        ${escapeHtml(
+          entry.kind
+        )}
+      </div>
+
+      <div class="proof-statement">
+        ${escapeHtml(
+          entry.content
+        )}
+      </div>
+
+      <div class="proof-row">
+        <span>entry</span>
+        <strong class="mono">
+          ${escapeHtml(
+            shortId(
+              entry.entry_id
+            )
+          )}
+        </strong>
+      </div>
+    </div>
+
+    ${evidenceHtml}
+
+    <div class="proof-edge">
+      ↓
+    </div>
+
+    <div class="proof-node">
+      <div class="proof-node-label">
+        PINNED COMMIT
+      </div>
+
+      <div class="proof-node-title mono">
+        ${escapeHtml(
+          entry.pinned_commit ??
+          '—'
+        )}
+      </div>
+    </div>
+
+    <div class="proof-edge">
+      ↓
+    </div>
+
+    <div class="proof-node ${
+      entry.receipt?.sealed
+        ? 'sealed-node'
+        : 'broken-node'
+    }">
+      <div class="proof-node-label">
+        SEALED RECEIPT
+      </div>
+
+      <div class="proof-node-title">
+        ${
+          entry.receipt?.sealed
+            ? 'SEALED'
+            : 'UNSEALED'
+        }
+      </div>
+
+      <div class="proof-row">
+        <span>status</span>
+        <strong>
+          ${escapeHtml(
+            entry.receipt?.final_status ??
+            '—'
+          )}
+        </strong>
+      </div>
+
+      <div class="proof-row">
+        <span>hash</span>
+        <strong class="mono">
+          ${escapeHtml(
+            entry.receipt?.hash ??
+            '—'
+          )}
+        </strong>
+      </div>
+    </div>
+
+    ${
+      entry.integrity
+        ? `
+          <div class="proof-integrity-result good">
+            PROVENANCE CHAIN INTACT
+          </div>
+        `
+        : `
+          <div class="proof-integrity-result bad">
+            BROKEN PROVENANCE
+          </div>
+
+          ${(entry.broken_references ?? [])
+            .map(
+              issue =>
+                `<div class="verification-reason">${escapeHtml(
+                  issue
+                )}</div>`
+            )
+            .join('')}
+        `
+    }
+  `;
+}
+
+function selectProofEntry(
+  entryId
+) {
+  const entries =
+    state.currentRun?.proof_graph ??
+    [];
+
+  state.selectedProofEntry =
+    entryId;
+
+  document
+    .querySelectorAll(
+      '.proof-entry'
+    )
+    .forEach(
+      element => {
+        element.classList.toggle(
+          'selected',
+          element.dataset.entryId ===
+            entryId
+        );
+      }
+    );
+
+  renderProofDetail(
+    entries.find(
+      entry =>
+        entry.entry_id ===
+        entryId
+    )
+  );
+}
+
+function renderProofExplorer(
+  run
+) {
+  const list =
+    $('proof-entry-list');
+
+  const entries =
+    run?.proof_graph ??
+    [];
+
+  const integrity =
+    run?.proof_integrity ?? {
+      total: 0,
+      intact: 0,
+      broken: 0
+    };
+
+  $('proof-integrity')
+    .innerHTML = `
+      <span class="${
+        integrity.broken === 0
+          ? 'good'
+          : 'bad'
+      }">
+        ${integrity.intact}/${integrity.total} INTACT
+      </span>
+    `;
+
+  if (!entries.length) {
+    list.innerHTML =
+      '<div class="empty">No sealed Blackboard proof graph available.</div>';
+
+    renderProofDetail(
+      null
+    );
+
+    return;
+  }
+
+  list.innerHTML =
+    entries
+      .map(
+        entry => `
+          <button
+            type="button"
+            class="proof-entry ${proofKindClass(
+              entry.kind
+            )}"
+            data-entry-id="${escapeHtml(
+              entry.entry_id
+            )}"
+          >
+            <div class="proof-entry-top">
+              <span>
+                ${escapeHtml(
+                  entry.kind
+                )}
+              </span>
+
+              <span class="${
+                entry.integrity
+                  ? 'good'
+                  : 'bad'
+              }">
+                ${
+                  entry.integrity
+                    ? 'INTACT'
+                    : 'BROKEN'
+                }
+              </span>
+            </div>
+
+            <div class="proof-entry-content">
+              ${escapeHtml(
+                entry.content
+              )}
+            </div>
+
+            <div class="proof-entry-meta">
+              ${
+                entry.evidence_ids
+                  ?.length ?? 0
+              } evidence edge(s)
+            </div>
+          </button>
+        `
+      )
+      .join('');
+
+  list
+    .querySelectorAll(
+      '.proof-entry'
+    )
+    .forEach(
+      button => {
+        button.addEventListener(
+          'click',
+          () => {
+            selectProofEntry(
+              button.dataset.entryId
+            );
+          }
+        );
+      }
+    );
+
+  const desired =
+    entries.find(
+      entry =>
+        entry.entry_id ===
+        state.selectedProofEntry
+    )
+      ? state.selectedProofEntry
+      : entries[0].entry_id;
+
+  selectProofEntry(
+    desired
+  );
+}
+
 function renderArtifacts(
   artifacts
 ) {
@@ -401,6 +885,9 @@ function renderRun(
     return;
   }
 
+  state.currentRun =
+    run;
+
   $('run-status')
     .textContent =
       run.status ?? '—';
@@ -479,6 +966,10 @@ function renderRun(
 
   renderPipeline(
     run.stages
+  );
+
+  renderProofExplorer(
+    run
   );
 
   const analyst =
