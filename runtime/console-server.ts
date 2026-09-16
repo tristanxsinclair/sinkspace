@@ -253,8 +253,10 @@ function findAnalystSnapshot(
   }
 
   const source =
-    parsed.analyst ??
-    parsed;
+    parsed.analyst &&
+    typeof parsed.analyst === 'object'
+      ? parsed.analyst
+      : parsed;
 
   return {
     facts:
