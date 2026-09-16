@@ -115,11 +115,11 @@ export const ReceiptSchema = z.strictObject({
   schema_version: z.literal('1.0.0'), receipt_id: Id, run_id: Id, objective: Text, agent: Id,
   adapter: Text,
   commit_sha: z.string(),
-  mission: CryptoMiningMissionSchema.nullable().default(null),
+  mission: CryptoMiningMissionSchema.nullable().optional(),
   started_at: Timestamp,
   completed_at: Timestamp,
   actions_taken: z.array(EventSchema), artifacts_created: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema),
-  verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).default([]), tests: z.array(Text), unresolved_items: z.array(Text), red_sink_findings: z.array(Text),
+  verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).optional(), tests: z.array(Text), unresolved_items: z.array(Text), red_sink_findings: z.array(Text),
   confidence: z.enum(['BOUNDED', 'UNVERIFIED']), cost: UsageSchema, human_approvals: z.array(ApprovalSchema), final_status: StatusSchema,
   agent_configs: z.array(AgentDefinitionSchema), hash: z.string().regex(/^[a-f0-9]{64}$/),
 });
