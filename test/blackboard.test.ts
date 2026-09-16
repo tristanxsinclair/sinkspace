@@ -66,7 +66,8 @@ test('blackboard returns copies rather than mutable internal state', () => {
     run_id: 'run-a',
     agent_id: 'SINK-01',
     kind: 'FACT',
-    content: 'Original'
+    content: 'Original',
+    evidence_ids: ['evidence-copy-test']
   });
 
   const entries = board.all('run-a');
@@ -75,5 +76,19 @@ test('blackboard returns copies rather than mutable internal state', () => {
   assert.equal(
     board.all('run-a')[0]?.content,
     'Original'
+  );
+});
+
+test('blackboard rejects unevidenced facts', () => {
+  const board = new Blackboard();
+
+  assert.throws(
+    () => board.add({
+      run_id: 'run-a',
+      agent_id: 'SINK-05',
+      kind: 'FACT',
+      content: 'This must not become trusted.'
+    }),
+    /BLACKBOARD_FACT_REQUIRES_EVIDENCE/
   );
 });

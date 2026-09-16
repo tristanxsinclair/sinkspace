@@ -44,6 +44,12 @@ export class Blackboard {
       created_at: new Date().toISOString()
     });
 
+    if (entry.kind === 'FACT' && entry.evidence_ids.length === 0) {
+      throw new Error(
+        'BLACKBOARD_FACT_REQUIRES_EVIDENCE: FACT entries must reference evidence.'
+      );
+    }
+
     this.entries.push(entry);
 
     return entry;

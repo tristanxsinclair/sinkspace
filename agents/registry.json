@@ -298,6 +298,48 @@
         "adversarial_review"
       ],
       "enabled": false
+    },
+    {
+      "id": "SINK-05",
+      "name": "Analyst",
+      "version": "0.3.0",
+      "enabled": true,
+      "purpose": "Structure verified facts, hypotheses, uncertainty and next actions without converting inference into fact.",
+      "capabilities": [
+        "evidence_analysis",
+        "decision_support"
+      ],
+      "accepted_input_types": [
+        "repository-health"
+      ],
+      "allowed_tools": [],
+      "denied_tools": [
+        "deploy",
+        "send_message",
+        "spend",
+        "delete_data",
+        "merge",
+        "credentials",
+        "branch_write"
+      ],
+      "approval_requirements": [
+        "deploy",
+        "send_message",
+        "spend",
+        "delete_data",
+        "merge",
+        "credentials"
+      ],
+      "verification_requirements": [
+        "independent_audit",
+        "adversarial_review"
+      ],
+      "maximum_delegation_depth": 0,
+      "risk_class": "LOW",
+      "cost_class": "NONE",
+      "default_model": null,
+      "output_contract": "sink-runtime-v1",
+      "system_instructions": "Reality outranks narrative. Facts require evidence. Hypotheses remain hypotheses. Preserve uncertainty. Do not make operator decisions. No artifact / no claim."
     }
   ]
 }
