@@ -9,6 +9,7 @@ import { scout, audit, redSink } from './specialists.js';
 import type { IntelligenceAdapter } from './adapters/intelligence.js';
 import { intelligenceAdapter } from './adapters/index.js';
 import { runAnalysisPipeline } from './analysis-pipeline.js';
+import { Blackboard } from './blackboard.js';
 
 export interface RuntimeAdapter {
   readonly name: string;
@@ -53,7 +54,7 @@ export class Orchestrator {
   }
   async create(input: unknown, budget: Budget = DEFAULT_BUDGET): Promise<Run> {
     const intake=IntakeSchema.parse(input); const now=this.now();
-    const run:Run = RunSchema.parse({schema_version:'1.0.0',run_id:this.services.id(),...intake,adapter:this.adapter.name,status:'QUEUED',commit_sha:'',repository:this.services.repository.root,created_at:now,started_at:null,completed_at:null,tasks:[],artifacts:[],evidence:[],claims:[],verification:[],approvals:[],events:[],errors:[],uncertainty:[],red_sink_findings:[],usage:{tool_calls:0,tokens:0,estimated_cost_usd:0,model:null},budget:BudgetSchema.parse(budget),agent_configs:structuredClone(this.registry),receipt:null});
+    const run:Run = RunSchema.parse({schema_version:'1.0.0',run_id:this.services.id(),...intake,adapter:this.adapter.name,status:'QUEUED',commit_sha:'',repository:this.services.repository.root,created_at:now,started_at:null,completed_at:null,tasks:[],artifacts:[],evidence:[],claims:[],verification:[],blackboard_entries:[],approvals:[],events:[],errors:[],uncertainty:[],red_sink_findings:[],usage:{tool_calls:0,tokens:0,estimated_cost_usd:0,model:null},budget:BudgetSchema.parse(budget),agent_configs:structuredClone(this.registry),receipt:null});
     this.event(run,'RUN_CREATED','SINK-PRIME',null,'Accepted the capability-inventory objective; local deterministic adapter, no model execution.');
     await this.store.save(run); return structuredClone(run);
   }
@@ -196,10 +197,16 @@ export class Orchestrator {
         run,
         analyst,
         async ctx => {
+          const board = new Blackboard({
+            id: () => this.services.id(),
+            now: () => this.now()
+          });
+
           const result = runAnalysisPipeline({
             run_id: run!.run_id,
             task_id: research.task_id,
-            scout_output: structuredClone(output)
+            scout_output: structuredClone(output),
+            board
           });
 
           analyst.uncertainty = [
@@ -227,6 +234,73 @@ export class Orchestrator {
           return result;
         }
       );
+
+      /*
+       * Persist SINK-05 epistemic provenance into the run.
+       * These remain classifications of Scout output, not new claims.
+       */
+      run.blackboard_entries =
+        analysis.blackboard_entries.map(entry => ({
+          ...entry,
+          evidence_ids: [...entry.evidence_ids]
+        }));
+
+      for (const entry of run.blackboard_entries) {
+        if (entry.run_id !== run.run_id) {
+          throw new ControlError(
+            'INVALID_OUTPUT',
+            'Blackboard entry belongs to another run.'
+          );
+        }
+
+        if (
+          entry.task_id !== null &&
+          !run.tasks.some(
+            candidate =>
+              candidate.task_id === entry.task_id
+          )
+        ) {
+          throw new ControlError(
+            'INVALID_OUTPUT',
+            'Blackboard entry references an unknown task.'
+          );
+        }
+
+        if (
+          entry.kind === 'FACT' &&
+          entry.evidence_ids.length === 0
+        ) {
+          throw new ControlError(
+            'INSUFFICIENT_EVIDENCE',
+            'Blackboard FACT is missing evidence.'
+          );
+        }
+
+        for (
+          const evidenceId
+          of entry.evidence_ids
+        ) {
+          if (
+            !run.evidence.some(
+              evidence =>
+                evidence.evidence_id === evidenceId
+            )
+          ) {
+            throw new ControlError(
+              'FORGED_WORKER_EVIDENCE',
+              'Blackboard entry references unknown evidence.'
+            );
+          }
+        }
+
+        this.event(
+          run,
+          'BLACKBOARD_ENTRY_CREATED',
+          'SINK-05',
+          analyst.task_id,
+          `${entry.kind} ${entry.entry_id} preserved with ${entry.evidence_ids.length} evidence reference(s).`
+        );
+      }
 
       /*
        * SINK-05 is a separate epistemic layer.
@@ -293,7 +367,7 @@ export class Orchestrator {
       this.event(run,next==='CANCELLED'?'RUN_CANCELLED':'RUN_FAILED','SINK-00',null,run.errors.at(-1)!);
     } finally {this.active.delete(id);this.cancelled.delete(id);this.aborters.delete(id);this.busy=false;}
     run.completed_at=this.now();
-    const receipt:Receipt=ReceiptSchema.parse({schema_version:'1.0.0',receipt_id:this.services.id(),run_id:run.run_id,objective:run.objective,agent:'SINK-00',adapter:run.adapter,commit_sha:run.commit_sha,started_at:run.started_at??run.created_at,completed_at:run.completed_at,actions_taken:run.events,artifacts_created:run.artifacts,evidence:run.evidence,claims:run.claims,verification:run.verification,tests:['Only deterministic committed-file assertions executed; no repository scripts, browser or production tests.'],unresolved_items:[...run.uncertainty,...run.errors],red_sink_findings:run.red_sink_findings,confidence:run.status==='COMPLETED'?'BOUNDED':'UNVERIFIED',cost:run.usage,human_approvals:run.approvals,final_status:run.status,agent_configs:run.agent_configs,hash:'0'.repeat(64)});
+    const receipt:Receipt=ReceiptSchema.parse({schema_version:'1.0.0',receipt_id:this.services.id(),run_id:run.run_id,objective:run.objective,agent:'SINK-00',adapter:run.adapter,commit_sha:run.commit_sha,started_at:run.started_at??run.created_at,completed_at:run.completed_at,actions_taken:run.events,artifacts_created:run.artifacts,evidence:run.evidence,claims:run.claims,verification:run.verification,blackboard_entries:run.blackboard_entries,tests:['Only deterministic committed-file assertions executed; no repository scripts, browser or production tests.'],unresolved_items:[...run.uncertainty,...run.errors],red_sink_findings:run.red_sink_findings,confidence:run.status==='COMPLETED'?'BOUNDED':'UNVERIFIED',cost:run.usage,human_approvals:run.approvals,final_status:run.status,agent_configs:run.agent_configs,hash:'0'.repeat(64)});
     receipt.hash=receiptDigest(receipt); await this.store.seal(receipt);run.receipt=receipt;await this.store.save(run);return structuredClone(run);
   }
   async cancel(id:string):Promise<Run> {

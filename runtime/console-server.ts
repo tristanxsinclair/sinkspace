@@ -226,6 +226,62 @@ function findAnalystSnapshot(
   next_actions: string[];
   blackboard_entries: any[];
 } {
+  const persistedEntries =
+    Array.isArray(run.blackboard_entries)
+      ? run.blackboard_entries
+      : [];
+
+  if (persistedEntries.length) {
+    return {
+      facts:
+        persistedEntries
+          .filter(
+            (entry: any) =>
+              entry.kind === 'FACT'
+          )
+          .map(
+            (entry: any) =>
+              entry.content
+          ),
+
+      hypotheses:
+        persistedEntries
+          .filter(
+            (entry: any) =>
+              entry.kind === 'HYPOTHESIS'
+          )
+          .map(
+            (entry: any) =>
+              entry.content
+          ),
+
+      uncertainties:
+        persistedEntries
+          .filter(
+            (entry: any) =>
+              entry.kind === 'UNCERTAINTY'
+          )
+          .map(
+            (entry: any) =>
+              entry.content
+          ),
+
+      next_actions:
+        persistedEntries
+          .filter(
+            (entry: any) =>
+              entry.kind === 'NEXT_ACTION'
+          )
+          .map(
+            (entry: any) =>
+              entry.content
+          ),
+
+      blackboard_entries:
+        persistedEntries
+    };
+  }
+
   const artifact =
     run.artifacts?.find(
       (candidate: any) =>

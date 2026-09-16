@@ -1,5 +1,7 @@
 import { z } from 'zod';
 
+
+import { BlackboardEntrySchema } from './blackboard.js';
 export const Id = z.string().min(1).max(120).regex(/^[a-zA-Z0-9_-]+$/);
 const Text = z.string().min(1).max(20000);
 const Timestamp = z.iso.datetime();
@@ -49,13 +51,13 @@ export const VerificationSchema = z.strictObject({agent_id: Id, agent_version: T
 export type Verification = z.infer<typeof VerificationSchema>;
 export const ApprovalSchema = z.strictObject({approval_id: Id, run_id: Id, task_id: Id, agent_id: Id, tool: Id, arguments_hash: z.string(), status: z.enum(['PENDING', 'GRANTED', 'DENIED']), requested_at: Timestamp, expires_at: Timestamp, decided_by: z.string().nullable(), decided_at: Timestamp.nullable(), consumed: z.boolean()});
 export type Approval = z.infer<typeof ApprovalSchema>;
-export const EventSchema = z.strictObject({event_id: Id, type: z.enum(['RUN_CREATED','PLAN_CREATED','TASK_CREATED','AGENT_ASSIGNED','TOOL_REQUESTED','TOOL_COMPLETED','ARTIFACT_CREATED','CLAIM_CREATED','EVIDENCE_ATTACHED','APPROVAL_REQUESTED','APPROVAL_GRANTED','APPROVAL_DENIED','AUDIT_STARTED','AUDIT_FAILED','AUDIT_PASSED','RED_SINK_COMPLETED','RUN_COMPLETED','RUN_FAILED','RUN_CANCELLED','STATE_CHANGED','RETRY']), timestamp: Timestamp, agent_id: Id, task_id: Id.nullable(), summary: Text});
+export const EventSchema = z.strictObject({event_id: Id, type: z.enum(['RUN_CREATED','PLAN_CREATED','TASK_CREATED','AGENT_ASSIGNED','TOOL_REQUESTED','TOOL_COMPLETED','ARTIFACT_CREATED','CLAIM_CREATED','EVIDENCE_ATTACHED','BLACKBOARD_ENTRY_CREATED','APPROVAL_REQUESTED','APPROVAL_GRANTED','APPROVAL_DENIED','AUDIT_STARTED','AUDIT_FAILED','AUDIT_PASSED','RED_SINK_COMPLETED','RUN_COMPLETED','RUN_FAILED','RUN_CANCELLED','STATE_CHANGED','RETRY']), timestamp: Timestamp, agent_id: Id, task_id: Id.nullable(), summary: Text});
 export type Event = z.infer<typeof EventSchema>;
 export const ReceiptSchema = z.strictObject({
   schema_version: z.literal('1.0.0'), receipt_id: Id, run_id: Id, objective: Text, agent: Id,
   adapter: Text, commit_sha: z.string(), started_at: Timestamp, completed_at: Timestamp,
   actions_taken: z.array(EventSchema), artifacts_created: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema),
-  verification: z.array(VerificationSchema), tests: z.array(Text), unresolved_items: z.array(Text), red_sink_findings: z.array(Text),
+  verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).default([]), tests: z.array(Text), unresolved_items: z.array(Text), red_sink_findings: z.array(Text),
   confidence: z.enum(['BOUNDED', 'UNVERIFIED']), cost: UsageSchema, human_approvals: z.array(ApprovalSchema), final_status: StatusSchema,
   agent_configs: z.array(AgentDefinitionSchema), hash: z.string().regex(/^[a-f0-9]{64}$/),
 });
@@ -63,7 +65,7 @@ export type Receipt = z.infer<typeof ReceiptSchema>;
 export const RunSchema = z.strictObject({
   schema_version: z.literal('1.0.0'), run_id: Id, objective: Text, workflow: z.literal('capability-inventory'), adapter: Text,
   status: StatusSchema, commit_sha: z.string(), repository: Text, created_at: Timestamp, started_at: Timestamp.nullable(), completed_at: Timestamp.nullable(),
-  tasks: z.array(TaskSchema), artifacts: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema), verification: z.array(VerificationSchema),
+  tasks: z.array(TaskSchema), artifacts: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema), verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).default([]),
   approvals: z.array(ApprovalSchema), events: z.array(EventSchema), errors: z.array(Text), uncertainty: z.array(Text), red_sink_findings: z.array(Text),
   usage: UsageSchema, budget: BudgetSchema, agent_configs: z.array(AgentDefinitionSchema), receipt: ReceiptSchema.nullable(),
 });

@@ -22,8 +22,24 @@ export const BlackboardEntrySchema = z.strictObject({
 export type BlackboardEntry =
   z.infer<typeof BlackboardEntrySchema>;
 
+export interface BlackboardServices {
+  id: () => string;
+  now: () => string;
+}
+
 export class Blackboard {
   private readonly entries: BlackboardEntry[] = [];
+
+  private readonly services: BlackboardServices;
+
+  constructor(
+    services: Partial<BlackboardServices> = {}
+  ) {
+    this.services = {
+      id: services.id ?? randomUUID,
+      now: services.now ?? (() => new Date().toISOString())
+    };
+  }
 
   add(input: {
     run_id: string;
@@ -34,17 +50,20 @@ export class Blackboard {
     evidence_ids?: string[];
   }): BlackboardEntry {
     const entry = BlackboardEntrySchema.parse({
-      entry_id: randomUUID(),
+      entry_id: this.services.id(),
       run_id: input.run_id,
       agent_id: input.agent_id,
       task_id: input.task_id ?? null,
       kind: input.kind,
       content: input.content,
       evidence_ids: input.evidence_ids ?? [],
-      created_at: new Date().toISOString()
+      created_at: this.services.now()
     });
 
-    if (entry.kind === 'FACT' && entry.evidence_ids.length === 0) {
+    if (
+      entry.kind === 'FACT' &&
+      entry.evidence_ids.length === 0
+    ) {
       throw new Error(
         'BLACKBOARD_FACT_REQUIRES_EVIDENCE: FACT entries must reference evidence.'
       );
@@ -52,13 +71,19 @@ export class Blackboard {
 
     this.entries.push(entry);
 
-    return entry;
+    return {
+      ...entry,
+      evidence_ids: [...entry.evidence_ids]
+    };
   }
 
   all(run_id: string): BlackboardEntry[] {
     return this.entries
       .filter(entry => entry.run_id === run_id)
-      .map(entry => ({ ...entry }));
+      .map(entry => ({
+        ...entry,
+        evidence_ids: [...entry.evidence_ids]
+      }));
   }
 
   byKind(
