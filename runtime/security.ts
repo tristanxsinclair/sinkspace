@@ -20,6 +20,7 @@ export const TOOL_POLICY = Object.freeze({
   repo_read: {risk: 'LOW', executable: true},
   repo_inventory: {risk: 'LOW', executable: true},
   system_probe: {risk: 'LOW', executable: true},
+  public_research: {risk: 'LOW', executable: true},
   deploy: {risk: 'HIGH', executable: false}, send_message: {risk: 'HIGH', executable: false},
   spend: {risk: 'HIGH', executable: false}, delete_data: {risk: 'HIGH', executable: false},
   merge: {risk: 'HIGH', executable: false}, credentials: {risk: 'HIGH', executable: false},

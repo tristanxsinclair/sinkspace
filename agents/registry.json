@@ -182,7 +182,8 @@
       "allowed_tools": [
         "repo_read",
         "repo_inventory",
-        "system_probe"
+        "system_probe",
+        "public_research"
       ],
       "denied_tools": [
         "deploy",
@@ -227,7 +228,8 @@
       "allowed_tools": [
         "repo_read",
         "repo_inventory",
-        "system_probe"
+        "system_probe",
+        "public_research"
       ],
       "denied_tools": [
         "deploy",
@@ -270,7 +272,9 @@
         "revenue_discovery",
         "growth_draft"
       ],
-      "allowed_tools": [],
+      "allowed_tools": [
+        "public_research"
+      ],
       "denied_tools": [
         "branch_write",
         "credentials",

@@ -11,6 +11,7 @@ import { intelligenceAdapter } from './adapters/index.js';
 import { runAnalysisPipeline } from './analysis-pipeline.js';
 import { Blackboard } from './blackboard.js';
 import { probeSystem } from './system-probe.js';
+import { publicResearch, type PublicResearchRequest } from './public-research.js';
 import {
   miningAssessment,
   auditMining,
@@ -322,6 +323,127 @@ export class Orchestrator {
       };
     };
 
+    const observePublicResearch =
+      async (
+        request: PublicResearchRequest
+      ): Promise<Observation> => {
+        guard();
+
+        authorize(
+          agent,
+          task,
+          'public_research'
+        );
+
+        enforceBudget(
+          run,
+          this.services.now().getTime(),
+          {
+            tools:1,
+            tokens:0,
+            cost:0
+          }
+        );
+
+        run.usage.tool_calls++;
+
+        this.event(
+          run,
+          'TOOL_REQUESTED',
+          agent.id,
+          task.task_id,
+          `public_research:${request.mode}`
+        );
+
+        const result =
+          await publicResearch(
+            request
+          );
+
+        guard();
+
+        const content =
+          JSON.stringify(
+            result
+          );
+
+        const a =
+          artifact(
+            content,
+            'application/json'
+          );
+
+        const source =
+          result.mode === 'search'
+            ? `public-search:${result.query}`
+            : `public-url:${result.final_url}`;
+
+        const e = {
+          evidence_id:
+            this.services.id(),
+
+          artifact_id:
+            a.artifact_id,
+
+          commit_sha:
+            run.commit_sha,
+
+          tool:
+            'public_research',
+
+          agent_id:
+            agent.id,
+
+          task_id:
+            task.task_id,
+
+          timestamp:
+            this.now(),
+
+          source,
+
+          trust:
+            'UNTRUSTED_DATA' as const
+        };
+
+        run.evidence.push(e);
+
+        task.evidence.push(
+          e.evidence_id
+        );
+
+        this.event(
+          run,
+          'TOOL_COMPLETED',
+          agent.id,
+          task.task_id,
+          `public_research completed; evidence ${e.evidence_id}.`
+        );
+
+        this.event(
+          run,
+          'EVIDENCE_ATTACHED',
+          agent.id,
+          task.task_id,
+          e.evidence_id
+        );
+
+        await this.store.save(
+          run
+        );
+
+        return {
+          content:
+            a.content,
+
+          artifact:
+            structuredClone(a),
+
+          evidence:
+            structuredClone(e)
+        };
+      };
+
     return {
       get run(){return structuredClone(run);},
       get task(){return structuredClone(task);},
@@ -330,6 +452,7 @@ export class Orchestrator {
       read:path=>observe('repo_read',path),
       inventory:()=>observe('repo_inventory'),
       systemProbe:()=>observeSystem(),
+      publicResearch:request=>observePublicResearch(request),
       artifact,
       emit:(type,summary)=>{
         guard();
