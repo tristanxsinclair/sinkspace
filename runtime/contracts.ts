@@ -7,7 +7,8 @@ const Text = z.string().min(1).max(20000);
 const Timestamp = z.iso.datetime();
 export const WorkflowSchema = z.enum([
   'capability-inventory',
-  'crypto-mining'
+  'crypto-mining',
+  'revenue'
 ]);
 
 export type Workflow =
@@ -63,6 +64,366 @@ export const CryptoMiningMissionSchema = z.strictObject({
 export type CryptoMiningMission =
   z.infer<typeof CryptoMiningMissionSchema>;
 
+export const RevenueModeSchema = z.enum([
+  'DISCOVER',
+  'VALIDATE',
+  'OPERATE'
+]);
+
+export type RevenueMode =
+  z.infer<typeof RevenueModeSchema>;
+
+export const RevenueChannelSchema = z.enum([
+  'EMAIL',
+  'PHONE',
+  'INSTAGRAM',
+  'LINKEDIN',
+  'IN_PERSON',
+  'WEB_FORM',
+  'OTHER'
+]);
+
+export type RevenueChannel =
+  z.infer<typeof RevenueChannelSchema>;
+
+export const RevenueMissionSchema = z.strictObject({
+  mode: RevenueModeSchema,
+
+  cash_target_aud: z
+    .number()
+    .finite()
+    .nonnegative()
+    .max(1000000000),
+
+  horizon_days: z
+    .number()
+    .int()
+    .min(1)
+    .max(365),
+
+  max_spend_aud: z
+    .number()
+    .finite()
+    .nonnegative()
+    .max(1000000)
+    .default(0),
+
+  max_tristan_minutes: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(100000)
+    .default(60),
+
+  target_market: Text,
+
+  allowed_channels: z
+    .array(RevenueChannelSchema)
+    .max(10)
+    .default([]),
+
+  offer_constraints: z
+    .array(Text)
+    .max(30)
+    .default([]),
+
+  operator_email: z
+    .email()
+    .nullable()
+    .default(null)
+});
+
+export type RevenueMission =
+  z.infer<typeof RevenueMissionSchema>;
+
+export const RevenueOpportunitySchema = z.strictObject({
+  opportunity_id: Id,
+
+  title: Text,
+
+  target_customer: Text,
+
+  observed_pain: Text,
+
+  proposed_offer: Text,
+
+  proposed_price_aud: z
+    .number()
+    .finite()
+    .nonnegative(),
+
+  estimated_delivery_cost_aud: z
+    .number()
+    .finite()
+    .nonnegative(),
+
+  estimated_tristan_minutes: z
+    .number()
+    .int()
+    .nonnegative(),
+
+  estimated_time_to_cash_days: z
+    .number()
+    .int()
+    .positive()
+    .max(365),
+
+  potential_recurring_revenue_aud: z
+    .number()
+    .finite()
+    .nonnegative(),
+
+  evidence_ids: z
+    .array(Id),
+
+  confidence: z
+    .number()
+    .min(0)
+    .max(1),
+
+  priority_score: z
+    .number()
+    .min(0)
+    .max(100),
+
+  score_basis: z
+    .array(Text)
+    .min(1)
+    .max(20),
+
+  status: z.enum([
+    'DISCOVERED',
+    'VALIDATING',
+    'APPROVED_FOR_TEST',
+    'REJECTED',
+    'WON',
+    'LOST'
+  ])
+});
+
+export type RevenueOpportunity =
+  z.infer<typeof RevenueOpportunitySchema>;
+
+export const RevenueActionSchema = z.strictObject({
+  action_id: Id,
+
+  opportunity_id: Id,
+
+  type: z.enum([
+    'RESEARCH',
+    'DRAFT',
+    'CONTACT',
+    'FOLLOW_UP',
+    'PROPOSAL',
+    'DELIVERY',
+    'PAYMENT_REQUEST',
+    'OTHER'
+  ]),
+
+  channel: RevenueChannelSchema.nullable(),
+
+  recipient: Text.nullable(),
+
+  payload_summary: Text,
+
+  upside_case_aud: z
+    .number()
+    .finite()
+    .nonnegative(),
+
+  upside_basis: z
+    .array(Text)
+    .min(1)
+    .max(20),
+
+  max_cost_aud: z
+    .number()
+    .finite()
+    .nonnegative(),
+
+  approval_required: z.boolean(),
+
+  approval_status: z.enum([
+    'NOT_REQUIRED',
+    'PENDING',
+    'APPROVED',
+    'REJECTED',
+    'EXPIRED'
+  ]),
+
+  status: z.enum([
+    'PLANNED',
+    'READY',
+    'EXECUTED',
+    'CANCELLED',
+    'FAILED'
+  ])
+});
+
+export type RevenueAction =
+  z.infer<typeof RevenueActionSchema>;
+
+export const RevenueOutcomeSchema = z
+  .strictObject({
+    action_id: Id,
+
+    opportunity_id: Id,
+
+    contacted: z.boolean(),
+
+    replied: z.boolean(),
+
+    meeting_booked: z.boolean(),
+
+    proposal_sent: z.boolean(),
+
+    paid: z.boolean(),
+
+    gross_revenue_aud: z
+      .number()
+      .finite()
+      .nonnegative(),
+
+    direct_cost_aud: z
+      .number()
+      .finite()
+      .nonnegative(),
+
+    tristan_minutes: z
+      .number()
+      .int()
+      .nonnegative(),
+
+    payment_evidence_ids: z
+      .array(Id),
+
+    loss_reason: Text.nullable()
+  })
+  .superRefine((value, ctx) => {
+    if (
+      value.paid &&
+      (
+        value.gross_revenue_aud <= 0 ||
+        value.payment_evidence_ids.length === 0
+      )
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'Paid revenue requires positive gross revenue and payment evidence.'
+      });
+    }
+
+    if (
+      !value.paid &&
+      value.gross_revenue_aud > 0
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'Gross revenue cannot be recorded without paid=true.'
+      });
+    }
+  });
+
+export type RevenueOutcome =
+  z.infer<typeof RevenueOutcomeSchema>;
+
+export const RevenueLedgerSchema = z
+  .strictObject({
+    currency: z.literal('AUD'),
+
+    gross_revenue_aud: z
+      .number()
+      .finite()
+      .nonnegative(),
+
+    direct_costs_aud: z
+      .number()
+      .finite()
+      .nonnegative(),
+
+    net_cash_aud: z
+      .number()
+      .finite(),
+
+    tristan_minutes: z
+      .number()
+      .int()
+      .nonnegative(),
+
+    net_cash_per_tristan_hour: z
+      .number()
+      .finite()
+      .nullable(),
+
+    opportunities_tested: z
+      .number()
+      .int()
+      .nonnegative(),
+
+    actions_taken: z
+      .number()
+      .int()
+      .nonnegative(),
+
+    customers_won: z
+      .number()
+      .int()
+      .nonnegative(),
+
+    opportunities: z
+      .array(RevenueOpportunitySchema),
+
+    actions: z
+      .array(RevenueActionSchema),
+
+    outcomes: z
+      .array(RevenueOutcomeSchema),
+
+    updated_at: Timestamp
+  })
+  .superRefine((value, ctx) => {
+    const expected =
+      value.gross_revenue_aud -
+      value.direct_costs_aud;
+
+    if (
+      Math.abs(
+        expected -
+        value.net_cash_aud
+      ) > 0.000001
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'net_cash_aud must equal gross revenue minus direct costs.'
+      });
+    }
+
+    if (
+      value.tristan_minutes === 0 &&
+      value.net_cash_per_tristan_hour !== null
+    ) {
+      ctx.addIssue({
+        code: 'custom',
+        message:
+          'net_cash_per_tristan_hour must be null when Tristan time is zero.'
+      });
+    }
+  });
+
+export type RevenueLedger =
+  z.infer<typeof RevenueLedgerSchema>;
+
+export const MissionSchema = z.union([
+  CryptoMiningMissionSchema,
+  RevenueMissionSchema
+]);
+
+export type Mission =
+  z.infer<typeof MissionSchema>;
+
 export const StatusSchema = z.enum(['QUEUED', 'PLANNING', 'WAITING_FOR_APPROVAL', 'RUNNING', 'WAITING_ON_DEPENDENCY', 'VERIFYING', 'COMPLETED', 'FAILED', 'BLOCKED', 'CANCELLED']);
 export type Status = z.infer<typeof StatusSchema>;
 export const VerdictSchema = z.enum(['PASS', 'PASS_WITH_LIMITATIONS', 'FAIL', 'BLOCKED', 'UNVERIFIED']);
@@ -115,11 +476,11 @@ export const ReceiptSchema = z.strictObject({
   schema_version: z.literal('1.0.0'), receipt_id: Id, run_id: Id, objective: Text, agent: Id,
   adapter: Text,
   commit_sha: z.string(),
-  mission: CryptoMiningMissionSchema.nullable().optional(),
+  mission: MissionSchema.nullable().optional(),
   started_at: Timestamp,
   completed_at: Timestamp,
   actions_taken: z.array(EventSchema), artifacts_created: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema),
-  verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).optional(), tests: z.array(Text), unresolved_items: z.array(Text), red_sink_findings: z.array(Text),
+  verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).optional(), revenue_ledger: RevenueLedgerSchema.nullable().optional(), tests: z.array(Text), unresolved_items: z.array(Text), red_sink_findings: z.array(Text),
   confidence: z.enum(['BOUNDED', 'UNVERIFIED']), cost: UsageSchema, human_approvals: z.array(ApprovalSchema), final_status: StatusSchema,
   agent_configs: z.array(AgentDefinitionSchema), hash: z.string().regex(/^[a-f0-9]{64}$/),
 });
@@ -129,10 +490,10 @@ export const RunSchema = z.strictObject({
   run_id: Id,
   objective: Text,
   workflow: WorkflowSchema,
-  mission: CryptoMiningMissionSchema.nullable().default(null),
+  mission: MissionSchema.nullable().default(null),
   adapter: Text,
   status: StatusSchema, commit_sha: z.string(), repository: Text, created_at: Timestamp, started_at: Timestamp.nullable(), completed_at: Timestamp.nullable(),
-  tasks: z.array(TaskSchema), artifacts: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema), verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).default([]),
+  tasks: z.array(TaskSchema), artifacts: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema), verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).default([]), revenue_ledger: RevenueLedgerSchema.nullable().default(null),
   approvals: z.array(ApprovalSchema), events: z.array(EventSchema), errors: z.array(Text), uncertainty: z.array(Text), red_sink_findings: z.array(Text),
   usage: UsageSchema, budget: BudgetSchema, agent_configs: z.array(AgentDefinitionSchema), receipt: ReceiptSchema.nullable(),
 });
@@ -157,9 +518,21 @@ export const CryptoMiningIntakeSchema = z.strictObject({
   mission: CryptoMiningMissionSchema
 });
 
+export const RevenueIntakeSchema = z.strictObject({
+  workflow: z.literal('revenue'),
+
+  objective: z
+    .string()
+    .min(1)
+    .max(20000),
+
+  mission: RevenueMissionSchema
+});
+
 export const MissionIntakeSchema = z.union([
   IntakeSchema,
-  CryptoMiningIntakeSchema
+  CryptoMiningIntakeSchema,
+  RevenueIntakeSchema
 ]);
 
 export type MissionIntake =

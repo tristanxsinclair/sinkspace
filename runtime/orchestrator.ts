@@ -77,6 +77,12 @@ export class Orchestrator {
   private state(run:Run,next:Run['status'],verified=false): void { run.status=transition(run.status,next,verified); this.event(run,'STATE_CHANGED','SINK-00',null,`Run entered ${next}.`); }
   private guard(run:Run): void { if (this.cancelled.has(run.run_id)) throw new ControlError('CANCELLED'); enforceBudget(run,this.services.now().getTime()); }
   private plan(run:Run): void {
+    if (run.workflow === 'revenue') {
+      throw new ControlError(
+        'TOOL_NOT_IMPLEMENTED',
+        'Revenue contracts are installed, but autonomous revenue execution is not enabled yet.'
+      );
+    }
 
     if (run.workflow === 'crypto-mining') {
       if (

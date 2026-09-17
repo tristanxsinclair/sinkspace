@@ -21,6 +21,7 @@ function fixture(contents: Record<string, string> = files) {
     schema_version: '1.0.0', run_id: 'run_1', objective: HEALTH_OBJECTIVE, workflow: 'capability-inventory',
     mission: null, adapter: 'deterministic-development', status: 'RUNNING', commit_sha: 'a'.repeat(40), repository: '/repository', created_at: now, started_at: now, completed_at: null,
     tasks: [], artifacts: [], evidence: [], claims: [], verification: [],
+    revenue_ledger: null,
     blackboard_entries: [], approvals: [], events: [], errors: [], uncertainty: [], red_sink_findings: [], usage: {tool_calls: 0, tokens: 0, estimated_cost_usd: 0, model: null}, budget: {...DEFAULT_BUDGET}, agent_configs: loadRegistry(), receipt: null,
   };
   function context(agent: string): ExecutionContext {
