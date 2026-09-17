@@ -194,3 +194,133 @@ export function buildRevenueLedger(
       input.updated_at
   });
 }
+
+
+export type RevenueDiscoveryInput = {
+  opportunity_id: string;
+  title: string;
+  target_customer: string;
+  observed_pain: string;
+  proposed_offer: string;
+  proposed_price_aud: number;
+  estimated_delivery_cost_aud: number;
+  estimated_tristan_minutes: number;
+  estimated_time_to_cash_days: number;
+  potential_recurring_revenue_aud: number;
+  evidence_ids?: string[];
+  evidence_strength?: number;
+  score_basis: string[];
+};
+
+export function discoverRevenueOpportunity(
+  input: RevenueDiscoveryInput
+): RevenueOpportunity {
+  const evidenceIds =
+    input.evidence_ids ?? [];
+
+  const evidenceStrength =
+    evidenceIds.length === 0
+      ? 0
+      : Math.max(
+          0,
+          Math.min(
+            1,
+            input.evidence_strength ?? 0
+          )
+        );
+
+  const score =
+    scoreRevenueOpportunity({
+      evidence_strength:
+        evidenceStrength,
+
+      time_to_cash_days:
+        input.estimated_time_to_cash_days,
+
+      proposed_price_aud:
+        input.proposed_price_aud,
+
+      estimated_delivery_cost_aud:
+        input.estimated_delivery_cost_aud,
+
+      estimated_tristan_minutes:
+        input.estimated_tristan_minutes,
+
+      recurring_revenue_aud:
+        input.potential_recurring_revenue_aud
+    });
+
+  return {
+    opportunity_id:
+      input.opportunity_id,
+
+    title:
+      input.title,
+
+    target_customer:
+      input.target_customer,
+
+    observed_pain:
+      input.observed_pain,
+
+    proposed_offer:
+      input.proposed_offer,
+
+    proposed_price_aud:
+      input.proposed_price_aud,
+
+    estimated_delivery_cost_aud:
+      input.estimated_delivery_cost_aud,
+
+    estimated_tristan_minutes:
+      input.estimated_tristan_minutes,
+
+    estimated_time_to_cash_days:
+      input.estimated_time_to_cash_days,
+
+    potential_recurring_revenue_aud:
+      input.potential_recurring_revenue_aud,
+
+    evidence_ids:
+      evidenceIds,
+
+    confidence:
+      evidenceStrength,
+
+    priority_score:
+      score,
+
+    score_basis:
+      input.score_basis,
+
+    status:
+      evidenceIds.length === 0
+        ? 'DISCOVERED'
+        : 'VALIDATING'
+  };
+}
+
+export function revenueOpportunityCanAdvance(
+  opportunity: RevenueOpportunity
+): boolean {
+  return (
+    opportunity.evidence_ids.length > 0 &&
+    opportunity.confidence > 0
+  );
+}
+
+export function assertRevenueOpportunitySafe(
+  opportunity: RevenueOpportunity
+): void {
+  if (
+    opportunity.status ===
+      'APPROVED_FOR_TEST' &&
+    !revenueOpportunityCanAdvance(
+      opportunity
+    )
+  ) {
+    throw new Error(
+      'UNVERIFIED_REVENUE_OPPORTUNITY'
+    );
+  }
+}

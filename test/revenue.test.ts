@@ -239,3 +239,111 @@ test(
     );
   }
 );
+
+test(
+  'Revenue Scout can create an unevidenced hypothesis but cannot promote it',
+  async () => {
+    const {
+      discoverRevenueOpportunity,
+      revenueOpportunityCanAdvance
+    } =
+      await import(
+        '../runtime/revenue.js'
+      );
+
+    const opportunity =
+      discoverRevenueOpportunity({
+        opportunity_id:'opp-hypothesis',
+        title:
+          'Quote follow-up automation',
+        target_customer:
+          'Perth service businesses',
+        observed_pain:
+          'Potential manual quote follow-up',
+        proposed_offer:
+          'Automated quote follow-up system',
+        proposed_price_aud:750,
+        estimated_delivery_cost_aud:50,
+        estimated_tristan_minutes:120,
+        estimated_time_to_cash_days:14,
+        potential_recurring_revenue_aud:249,
+        evidence_ids:[],
+        evidence_strength:0.9,
+        score_basis:[
+          'Commercial hypothesis only.'
+        ]
+      });
+
+    assert.equal(
+      opportunity.confidence,
+      0
+    );
+
+    assert.equal(
+      opportunity.status,
+      'DISCOVERED'
+    );
+
+    assert.equal(
+      revenueOpportunityCanAdvance(
+        opportunity
+      ),
+      false
+    );
+  }
+);
+
+test(
+  'Revenue Scout permits validation only when evidence exists',
+  async () => {
+    const {
+      discoverRevenueOpportunity,
+      revenueOpportunityCanAdvance
+    } =
+      await import(
+        '../runtime/revenue.js'
+      );
+
+    const opportunity =
+      discoverRevenueOpportunity({
+        opportunity_id:'opp-evidenced',
+        title:
+          'Quote follow-up automation',
+        target_customer:
+          'Observed landscaping business',
+        observed_pain:
+          'Quote follow-up gap observed',
+        proposed_offer:
+          'Lead and quote follow-up implementation',
+        proposed_price_aud:750,
+        estimated_delivery_cost_aud:50,
+        estimated_tristan_minutes:120,
+        estimated_time_to_cash_days:7,
+        potential_recurring_revenue_aud:249,
+        evidence_ids:[
+          'evidence-1'
+        ],
+        evidence_strength:0.8,
+        score_basis:[
+          'Observed workflow evidence.'
+        ]
+      });
+
+    assert.equal(
+      opportunity.status,
+      'VALIDATING'
+    );
+
+    assert.equal(
+      opportunity.confidence,
+      0.8
+    );
+
+    assert.equal(
+      revenueOpportunityCanAdvance(
+        opportunity
+      ),
+      true
+    );
+  }
+);
