@@ -8,8 +8,21 @@ import {
 } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import {
+  founderMandateRegisteredReply,
+  interpretPrimeMandateAction,
+  registerPrimeFounderMandate,
+  registerPrimeFounderMandateFile
+} from './prime-mandate.js';
+
 import { interpretPrimeCommand } from './prime.js';
 import { answerPrimeRunQuestion } from './prime-conversation.js';
+import {
+  executePrimeMandatePlanning,
+  interpretPrimeMandatePlanning,
+  mandatePlanReply
+} from './prime-mandate-planning.js';
+
 import {
   interpretPrimeEngineering,
   executePrimeEngineering
@@ -1342,6 +1355,185 @@ const server =
                 unknown
               >
             ).message as string;
+
+          /*
+           * Explicit constitutional persistence has precedence
+           * over engineering and generic Prime classification.
+           *
+           * Recognition is not registration.
+           * Registration is not execution authority.
+           */
+          const mandateAction =
+            interpretPrimeMandateAction(
+              message
+            );
+
+          if (
+            mandateAction.status ===
+            'NEEDS_MANDATE_TEXT'
+          ) {
+            json(
+              res,
+              200,
+              {
+                status:
+                  'NEEDS_CLARIFICATION',
+
+                reply:
+                  mandateAction.reply,
+
+                mission: null,
+
+                confidence:
+                  'HIGH',
+
+                assumptions: [],
+
+                constitutional:
+                  true
+              }
+            );
+
+            return;
+          }
+
+          if (
+            mandateAction.status ===
+            'REGISTER_MANDATE_FILE'
+          ) {
+            const mandate =
+              await registerPrimeFounderMandateFile(
+                ROOT,
+                mandateAction.relative_path
+              );
+
+            json(
+              res,
+              200,
+              {
+                status:
+                  'FOUNDER_MANDATE_REGISTERED',
+
+                reply:
+                  founderMandateRegisteredReply(
+                    mandate
+                  ),
+
+                mission: null,
+
+                confidence:
+                  'HIGH',
+
+                assumptions: [
+                  'Registration grants no execution authority.'
+                ],
+
+                constitutional:
+                  true,
+
+                mandate
+              }
+            );
+
+            return;
+          }
+
+          if (
+            mandateAction.status ===
+            'REGISTER_MANDATE'
+          ) {
+            const mandate =
+              await registerPrimeFounderMandate(
+                ROOT,
+                mandateAction.original_text
+              );
+
+            json(
+              res,
+              200,
+              {
+                status:
+                  'FOUNDER_MANDATE_REGISTERED',
+
+                reply:
+                  founderMandateRegisteredReply(
+                    mandate
+                  ),
+
+                mission: null,
+
+                confidence:
+                  'HIGH',
+
+                assumptions: [
+                  'Registration grants no execution authority.'
+                ],
+
+                constitutional:
+                  true,
+
+                mandate
+              }
+            );
+
+            return;
+          }
+
+          /*
+           * Constitutional planning has precedence over
+           * engineering and generic Prime classification.
+           *
+           * Planning is read/derive only:
+           * - no execution authority
+           * - no Workshop execution
+           * - no constitutional mutation
+           */
+          const mandatePlanning =
+            interpretPrimeMandatePlanning(
+              message
+            );
+
+          if (
+            mandatePlanning.status ===
+            'PLAN_MANDATE'
+          ) {
+            const plan =
+              await executePrimeMandatePlanning(
+                ROOT,
+                mandatePlanning.mandate_id
+              );
+
+            json(
+              res,
+              200,
+              {
+                status:
+                  'FOUNDER_MANDATE_PLAN_READY',
+
+                reply:
+                  mandatePlanReply(
+                    plan
+                  ),
+
+                mission: null,
+
+                confidence:
+                  'HIGH',
+
+                assumptions: [
+                  'Planning grants no execution authority.',
+                  'Planning does not mutate constitutional state.'
+                ],
+
+                constitutional:
+                  true,
+
+                plan
+              }
+            );
+
+            return;
+          }
 
           const engineering =
             interpretPrimeEngineering(
