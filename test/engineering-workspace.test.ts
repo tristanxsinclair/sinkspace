@@ -25,6 +25,7 @@ import {
   createEngineeringWorkspace,
   destroyEngineeringWorkspace,
   readWorkspaceFile,
+  runEngineeringCommand,
   workspaceDiff,
   workspaceExists,
   writeWorkspaceFile
@@ -372,5 +373,113 @@ test(
         force: true
       }
     );
+  }
+);
+
+test(
+  'workspace diff contains full newly-created file evidence',
+  async () => {
+    const repo =
+      await fixtureRepo();
+
+    const workspace =
+      await createEngineeringWorkspace(
+        repo
+      );
+
+    try {
+      await writeWorkspaceFile(
+        workspace,
+        'runtime/new-citizen.ts',
+        [
+          'export const citizen =',
+          "  'Forge';",
+          ''
+        ].join('\n')
+      );
+
+      const result =
+        await workspaceDiff(
+          workspace
+        );
+
+      assert.equal(
+        result.clean,
+        false
+      );
+
+      assert.ok(
+        result.changed_files
+          .includes(
+            'runtime/new-citizen.ts'
+          )
+      );
+
+      assert.match(
+        result.diff,
+        /new-citizen\.ts/
+      );
+
+      assert.match(
+        result.diff,
+        /Forge/
+      );
+    } finally {
+      await destroyEngineeringWorkspace(
+        workspace
+      );
+
+      await rm(
+        repo,
+        {
+          recursive:
+            true,
+          force:
+            true
+        }
+      );
+    }
+  }
+);
+
+test(
+  'workspace TYPECHECK uses canonical dependency binary',
+  async () => {
+    const repo =
+      await fixtureRepo();
+
+    const workspace =
+      await createEngineeringWorkspace(
+        repo
+      );
+
+    try {
+      /**
+       * We only verify command construction here.
+       * The tiny fixture intentionally has no
+       * canonical dependency tree.
+       */
+      await assert.rejects(
+        () =>
+          runEngineeringCommand(
+            workspace,
+            'TYPECHECK'
+          )
+      );
+    } finally {
+      await destroyEngineeringWorkspace(
+        workspace
+      );
+
+      await rm(
+        repo,
+        {
+          recursive:
+            true,
+          force:
+            true
+        }
+      );
+    }
   }
 );

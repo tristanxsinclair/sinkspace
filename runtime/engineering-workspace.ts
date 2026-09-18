@@ -4,7 +4,8 @@ import {
   readFile,
   realpath,
   rm,
-  writeFile
+  writeFile,
+  symlink
 } from 'node:fs/promises';
 
 import {
@@ -160,38 +161,66 @@ export type WorkspaceDiff =
     typeof WorkspaceDiffSchema
   >;
 
-const COMMANDS:
-  Record<
-    EngineeringCommand,
-    readonly string[]
-  > = {
-    TYPECHECK: [
-      './node_modules/.bin/tsc',
-      '--noEmit'
-    ],
+function commandFor(
+  workspace:
+    EngineeringWorkspace,
+  command:
+    EngineeringCommand
+): readonly string[] {
+  const binary = (
+    name: string
+  ) =>
+    join(
+      workspace.repository_root,
+      'node_modules',
+      '.bin',
+      name
+    );
 
-    TEST: [
-      'npm',
-      'test'
-    ],
+  switch (command) {
+    case 'TYPECHECK':
+      return [
+        binary('tsc'),
+        '--project',
+        join(
+          workspace.workspace_root,
+          'tsconfig.json'
+        ),
+        '--noEmit'
+      ];
 
-    EVAL: [
-      'npm',
-      'run',
-      'eval'
-    ],
+    case 'TEST':
+      throw new Error(
+        'ENGINEERING_TEST_REQUIRES_EXPLICIT_SELECTION'
+      );
 
-    BUILD: [
-      'npm',
-      'run',
-      'build'
-    ]
-  };
+    case 'EVAL':
+      return [
+        binary('tsx'),
+        join(
+          workspace.workspace_root,
+          'runtime',
+          'evals.ts'
+        )
+      ];
+
+    case 'BUILD':
+      return [
+        binary('tsc'),
+        '--project',
+        join(
+          workspace.workspace_root,
+          'tsconfig.json'
+        )
+      ];
+  }
+}
 
 const BLOCKED_PATH_PARTS =
   new Set([
     '.git',
     '.sink',
+    'node_modules',
     '.env',
     '.env.local',
     '.env.production',
@@ -332,7 +361,18 @@ async function runProcess(
 
             env:
               options.env ?? {
-                ...process.env,
+                PATH:
+                  process.env.PATH ?? '',
+                HOME:
+                  process.env.HOME ?? '',
+                TMPDIR:
+                  process.env.TMPDIR ?? '/tmp',
+                LANG:
+                  process.env.LANG ?? 'en_US.UTF-8',
+                LC_ALL:
+                  process.env.LC_ALL ?? '',
+                NO_COLOR:
+                  '1',
 
                 /**
                  * Prevent accidental interactive
@@ -726,6 +766,69 @@ export async function writeWorkspaceFile(
   );
 }
 
+async function installDependencyBridge(
+  workspace:
+    EngineeringWorkspace
+): Promise<string> {
+  const canonicalDependencies =
+    join(
+      workspace.repository_root,
+      'node_modules'
+    );
+
+  const workshopDependencies =
+    join(
+      workspace.workspace_root,
+      'node_modules'
+    );
+
+  const canonicalReal =
+    await realpath(
+      canonicalDependencies
+    );
+
+  if (
+    !inside(
+      workspace.repository_root,
+      canonicalReal
+    )
+  ) {
+    throw new Error(
+      'ENGINEERING_DEPENDENCY_ROOT_INVALID'
+    );
+  }
+
+  await rm(
+    workshopDependencies,
+    {
+      recursive:
+        true,
+      force:
+        true
+    }
+  );
+
+  await symlink(
+    canonicalReal,
+    workshopDependencies,
+    'dir'
+  );
+
+  return workshopDependencies;
+}
+
+async function removeDependencyBridge(
+  bridgePath: string
+): Promise<void> {
+  await rm(
+    bridgePath,
+    {
+      force:
+        true
+    }
+  );
+}
+
 export async function runEngineeringCommand(
   workspaceInput:
     EngineeringWorkspace,
@@ -743,7 +846,10 @@ export async function runEngineeringCommand(
     );
 
   const argv =
-    [...COMMANDS[command]];
+    [...commandFor(
+      workspace,
+      command
+    )];
 
   const [
     executable,
@@ -756,45 +862,56 @@ export async function runEngineeringCommand(
     );
   }
 
-  const result =
-    await runProcess(
-      executable,
-      args,
-      {
-        cwd:
-          workspace.workspace_root,
-
-        timeoutMs:
-          workspace.max_runtime_ms,
-
-        maxOutputBytes:
-          workspace.max_output_bytes,
-
-        env: {
-          ...process.env,
-          CI: '1',
-
-          /**
-           * Do not make credentials available
-           * through common package/publish vars.
-           *
-           * This is not a complete secret sandbox;
-           * G1 execution remains local and bounded.
-           */
-          NODE_AUTH_TOKEN:
-            undefined,
-
-          NPM_TOKEN:
-            undefined,
-
-          GITHUB_TOKEN:
-            undefined,
-
-          GH_TOKEN:
-            undefined
-        }
-      }
+  const dependencyBridge =
+    await installDependencyBridge(
+      workspace
     );
+
+  let result:
+    Awaited<
+      ReturnType<
+        typeof runProcess
+      >
+    >;
+
+  try {
+    result =
+      await runProcess(
+        executable,
+        args,
+        {
+          cwd:
+            workspace.workspace_root,
+
+          timeoutMs:
+            workspace.max_runtime_ms,
+
+          maxOutputBytes:
+            workspace.max_output_bytes,
+
+          env: {
+            PATH:
+              process.env.PATH ?? '',
+            HOME:
+              process.env.HOME ?? '',
+            TMPDIR:
+              process.env.TMPDIR ?? '/tmp',
+            LANG:
+              process.env.LANG ?? 'en_US.UTF-8',
+            LC_ALL:
+              process.env.LC_ALL ?? '',
+            CI:
+              '1',
+            NO_COLOR:
+              '1'
+          }
+        }
+      );
+  } finally {
+    await removeDependencyBridge(
+      dependencyBridge
+    );
+  }
 
   return CommandResultSchema.parse({
     command,
@@ -839,7 +956,7 @@ export async function workspaceDiff(
       ]
     );
 
-  const diff =
+  const trackedDiff =
     await git(
       workspace.workspace_root,
       [
@@ -851,6 +968,79 @@ export async function workspaceDiff(
         '.'
       ]
     );
+
+  const untrackedRaw =
+    await git(
+      workspace.workspace_root,
+      [
+        'ls-files',
+        '--others',
+        '--exclude-standard'
+      ]
+    );
+
+  const untrackedFiles =
+    untrackedRaw
+      .split('\n')
+      .map(
+        (path) =>
+          path.trim()
+      )
+      .filter(Boolean)
+      .sort();
+
+  const untrackedDiffs:
+    string[] = [];
+
+  for (
+    const path of
+      untrackedFiles
+  ) {
+    assertSafeRelativePath(
+      path
+    );
+
+    const content =
+      await readWorkspaceFile(
+        workspace,
+        path
+      );
+
+    const lines =
+      content.endsWith('\n')
+        ? content
+            .slice(0, -1)
+            .split('\n')
+        : content.split('\n');
+
+    const evidenceLines =
+      lines.length === 1 &&
+      lines[0] === ''
+        ? []
+        : lines;
+
+    untrackedDiffs.push(
+      [
+        `diff --git a/${path} b/${path}`,
+        'new file mode 100644',
+        '--- /dev/null',
+        `+++ b/${path}`,
+        `@@ -0,0 +1,${evidenceLines.length} @@`,
+        ...evidenceLines.map(
+          (line) =>
+            `+${line}`
+        )
+      ].join('\n')
+    );
+  }
+
+  const diff =
+    [
+      trackedDiff,
+      ...untrackedDiffs
+    ]
+      .filter(Boolean)
+      .join('\n');
 
   const changedFiles =
     changedRaw
