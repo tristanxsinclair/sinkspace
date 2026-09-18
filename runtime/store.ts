@@ -111,7 +111,64 @@ export function verifyReceipt(receipt: Receipt): void {
     const red = receipt.verification.find(v=>v.agent_id === 'RED-SINK');
     if (!audit || !red || ![audit,red].every(v=>['PASS','PASS_WITH_LIMITATIONS'].includes(v.verdict))) throw new ControlError('UNVERIFIED_COMPLETION');
     const known = receipt.claims.filter(c=>c.classification === 'KNOWN');
-    if (!known.length || !receipt.artifacts_created.length || known.some(c=>c.agent_id === audit.agent_id || c.agent_id === red.agent_id || !audit.checked_claim_ids.includes(c.claim_id) || !red.checked_claim_ids.includes(c.claim_id))) throw new ControlError('INDEPENDENCE_REQUIRED');
+
+    const isRevenueDiscover =
+      !!receipt.mission &&
+      'cash_target_aud' in receipt.mission &&
+      receipt.mission.mode === 'DISCOVER';
+
+    if (!receipt.artifacts_created.length) {
+      throw new ControlError('UNVERIFIED_COMPLETION');
+    }
+
+    if (isRevenueDiscover) {
+      /*
+       * DISCOVER is allowed to complete without KNOWN commercial claims.
+       * Candidate existence may be evidenced while pain, demand and buying
+       * intent remain deliberately unverified.
+       *
+       * It must also remain economically inert: no outreach, no customers,
+       * no booked revenue and no net cash.
+       */
+      const ledger = receipt.revenue_ledger;
+
+      if (
+        !ledger ||
+        ledger.gross_revenue_aud !== 0 ||
+        ledger.net_cash_aud !== 0 ||
+        ledger.customers_won !== 0 ||
+        ledger.actions_taken !== 0
+      ) {
+        throw new ControlError('UNVERIFIED_COMPLETION');
+      }
+
+      /*
+       * If DISCOVER ever does emit KNOWN claims, normal verifier
+       * independence still applies to every such claim.
+       */
+      if (
+        known.some(
+          c =>
+            c.agent_id === audit.agent_id ||
+            c.agent_id === red.agent_id ||
+            !audit.checked_claim_ids.includes(c.claim_id) ||
+            !red.checked_claim_ids.includes(c.claim_id)
+        )
+      ) {
+        throw new ControlError('INDEPENDENCE_REQUIRED');
+      }
+    } else if (
+      !known.length ||
+      known.some(
+        c =>
+          c.agent_id === audit.agent_id ||
+          c.agent_id === red.agent_id ||
+          !audit.checked_claim_ids.includes(c.claim_id) ||
+          !red.checked_claim_ids.includes(c.claim_id)
+      )
+    ) {
+      throw new ControlError('INDEPENDENCE_REQUIRED');
+    }
   }
 }
 export class FileRunStore implements RunStore {

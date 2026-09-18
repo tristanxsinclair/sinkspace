@@ -347,3 +347,93 @@ test(
     );
   }
 );
+
+test(
+  'DISCOVER ledger starts with zero earned revenue',
+  async () => {
+    const {
+      emptyRevenueLedger
+    } =
+      await import(
+        '../runtime/revenue-discovery.js'
+      );
+
+    const ledger =
+      emptyRevenueLedger(
+        [],
+        '2026-09-18T00:00:00.000Z'
+      );
+
+    assert.equal(
+      ledger.gross_revenue_aud,
+      0
+    );
+
+    assert.equal(
+      ledger.net_cash_aud,
+      0
+    );
+
+    assert.equal(
+      ledger.customers_won,
+      0
+    );
+  }
+);
+
+test(
+  'revenue DISCOVER intake cannot silently authorize spend',
+  () => {
+    const intake =
+      MissionIntakeSchema.parse({
+        workflow:'revenue',
+        objective:
+          'Discover opportunities',
+        mission:{
+          mode:'DISCOVER',
+          cash_target_aud:1000,
+          horizon_days:30,
+          max_spend_aud:0,
+          max_tristan_minutes:60,
+          target_market:
+            'Perth service businesses',
+          allowed_channels:[
+            'EMAIL'
+          ],
+          offer_constraints:[
+            'No outbound action.'
+          ],
+          operator_email:
+            'tjsinkspace@gmail.com'
+        }
+      });
+
+    assert.equal(
+      intake.workflow,
+      'revenue'
+    );
+
+    assert.ok(
+      intake.mission
+    );
+
+    if (
+      !intake.mission ||
+      !('max_spend_aud' in intake.mission)
+    ) {
+      assert.fail(
+        'Expected revenue mission'
+      );
+    }
+
+    assert.equal(
+      intake.mission.max_spend_aud,
+      0
+    );
+
+    assert.equal(
+      intake.mission.mode,
+      'DISCOVER'
+    );
+  }
+);

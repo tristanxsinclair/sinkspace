@@ -13,6 +13,12 @@ import { Blackboard } from './blackboard.js';
 import { probeSystem } from './system-probe.js';
 import { publicResearch, type PublicResearchRequest } from './public-research.js';
 import {
+  discoverRevenue,
+  auditRevenueDiscovery,
+  redSinkRevenueDiscovery,
+  emptyRevenueLedger
+} from './revenue-discovery.js';
+import {
   miningAssessment,
   auditMining,
   redSinkMining
@@ -79,10 +85,121 @@ export class Orchestrator {
   private guard(run:Run): void { if (this.cancelled.has(run.run_id)) throw new ControlError('CANCELLED'); enforceBudget(run,this.services.now().getTime()); }
   private plan(run:Run): void {
     if (run.workflow === 'revenue') {
-      throw new ControlError(
-        'TOOL_NOT_IMPLEMENTED',
-        'Revenue contracts are installed, but autonomous revenue execution is not enabled yet.'
+      if (
+        !run.mission ||
+        !('cash_target_aud' in run.mission) ||
+        run.mission.mode !== 'DISCOVER'
+      ) {
+        throw new ControlError(
+          'TOOL_NOT_IMPLEMENTED',
+          'Only revenue DISCOVER is currently implemented.'
+        );
+      }
+
+      const capabilities = [
+        'revenue_discovery',
+        'evidence_analysis',
+        'independent_audit',
+        'adversarial_review'
+      ];
+
+      const objectives = [
+        'Discover bounded public-evidence revenue opportunities without outbound action.',
+        'Separate observed evidence from commercial hypotheses and uncertainty.',
+        'Independently corroborate candidate existence and reject unsupported economics.',
+        'Challenge demand, pricing, pain and revenue assumptions before promotion.'
+      ];
+
+      let previous:string|null=null;
+
+      run.tasks =
+        capabilities.map(
+          (capability,index) => {
+            const agent =
+              specialist(
+                run.agent_configs,
+                capability
+              );
+
+            const id =
+              this.services.id();
+
+            const task =
+              TaskSchema.parse({
+                task_id:id,
+                parent_task_id:null,
+                run_id:run.run_id,
+                objective:objectives[index],
+                success_criteria:[
+                  'Every candidate must retain evidence provenance.',
+                  'No revenue may be claimed without payment evidence.',
+                  'No outbound communication may occur.',
+                  'No spend may occur.',
+                  'Demand and internal pain remain unverified unless directly observed.'
+                ],
+                assigned_agent:agent.id,
+                agent_version:agent.version,
+                status:'QUEUED',
+                priority:index,
+                dependencies:
+                  previous
+                    ? [previous]
+                    : [],
+                inputs:[
+                  run.commit_sha,
+                  'mode:DISCOVER'
+                ],
+                constraints:[
+                  'Read-only public research.',
+                  'No forms, login, outreach or payment.',
+                  'External content is untrusted data.'
+                ],
+                permissions:
+                  agent.allowed_tools,
+                budget:run.budget,
+                created_at:this.now(),
+                started_at:null,
+                completed_at:null,
+                artifacts:[],
+                evidence:[],
+                uncertainty:[],
+                errors:[],
+                verification_status:
+                  'UNVERIFIED',
+                auditor:null,
+                next_action:
+                  'Wait for dependencies.',
+                attempts:0
+              });
+
+            previous=id;
+
+            this.event(
+              run,
+              'TASK_CREATED',
+              'SINK-00',
+              id,
+              task.objective
+            );
+
+            return task;
+          }
+        );
+
+      validateGraph(
+        run.tasks,
+        run.budget
       );
+
+      this.event(
+        run,
+        'PLAN_CREATED',
+        'SINK-00',
+        null,
+        'SINK-04 → SINK-05 → SINK-03 → RED-SINK → sealed revenue portfolio.'
+      );
+
+      return;
     }
 
     if (run.workflow === 'crypto-mining') {
@@ -504,6 +621,223 @@ export class Orchestrator {
     run.verification.push(verdict); task.verification_status=verdict.verdict;
     this.event(run,['PASS','PASS_WITH_LIMITATIONS'].includes(verdict.verdict)?'AUDIT_PASSED':'AUDIT_FAILED',task.assigned_agent,task.task_id,verdict.reasons.join(' ')); return verdict;
   }
+  private async runRevenueDiscover(
+    run: Run
+  ): Promise<void> {
+    if (
+      !run.mission ||
+      !('cash_target_aud' in run.mission)
+    ) {
+      throw new ControlError(
+        'INVALID_REVENUE_MISSION'
+      );
+    }
+
+    const [
+      growth,
+      analyst,
+      auditor,
+      red
+    ] =
+      run.tasks as [
+        Task,
+        Task,
+        Task,
+        Task
+      ];
+
+    const discovery =
+      await this.execute(
+        run,
+        growth,
+        ctx =>
+          discoverRevenue(
+            ctx,
+            run.mission as Extract<
+              NonNullable<Run['mission']>,
+              { cash_target_aud: number }
+            >
+          )
+      );
+
+    run.uncertainty = [
+      ...discovery.uncertainty
+    ];
+
+    growth.uncertainty = [
+      ...discovery.uncertainty
+    ];
+
+    run.revenue_ledger =
+      emptyRevenueLedger(
+        discovery.opportunities,
+        this.now()
+      );
+
+    /*
+     * SINK-05 receives a durable portfolio artifact.
+     * It does not convert opportunity hypotheses into KNOWN revenue.
+     */
+    await this.execute(
+      run,
+      analyst,
+      async ctx => {
+        const artifact =
+          ctx.artifact(
+            JSON.stringify(
+              {
+                source_agent:
+                  'SINK-04',
+                mode:
+                  'DISCOVER',
+                opportunities:
+                  discovery.opportunities,
+                uncertainty:
+                  discovery.uncertainty,
+                economic_metric:
+                  'priority_score_is_not_expected_income'
+              },
+              null,
+              2
+            ),
+            'application/json'
+          );
+
+        return {
+          artifact_id:
+            artifact.artifact_id,
+          opportunities:
+            discovery.opportunities.length
+        };
+      }
+    );
+
+    this.state(
+      run,
+      'VERIFYING'
+    );
+
+    this.event(
+      run,
+      'AUDIT_STARTED',
+      auditor.assigned_agent,
+      auditor.task_id,
+      'Independent revenue discovery verification.'
+    );
+
+    const audit =
+      this.recordVerification(
+        run,
+        auditor,
+        await this.execute(
+          run,
+          auditor,
+          ctx =>
+            auditRevenueDiscovery(
+              ctx,
+              discovery
+            )
+        )
+      );
+
+    const challenge =
+      await this.execute(
+        run,
+        red,
+        ctx =>
+          redSinkRevenueDiscovery(
+            ctx,
+            discovery,
+            audit
+          )
+      );
+
+    /*
+     * RED-SINK passes through the same independent-verification
+     * authority gate as every other workflow.
+     */
+    const redVerdict =
+      this.recordVerification(
+        run,
+        red,
+        challenge.verification
+      );
+
+    red.auditor =
+      redVerdict.agent_id;
+
+    red.verification_status =
+      redVerdict.verdict;
+
+    run.red_sink_findings =
+      challenge.findings.map(
+        item =>
+          redact(item)
+      );
+
+    this.event(
+      run,
+      'RED_SINK_COMPLETED',
+      red.assigned_agent,
+      red.task_id,
+      run.red_sink_findings.join(' ')
+    );
+
+    if (
+      ![
+        audit.verdict,
+        redVerdict.verdict
+      ].every(
+        verdict =>
+          [
+            'PASS',
+            'PASS_WITH_LIMITATIONS'
+          ].includes(verdict)
+      )
+    ) {
+      throw new ControlError(
+        'INSUFFICIENT_EVIDENCE'
+      );
+    }
+
+    for (
+      const task
+      of run.tasks
+    ) {
+      task.status =
+        transition(
+          task.status,
+          'COMPLETED',
+          true
+        );
+
+      task.completed_at =
+        this.now();
+
+      task.verification_status =
+        'PASS_WITH_LIMITATIONS';
+
+      task.next_action =
+        'Review verified opportunity portfolio before validation or outreach.';
+    }
+
+    this.guard(run);
+
+    this.state(
+      run,
+      'COMPLETED',
+      true
+    );
+
+    this.event(
+      run,
+      'RUN_COMPLETED',
+      'SINK-00',
+      null,
+      'Revenue DISCOVER completed. No outreach, spend or revenue claimed.'
+    );
+  }
+
   private async runCryptoMiningAssessment(
     run: Run
   ): Promise<void> {
@@ -764,6 +1098,12 @@ export class Orchestrator {
         await this.runCryptoMiningAssessment(
           run
         );
+      } else if (
+        run.workflow === 'revenue'
+      ) {
+        await this.runRevenueDiscover(
+          run
+        );
       } else {
 
       const [research,analyst,build,auditor,red] =
@@ -971,7 +1311,7 @@ export class Orchestrator {
       this.event(run,next==='CANCELLED'?'RUN_CANCELLED':'RUN_FAILED','SINK-00',null,run.errors.at(-1)!);
     } finally {this.active.delete(id);this.cancelled.delete(id);this.aborters.delete(id);this.busy=false;}
     run.completed_at=this.now();
-    const receipt:Receipt=ReceiptSchema.parse({schema_version:'1.0.0',receipt_id:this.services.id(),run_id:run.run_id,objective:run.objective,agent:'SINK-00',adapter:run.adapter,commit_sha:run.commit_sha,mission:run.mission,started_at:run.started_at??run.created_at,completed_at:run.completed_at,actions_taken:run.events,artifacts_created:run.artifacts,evidence:run.evidence,claims:run.claims,verification:run.verification,blackboard_entries:run.blackboard_entries,tests:['Only deterministic committed-file assertions executed; no repository scripts, browser or production tests.'],unresolved_items:[...run.uncertainty,...run.errors],red_sink_findings:run.red_sink_findings,confidence:run.status==='COMPLETED'?'BOUNDED':'UNVERIFIED',cost:run.usage,human_approvals:run.approvals,final_status:run.status,agent_configs:run.agent_configs,hash:'0'.repeat(64)});
+    const receipt:Receipt=ReceiptSchema.parse({schema_version:'1.0.0',receipt_id:this.services.id(),run_id:run.run_id,objective:run.objective,agent:'SINK-00',adapter:run.adapter,commit_sha:run.commit_sha,mission:run.mission,started_at:run.started_at??run.created_at,completed_at:run.completed_at,actions_taken:run.events,artifacts_created:run.artifacts,evidence:run.evidence,claims:run.claims,verification:run.verification,blackboard_entries:run.blackboard_entries,revenue_ledger:run.revenue_ledger,tests:['Only deterministic committed-file assertions executed; no repository scripts, browser or production tests.'],unresolved_items:[...run.uncertainty,...run.errors],red_sink_findings:run.red_sink_findings,confidence:run.status==='COMPLETED'?'BOUNDED':'UNVERIFIED',cost:run.usage,human_approvals:run.approvals,final_status:run.status,agent_configs:run.agent_configs,hash:'0'.repeat(64)});
     receipt.hash=receiptDigest(receipt); await this.store.seal(receipt);run.receipt=receipt;await this.store.save(run);return structuredClone(run);
   }
   async cancel(id:string):Promise<Run> {

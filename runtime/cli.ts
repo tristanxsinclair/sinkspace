@@ -45,28 +45,65 @@ async function main():Promise<void> {
       command === 'mission'
         ? (() => {
             if (
-              args[0] !== 'crypto-mining' ||
-              args[1] !== 'ASSESS'
+              args[0] === 'crypto-mining' &&
+              args[1] === 'ASSESS'
             ) {
-              throw new Error(
-                'Usage: npm run clones:mission -- crypto-mining ASSESS'
-              );
+              return {
+                workflow:'crypto-mining' as const,
+                objective:
+                  'Assess this host for cryptocurrency mining readiness without launching a mining workload.',
+                mission:{
+                  mode:'ASSESS' as const,
+                  miner:'xmrig' as const,
+                  pool:null,
+                  wallet:null,
+                  worker:'sink-clone',
+                  max_minutes:15,
+                  threads:1
+                }
+              };
             }
 
-            return {
-              workflow:'crypto-mining' as const,
-              objective:
-                'Assess this host for cryptocurrency mining readiness without launching a mining workload.',
-              mission:{
-                mode:'ASSESS' as const,
-                miner:'xmrig' as const,
-                pool:null,
-                wallet:null,
-                worker:'sink-clone',
-                max_minutes:15,
-                threads:1
-              }
-            };
+            if (
+              args[0] === 'revenue' &&
+              args[1] === 'DISCOVER'
+            ) {
+              return {
+                workflow:'revenue' as const,
+                objective:
+                  'Discover evidence-backed revenue opportunities that can increase verified Sink Space revenue without outbound execution.',
+                mission:{
+                  mode:'DISCOVER' as const,
+                  cash_target_aud:1000,
+                  horizon_days:30,
+                  max_spend_aud:0,
+                  max_tristan_minutes:60,
+                  target_market:
+                    'Perth service businesses',
+                  allowed_channels:[
+                    'EMAIL',
+                    'PHONE',
+                    'INSTAGRAM',
+                    'LINKEDIN',
+                    'IN_PERSON',
+                    'WEB_FORM'
+                  ],
+                  offer_constraints:[
+                    'No fabricated claims.',
+                    'No outbound execution.',
+                    'No spending.',
+                    'No revenue claim without payment evidence.',
+                    'Prefer services that can later become recurring software revenue.'
+                  ],
+                  operator_email:
+                    'tjsinkspace@gmail.com'
+                }
+              };
+            }
+
+            throw new Error(
+              'Usage: npm run clones:mission -- crypto-mining ASSESS | revenue DISCOVER'
+            );
           })()
         : healthIntake;
 
@@ -88,14 +125,17 @@ async function main():Promise<void> {
         a.media_type === 'text/markdown' &&
         (
           a.agent_id === 'SINK-02' ||
-          a.agent_id === 'SINK-06'
+          a.agent_id === 'SINK-06' ||
+          a.agent_id === 'SINK-04'
         )
     );
     if(!report||!run.receipt)throw new Error('Completed run is missing its report artifact or receipt.');
     const reportName =
       run.workflow === 'crypto-mining'
         ? 'mining-assessment.md'
-        : 'capability-inventory.md';
+        : run.workflow === 'revenue'
+          ? 'revenue-discovery.md'
+          : 'capability-inventory.md';
 
     await writeFile(
       resolve(preserved,reportName),
@@ -103,7 +143,7 @@ async function main():Promise<void> {
       {flag:'wx',mode:0o600}
     );
     await writeFile(resolve(preserved,'receipt.json'),JSON.stringify(run.receipt,null,2)+'\n',{flag:'wx',mode:0o600});
-    console.log(JSON.stringify({run_id:run.run_id,status:run.status,adapter:run.adapter,commit:run.commit_sha,artifact:`agents/runs/${run.run_id}/${run.workflow === 'crypto-mining' ? 'mining-assessment.md' : 'capability-inventory.md'}`,receipt:`agents/runs/${run.run_id}/receipt.json`,verdicts:run.verification.map(v=>({agent:v.agent_id,verdict:v.verdict})),uncertainty:run.uncertainty},null,2));
+    console.log(JSON.stringify({run_id:run.run_id,status:run.status,adapter:run.adapter,commit:run.commit_sha,artifact:`agents/runs/${run.run_id}/${run.workflow === 'crypto-mining' ? 'mining-assessment.md' : run.workflow === 'revenue' ? 'revenue-discovery.md' : 'capability-inventory.md'}`,receipt:`agents/runs/${run.run_id}/receipt.json`,verdicts:run.verification.map(v=>({agent:v.agent_id,verdict:v.verdict})),uncertainty:run.uncertainty},null,2));
     if(run.status!=='COMPLETED')process.exitCode=1;
   } else {
     const port=Number(process.env.SINK_PORT??4310);if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('SINK_PORT must be 1024–65535.');
