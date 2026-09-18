@@ -143,3 +143,237 @@ test(
     );
   }
 );
+
+async function executableAuthorization(
+  repositoryRoot: string
+) {
+  const plan =
+    createPendingConstitutionalPlan({
+      mandate_id:
+        'LY-MANDATE-preflight',
+
+      proposal_id:
+        'LY-PROPOSAL-preflight',
+
+      title:
+        'Preflight plan',
+
+      objective:
+        'Verify constitutional local cognition preflight.',
+
+      target_system:
+        'BUILDERS_GUILD_WORKSHOP',
+
+      engineering_spec: {
+        schema_version: 1,
+        target_path:
+          'runtime/preflight-proof.ts',
+        operation:
+          'CREATE',
+        expected_exports: [
+          'preflightProof'
+        ],
+        verification_commands: [
+          'TYPECHECK'
+        ],
+        max_files_changed: 1,
+        network: false,
+        credentials: false,
+        external_messages: false,
+        deployment: false,
+        dependency_installation: false,
+        destructive_operations: false
+      },
+
+      inspected_state: {
+        population: 9,
+        generation: 0,
+        cognition: 'LOCAL',
+        external_model_api: false
+      }
+    });
+
+  const planStore =
+    new ConstitutionalPlanStore(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/pending-plans'
+      )
+    );
+
+  await planStore.create(plan);
+
+  const authorization =
+    createFounderAuthorization({
+      mandate_id:
+        plan.mandate_id,
+
+      plan_id:
+        plan.plan_id,
+
+      proposal_id:
+        plan.proposal_id,
+
+      proposal_digest:
+        plan.proposal_digest,
+
+      target_system:
+        plan.target_system,
+
+      objective:
+        plan.objective
+    });
+
+  const authorizationStore =
+    new FounderAuthorizationStore(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/authorizations'
+      )
+    );
+
+  await authorizationStore.create(
+    authorization
+  );
+
+  return {
+    plan,
+    authorization
+  };
+}
+
+test(
+  'unavailable local runtime creates no claim and invokes no engineering mission',
+  async () => {
+    const repositoryRoot =
+      await root();
+
+    const {
+      authorization
+    } =
+      await executableAuthorization(
+        repositoryRoot
+      );
+
+    let engineeringInvocations = 0;
+
+    await assert.rejects(
+      () =>
+        executeConstitutionalEngineering(
+          repositoryRoot,
+          authorization.authorization_id,
+          {
+            localRuntimeHealth:
+              async () => false,
+
+            runEngineering:
+              async () => {
+                engineeringInvocations += 1;
+                throw new Error(
+                  'ENGINEERING_SHOULD_NOT_RUN'
+                );
+              }
+          }
+        ),
+      /CONSTITUTIONAL_LOCAL_MODEL_PREFLIGHT_FAILED/
+    );
+
+    assert.equal(
+      engineeringInvocations,
+      0
+    );
+
+    const claimId =
+      `LY-CLAIM-${(
+        await import(
+          'node:crypto'
+        )
+      ).createHash('sha256')
+        .update(
+          `constitutional-execution:${authorization.authorization_id}`
+        )
+        .digest('hex')
+        .slice(0, 32)}`;
+
+    const {
+      access
+    } =
+      await import(
+        'node:fs/promises'
+      );
+
+    await assert.rejects(
+      () =>
+        access(
+          join(
+            repositoryRoot,
+            '.sink/lake-yange/constitutional-executions/claims',
+            `${claimId}.json`
+          )
+        )
+    );
+  }
+);
+
+test(
+  'healthy local runtime permits the irreversible execution boundary',
+  async () => {
+    const repositoryRoot =
+      await root();
+
+    const {
+      authorization
+    } =
+      await executableAuthorization(
+        repositoryRoot
+      );
+
+    let engineeringInvocations = 0;
+
+    await assert.rejects(
+      () =>
+        executeConstitutionalEngineering(
+          repositoryRoot,
+          authorization.authorization_id,
+          {
+            localRuntimeHealth:
+              async () => true,
+
+            runEngineering:
+              async () => {
+                engineeringInvocations += 1;
+                throw new Error(
+                  'TEST_BOUNDARY_REACHED'
+                );
+              }
+          }
+        ),
+      /CONSTITUTIONAL_ENGINEERING_BOUNDARY_FAILED:TEST_BOUNDARY_REACHED/
+    );
+
+    assert.equal(
+      engineeringInvocations,
+      1
+    );
+
+    const {
+      readdir
+    } =
+      await import(
+        'node:fs/promises'
+      );
+
+    const claims =
+      await readdir(
+        join(
+          repositoryRoot,
+          '.sink/lake-yange/constitutional-executions/claims'
+        )
+      );
+
+    assert.equal(
+      claims.length,
+      1
+    );
+  }
+);

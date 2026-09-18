@@ -22,6 +22,10 @@ import {
   type EngineeringReceipt
 } from './engineering-orchestrator.js';
 
+import {
+  LlamaCppLocalRuntime
+} from './llama-cpp-local-runtime.js';
+
 export interface ConstitutionalEngineeringResult {
   claim:
     ConstitutionalExecutionClaim;
@@ -33,9 +37,15 @@ export interface ConstitutionalEngineeringResult {
     ConstitutionalExecutionResult;
 }
 
+export interface ConstitutionalEngineeringDependencies {
+  localRuntimeHealth?: () => Promise<boolean>;
+  runEngineering?: typeof runEngineeringMission;
+}
+
 export async function executeConstitutionalEngineering(
   repositoryRoot: string,
-  authorizationId: string
+  authorizationId: string,
+  dependencies: ConstitutionalEngineeringDependencies = {}
 ): Promise<ConstitutionalEngineeringResult> {
   const authorizationStore =
     new FounderAuthorizationStore(
@@ -170,6 +180,33 @@ export async function executeConstitutionalEngineering(
     plan.engineering_spec;
 
   /*
+   * Constitutional authority must not become
+   * irreversibly spent merely because the local
+   * cognition runtime is offline.
+   *
+   * This is a health preflight only. It performs
+   * no inference and grants no execution authority.
+   */
+  const localRuntimeHealth =
+    dependencies.localRuntimeHealth ??
+    (() =>
+      new LlamaCppLocalRuntime({
+        baseUrl: 'http://127.0.0.1:18181'
+      }).health());
+
+  const localRuntimeHealthy =
+    await localRuntimeHealth();
+
+  if (!localRuntimeHealthy) {
+    throw new Error(
+      'CONSTITUTIONAL_LOCAL_MODEL_PREFLIGHT_FAILED'
+    );
+  }
+
+  /*
+   * Only after local cognition is confirmed healthy
+   * may the irreversible one-shot claim be created.
+   *
    * The claim is persisted BEFORE local Forge
    * receives any work.
    *
@@ -206,7 +243,10 @@ export async function executeConstitutionalEngineering(
 
   try {
     engineeringReceipt =
-      await runEngineeringMission(
+      await (
+        dependencies.runEngineering ??
+        runEngineeringMission
+      )(
         repositoryRoot,
         {
           objective:
