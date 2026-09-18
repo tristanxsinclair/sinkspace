@@ -47,6 +47,14 @@ export class ConstitutionalPlanStore {
         title: parsed.title,
         objective: parsed.objective,
         target_system: parsed.target_system,
+
+        ...(parsed.engineering_spec
+          ? {
+              engineering_spec:
+                parsed.engineering_spec
+            }
+          : {}),
+
         inspected_state: parsed.inspected_state
       });
 
@@ -96,6 +104,14 @@ export class ConstitutionalPlanStore {
         title: parsed.title,
         objective: parsed.objective,
         target_system: parsed.target_system,
+
+        ...(parsed.engineering_spec
+          ? {
+              engineering_spec:
+                parsed.engineering_spec
+            }
+          : {}),
+
         inspected_state: parsed.inspected_state
       });
 
