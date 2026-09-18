@@ -117,19 +117,24 @@ export function verifyReceipt(receipt: Receipt): void {
       'cash_target_aud' in receipt.mission &&
       receipt.mission.mode === 'DISCOVER';
 
+    const isRevenueValidate =
+      !!receipt.mission &&
+      'cash_target_aud' in receipt.mission &&
+      receipt.mission.mode === 'VALIDATE';
+
+    const isRevenuePreOperate =
+      isRevenueDiscover ||
+      isRevenueValidate;
+
     if (!receipt.artifacts_created.length) {
       throw new ControlError('UNVERIFIED_COMPLETION');
     }
 
-    if (isRevenueDiscover) {
-      /*
-       * DISCOVER is allowed to complete without KNOWN commercial claims.
-       * Candidate existence may be evidenced while pain, demand and buying
-       * intent remain deliberately unverified.
-       *
-       * It must also remain economically inert: no outreach, no customers,
-       * no booked revenue and no net cash.
-       */
+    /*
+     * DISCOVER and VALIDATE are pre-operation modes.
+     * Neither may complete with customer actions or economic output.
+     */
+    if (isRevenuePreOperate) {
       const ledger = receipt.revenue_ledger;
 
       if (
@@ -141,8 +146,14 @@ export function verifyReceipt(receipt: Receipt): void {
       ) {
         throw new ControlError('UNVERIFIED_COMPLETION');
       }
+    }
 
+    if (isRevenueDiscover) {
       /*
+       * DISCOVER is allowed to complete without KNOWN commercial claims.
+       * Candidate existence may be evidenced while pain, demand and buying
+       * intent remain deliberately unverified.
+       *
        * If DISCOVER ever does emit KNOWN claims, normal verifier
        * independence still applies to every such claim.
        */

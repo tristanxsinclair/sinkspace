@@ -66,14 +66,19 @@ async function main():Promise<void> {
 
             if (
               args[0] === 'revenue' &&
-              args[1] === 'DISCOVER'
+              typeof args[1] === 'string' && ['DISCOVER','VALIDATE'].includes(args[1])
             ) {
+              const revenueMode =
+                args[1] as 'DISCOVER' | 'VALIDATE';
+
               return {
                 workflow:'revenue' as const,
                 objective:
-                  'Discover evidence-backed revenue opportunities that can increase verified Sink Space revenue without outbound execution.',
+                  revenueMode === 'VALIDATE'
+                    ? 'Validate the strongest evidence-backed revenue opportunities without outbound execution or spending.'
+                    : 'Discover evidence-backed revenue opportunities that can increase verified Sink Space revenue without outbound execution.',
                 mission:{
-                  mode:'DISCOVER' as const,
+                  mode:revenueMode,
                   cash_target_aud:1000,
                   horizon_days:30,
                   max_spend_aud:0,
@@ -102,7 +107,7 @@ async function main():Promise<void> {
             }
 
             throw new Error(
-              'Usage: npm run clones:mission -- crypto-mining ASSESS | revenue DISCOVER'
+              'Usage: npm run clones:mission -- crypto-mining ASSESS | revenue DISCOVER | revenue VALIDATE'
             );
           })()
         : healthIntake;
@@ -134,7 +139,9 @@ async function main():Promise<void> {
       run.workflow === 'crypto-mining'
         ? 'mining-assessment.md'
         : run.workflow === 'revenue'
-          ? 'revenue-discovery.md'
+          ? run.mission?.mode === 'VALIDATE'
+            ? 'revenue-validation.md'
+            : 'revenue-discovery.md'
           : 'capability-inventory.md';
 
     await writeFile(
@@ -143,7 +150,7 @@ async function main():Promise<void> {
       {flag:'wx',mode:0o600}
     );
     await writeFile(resolve(preserved,'receipt.json'),JSON.stringify(run.receipt,null,2)+'\n',{flag:'wx',mode:0o600});
-    console.log(JSON.stringify({run_id:run.run_id,status:run.status,adapter:run.adapter,commit:run.commit_sha,artifact:`agents/runs/${run.run_id}/${run.workflow === 'crypto-mining' ? 'mining-assessment.md' : run.workflow === 'revenue' ? 'revenue-discovery.md' : 'capability-inventory.md'}`,receipt:`agents/runs/${run.run_id}/receipt.json`,verdicts:run.verification.map(v=>({agent:v.agent_id,verdict:v.verdict})),uncertainty:run.uncertainty},null,2));
+    console.log(JSON.stringify({run_id:run.run_id,status:run.status,adapter:run.adapter,commit:run.commit_sha,artifact:`agents/runs/${run.run_id}/${run.workflow === 'crypto-mining' ? 'mining-assessment.md' : run.workflow === 'revenue' ? (run.mission?.mode === 'VALIDATE' ? 'revenue-validation.md' : 'revenue-discovery.md') : 'capability-inventory.md'}`,receipt:`agents/runs/${run.run_id}/receipt.json`,verdicts:run.verification.map(v=>({agent:v.agent_id,verdict:v.verdict})),uncertainty:run.uncertainty},null,2));
     if(run.status!=='COMPLETED')process.exitCode=1;
   } else {
     const port=Number(process.env.SINK_PORT??4310);if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('SINK_PORT must be 1024–65535.');

@@ -1,5 +1,5 @@
 import { randomUUID } from 'node:crypto';
-import { AgentDefinitionSchema, BudgetSchema, DEFAULT_BUDGET, HEALTH_OBJECTIVE, MissionIntakeSchema, ReceiptSchema, RunSchema, TaskSchema, VerificationSchema, WorkerOutputSchema, type AgentDefinition, type Artifact, type Budget, type Event, type Receipt, type Run, type Task, type Verification, type WorkerOutput } from './contracts.js';
+import { AgentDefinitionSchema, BudgetSchema, ClaimSchema, DEFAULT_BUDGET, HEALTH_OBJECTIVE, MissionIntakeSchema, ReceiptSchema, RunSchema, TaskSchema, VerificationSchema, WorkerOutputSchema, type AgentDefinition, type Artifact, type Budget, type Event, type Receipt, type Run, type Task, type Verification, type WorkerOutput } from './contracts.js';
 import type { ExecutionContext, Observation, RuntimeServices } from './context.js';
 import { loadRegistry, specialist } from './registry.js';
 import { authorize, ControlError, enforceBudget, hash, redact, validateGraph } from './security.js';
@@ -88,13 +88,19 @@ export class Orchestrator {
       if (
         !run.mission ||
         !('cash_target_aud' in run.mission) ||
-        run.mission.mode !== 'DISCOVER'
+        ![
+          'DISCOVER',
+          'VALIDATE'
+        ].includes(run.mission.mode)
       ) {
         throw new ControlError(
           'TOOL_NOT_IMPLEMENTED',
-          'Only revenue DISCOVER is currently implemented.'
+          'Revenue OPERATE is not implemented.'
         );
       }
+
+      const revenueMode =
+        run.mission.mode;
 
       const capabilities = [
         'revenue_discovery',
@@ -103,12 +109,20 @@ export class Orchestrator {
         'adversarial_review'
       ];
 
-      const objectives = [
-        'Discover bounded public-evidence revenue opportunities without outbound action.',
-        'Separate observed evidence from commercial hypotheses and uncertainty.',
-        'Independently corroborate candidate existence and reject unsupported economics.',
-        'Challenge demand, pricing, pain and revenue assumptions before promotion.'
-      ];
+      const objectives =
+        revenueMode === 'VALIDATE'
+          ? [
+              'Deeply validate the strongest public-evidence revenue candidates without outbound action.',
+              'Separate directly observed commercial facts from hypotheses and preserved uncertainty.',
+              'Independently re-check first-party candidate evidence and all KNOWN validation claims.',
+              'Challenge fit, demand, pricing and buying assumptions before any test is authorised.'
+            ]
+          : [
+              'Discover bounded public-evidence revenue opportunities without outbound action.',
+              'Separate observed evidence from commercial hypotheses and uncertainty.',
+              'Independently corroborate candidate existence and reject unsupported economics.',
+              'Challenge demand, pricing, pain and revenue assumptions before promotion.'
+            ];
 
       let previous:string|null=null;
 
@@ -147,7 +161,7 @@ export class Orchestrator {
                     : [],
                 inputs:[
                   run.commit_sha,
-                  'mode:DISCOVER'
+                  `mode:${revenueMode}`
                 ],
                 constraints:[
                   'Read-only public research.',
@@ -621,6 +635,379 @@ export class Orchestrator {
     run.verification.push(verdict); task.verification_status=verdict.verdict;
     this.event(run,['PASS','PASS_WITH_LIMITATIONS'].includes(verdict.verdict)?'AUDIT_PASSED':'AUDIT_FAILED',task.assigned_agent,task.task_id,verdict.reasons.join(' ')); return verdict;
   }
+  private async runRevenueValidate(
+    run: Run
+  ): Promise<void> {
+    if (
+      !run.mission ||
+      !('cash_target_aud' in run.mission)
+    ) {
+      throw new ControlError(
+        'INVALID_REVENUE_MISSION'
+      );
+    }
+
+    const [
+      growth,
+      analyst,
+      auditor,
+      red
+    ] =
+      run.tasks as [
+        Task,
+        Task,
+        Task,
+        Task
+      ];
+
+    /*
+     * VALIDATE remains read-only.
+     *
+     * It intentionally performs a fresh bounded discovery pass rather than
+     * trusting a historical portfolio. This means every validation receipt
+     * carries evidence captured under its own pinned commit and run.
+     */
+    const discovery =
+      await this.execute(
+        run,
+        growth,
+        ctx =>
+          discoverRevenue(
+            ctx,
+            run.mission as Extract<
+              NonNullable<Run['mission']>,
+              { cash_target_aud: number }
+            >
+          )
+      );
+
+    const opportunities =
+      discovery.opportunities
+        .slice(0, 3)
+        .map(
+          opportunity => ({
+            ...opportunity,
+            status:
+              'VALIDATING' as const
+          })
+        );
+
+    if (!opportunities.length) {
+      throw new ControlError(
+        'INSUFFICIENT_EVIDENCE',
+        'No revenue candidate survived validation intake.'
+      );
+    }
+
+    /*
+     * KNOWN claims are deliberately narrow.
+     *
+     * They do NOT claim:
+     * - customer pain,
+     * - willingness to pay,
+     * - budget,
+     * - purchase intent,
+     * - conversion probability,
+     * - future revenue.
+     *
+     * They only preserve the first-party business evidence already observed
+     * by SINK-04 and independently re-checked by the verification stages.
+     */
+    run.claims =
+      opportunities.map(
+        opportunity =>
+          ClaimSchema.parse({
+            claim_id:
+              this.services.id(),
+
+            statement:
+              `${opportunity.target_customer} was observed through direct first-party public business evidence during this validation run.`,
+
+            classification:
+              'KNOWN',
+
+            evidence_ids:
+              [...opportunity.evidence_ids],
+
+            predicate:
+              null,
+
+            agent_id:
+              growth.assigned_agent
+          })
+      );
+
+    for (const claim of run.claims) {
+      this.event(
+        run,
+        'CLAIM_CREATED',
+        growth.assigned_agent,
+        growth.task_id,
+        claim.statement
+      );
+    }
+
+    run.uncertainty = [
+      ...discovery.uncertainty,
+      'UNKNOWN: Public website evidence does not establish willingness to pay.',
+      'UNKNOWN: Internal workflow pain has not been directly observed.',
+      'UNKNOWN: Buyer budget and decision authority have not been established.',
+      'NEEDS_VERIFICATION: Proposed pricing remains a market-test hypothesis.',
+      'NEEDS_VERIFICATION: No customer outreach has occurred.',
+      'KNOWN: VALIDATE performed no spend and generated no revenue.'
+    ];
+
+    growth.uncertainty = [
+      ...run.uncertainty
+    ];
+
+    run.revenue_ledger =
+      emptyRevenueLedger(
+        opportunities,
+        this.now()
+      );
+
+    /*
+     * Analyst converts the validation portfolio into a bounded TEST PLAN.
+     * This is not permission to contact anyone.
+     */
+    await this.execute(
+      run,
+      analyst,
+      async ctx => {
+        const artifact =
+          ctx.artifact(
+            JSON.stringify(
+              {
+                source_agent:
+                  growth.assigned_agent,
+
+                mode:
+                  'VALIDATE',
+
+                opportunities,
+
+                known_claims:
+                  run.claims,
+
+                preserved_uncertainty:
+                  run.uncertainty,
+
+                proposed_next_step:
+                  {
+                    action:
+                      'Draft one tailored outreach test per approved candidate for human review.',
+
+                    outbound_authorised:
+                      false,
+
+                    spend_authorised:
+                      false,
+
+                    max_cost_aud:
+                      0,
+
+                    approval_required:
+                      true,
+
+                    success_condition:
+                      'A future approved outreach test receives a qualified business response.',
+
+                    stop_condition:
+                      'Do not send, spend, deploy or represent pipeline value as earned revenue without explicit authority.'
+                  },
+
+                economic_metric:
+                  'validation_priority_is_not_expected_income'
+              },
+              null,
+              2
+            ),
+            'application/json'
+          );
+
+        return {
+          artifact_id:
+            artifact.artifact_id,
+
+          opportunities:
+            opportunities.length,
+
+          known_claims:
+            run.claims.length
+        };
+      }
+    );
+
+    this.state(
+      run,
+      'VERIFYING'
+    );
+
+    this.event(
+      run,
+      'AUDIT_STARTED',
+      auditor.assigned_agent,
+      auditor.task_id,
+      'Independent revenue validation verification.'
+    );
+
+    /*
+     * Discovery audit independently re-fetches canonical candidate evidence.
+     * VALIDATE claims are intentionally restricted to exactly that factual
+     * surface, so successful audit coverage may bind those claim IDs.
+     */
+    const rawAudit =
+      await this.execute(
+        run,
+        auditor,
+        ctx =>
+          auditRevenueDiscovery(
+            ctx,
+            {
+              ...discovery,
+              opportunities
+            }
+          )
+      );
+
+    const audit =
+      this.recordVerification(
+        run,
+        auditor,
+        {
+          ...rawAudit,
+          checked_claim_ids:
+            run.claims.map(
+              claim =>
+                claim.claim_id
+            )
+        }
+      );
+
+    const challenge =
+      await this.execute(
+        run,
+        red,
+        ctx =>
+          redSinkRevenueDiscovery(
+            ctx,
+            {
+              ...discovery,
+              opportunities
+            },
+            audit
+          )
+      );
+
+    const redVerdict =
+      this.recordVerification(
+        run,
+        red,
+        {
+          ...challenge.verification,
+          checked_claim_ids:
+            run.claims.map(
+              claim =>
+                claim.claim_id
+            )
+        }
+      );
+
+    red.auditor =
+      redVerdict.agent_id;
+
+    red.verification_status =
+      redVerdict.verdict;
+
+    run.red_sink_findings =
+      challenge.findings.map(
+        item =>
+          redact(item)
+      );
+
+    this.event(
+      run,
+      'RED_SINK_COMPLETED',
+      red.assigned_agent,
+      red.task_id,
+      run.red_sink_findings.join(' ')
+    );
+
+    if (
+      ![
+        audit.verdict,
+        redVerdict.verdict
+      ].every(
+        verdict =>
+          [
+            'PASS',
+            'PASS_WITH_LIMITATIONS'
+          ].includes(verdict)
+      )
+    ) {
+      throw new ControlError(
+        'INSUFFICIENT_EVIDENCE'
+      );
+    }
+
+    /*
+     * Passing validation means "safe to test", not "customer demand proven".
+     */
+    if (run.revenue_ledger) {
+      run.revenue_ledger.opportunities =
+        run.revenue_ledger.opportunities.map(
+          opportunity => ({
+            ...opportunity,
+            status:
+              'APPROVED_FOR_TEST'
+          })
+        );
+
+      run.revenue_ledger.updated_at =
+        this.now();
+    }
+
+    for (
+      const task
+      of run.tasks
+    ) {
+      task.status =
+        transition(
+          task.status,
+          'COMPLETED',
+          true
+        );
+
+      task.completed_at =
+        this.now();
+
+      task.verification_status =
+        'PASS_WITH_LIMITATIONS';
+
+      task.next_action =
+        'Await human review before any outreach or spend.';
+    }
+
+    this.guard(run);
+
+    this.state(
+      run,
+      'COMPLETED',
+      true
+    );
+
+    this.event(
+      run,
+      'RUN_COMPLETED',
+      'SINK-00',
+      null,
+      'Revenue VALIDATE completed with independently checked first-party claims; no outreach, spend or revenue occurred.'
+    );
+
+    await this.store.save(run);
+  }
+
   private async runRevenueDiscover(
     run: Run
   ): Promise<void> {
@@ -1101,9 +1488,19 @@ export class Orchestrator {
       } else if (
         run.workflow === 'revenue'
       ) {
-        await this.runRevenueDiscover(
-          run
-        );
+        if (
+          run.mission &&
+          'cash_target_aud' in run.mission &&
+          run.mission.mode === 'VALIDATE'
+        ) {
+          await this.runRevenueValidate(
+            run
+          );
+        } else {
+          await this.runRevenueDiscover(
+            run
+          );
+        }
       } else {
 
       const [research,analyst,build,auditor,red] =
