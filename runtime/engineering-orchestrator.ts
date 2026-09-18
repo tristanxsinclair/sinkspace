@@ -21,6 +21,7 @@ import {
 
 import {
   LocalEngineeringIntelligence,
+  type EngineeringIntelligence,
   type EngineeringProposal
 } from './engineering-intelligence.js';
 
@@ -66,6 +67,12 @@ export interface EngineeringReceipt {
   typecheck_stdout?: string;
   typecheck_stderr?: string;
   acceptance_checks?: string[];
+  repair_attempted?: boolean;
+  initial_proposal?: EngineeringProposal;
+  initial_typecheck_exit_code?: number | null;
+  initial_typecheck_stdout?: string;
+  initial_typecheck_stderr?: string;
+  repair_diagnostics?: string;
   vera: 'PASS' | 'FAIL';
   rook: 'PASS' | 'FAIL';
   promotion: 'NOT_AUTHORIZED';
@@ -330,7 +337,7 @@ Do not weaken tests.
       24_000,
 
     max_model_calls:
-      1
+      2
   });
 }
 
@@ -389,9 +396,15 @@ function createForge() {
   );
 }
 
+export interface EngineeringOrchestratorDependencies {
+  forge?: EngineeringIntelligence;
+}
+
 export async function runEngineeringMission(
   repositoryRoot: string,
-  request: EngineeringRequest
+  request: EngineeringRequest,
+  dependencies:
+    EngineeringOrchestratorDependencies = {}
 ): Promise<EngineeringReceipt> {
   const receiptId =
     randomUUID();
@@ -420,6 +433,7 @@ export async function runEngineeringMission(
     );
 
   const forge =
+    dependencies.forge ??
     createForge();
 
   let workspace:
@@ -509,6 +523,9 @@ TYPECHECK is the only executable verification command.
         context
       );
 
+    let acceptedProposal =
+      proposal;
+
     receipt.proposal =
       proposal;
 
@@ -559,17 +576,150 @@ TYPECHECK is the only executable verification command.
     if (
       typecheck.exit_code !== 0
     ) {
-      receipt.failure =
-        'VERA_TYPECHECK_FAILED';
+      /*
+       * Vera has rejected the initial neural draft.
+       *
+       * One bounded repair is permitted inside the
+       * SAME mission, workspace, target and authority
+       * envelope. No new constitutional authority is
+       * created by this repair.
+       */
+      receipt.repair_attempted =
+        true;
 
-      return receipt;
+      receipt.initial_proposal =
+        proposal;
+
+      receipt.initial_typecheck_exit_code =
+        typecheck.exit_code;
+
+      receipt.initial_typecheck_stdout =
+        typecheck.stdout;
+
+      receipt.initial_typecheck_stderr =
+        typecheck.stderr;
+
+      const diagnostics = [
+        typecheck.stdout,
+        typecheck.stderr
+      ]
+        .filter(Boolean)
+        .join('\n')
+        .slice(0, 12_000);
+
+      receipt.repair_diagnostics =
+        diagnostics;
+
+      const failedSource =
+        proposal.mutations[0]
+          ?.content ?? '';
+
+      const repairProposal =
+        await forge.repair(
+          mission,
+          failedSource,
+          diagnostics
+        );
+
+      const repairFindings =
+        rookFindings(
+          repairProposal
+        );
+
+      if (
+        repairFindings.length > 0
+      ) {
+        receipt.proposal =
+          repairProposal;
+
+        receipt.rook =
+          'FAIL';
+
+        receipt.failure =
+          `ROOK_REPAIR_FORBIDDEN:${repairFindings.join(',')}`;
+
+        return receipt;
+      }
+
+      /*
+       * CREATE authority refers to the canonical
+       * target. The initial draft already exists only
+       * inside the disposable Workshop, so the repair
+       * replaces that draft without changing canonical
+       * operation authority.
+       */
+      const repairMutation =
+        repairProposal.mutations[0];
+
+      if (!repairMutation) {
+        receipt.failure =
+          'FORGE_REPAIR_MUTATION_MISSING';
+
+        return receipt;
+      }
+
+      const workshopRepair = {
+        ...repairProposal,
+        mutations: [
+          {
+            ...repairMutation,
+            operation:
+              'REPLACE' as const
+          }
+        ]
+      };
+
+      const repairDiff =
+        await applyEngineeringProposal(
+          workspace,
+          workshopRepair
+        );
+
+      acceptedProposal =
+        repairProposal;
+
+      receipt.proposal =
+        repairProposal;
+
+      receipt.diff =
+        repairDiff.diff;
+
+      receipt.changed_files =
+        repairDiff.changed_files;
+
+      const repairedTypecheck =
+        await runEngineeringCommand(
+          workspace,
+          'TYPECHECK'
+        );
+
+      receipt.typecheck_exit_code =
+        repairedTypecheck.exit_code;
+
+      receipt.typecheck_stdout =
+        repairedTypecheck.stdout;
+
+      receipt.typecheck_stderr =
+        repairedTypecheck.stderr;
+
+      if (
+        repairedTypecheck.exit_code !==
+          0
+      ) {
+        receipt.failure =
+          'VERA_REPAIR_TYPECHECK_FAILED';
+
+        return receipt;
+      }
     }
 
     const expectedExports =
       request.expected_exports ?? [];
 
     const proposedSource =
-      proposal.mutations[0]?.content ?? '';
+      acceptedProposal
+        .mutations[0]
+        ?.content ?? '';
 
     const acceptanceFailures =
       verifyExpectedExports(
