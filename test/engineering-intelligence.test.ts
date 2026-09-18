@@ -622,3 +622,137 @@ test(
     );
   }
 );
+
+test(
+  'Forge repair instructs local cognition to resolve compiler and semantic Vera failures simultaneously',
+  async () => {
+    let capturedSystem = '';
+    let capturedPrompt = '';
+
+    const transport:
+      LocalModelTransport = {
+        name:
+          'fixture-semantic-repair-contract',
+
+        async inferStructured(input) {
+          capturedSystem =
+            input.system;
+
+          capturedPrompt =
+            input.prompt;
+
+          return {
+            content:
+              'export function constitutionalStatus() { return { capability: "bounded" }; }\n'
+          };
+        }
+      };
+
+    const intelligence =
+      new LocalEngineeringIntelligence(
+        transport
+      );
+
+    const mission =
+      EngineeringMissionSchema.parse({
+        objective:
+          'Create a bounded Lake Yange constitutional status module. It must export a deterministic function named constitutionalStatus.',
+
+        repository_root:
+          '/tmp/lake-yange',
+
+        allowed_paths: [
+          'runtime/lake-yange-constitutional-status.ts'
+        ],
+
+        verification_commands: [
+          'TYPECHECK'
+        ],
+
+        max_files_changed:
+          1,
+
+        max_model_calls:
+          2
+      });
+
+    const failedSource = [
+      "import { LakeYangeConstitutionalStatus } from './lake-yange-constitutional-status';",
+      '',
+      'export const constitutionalStatus: LakeYangeConstitutionalStatus = {',
+      "  engineeringCapability: 'High',",
+      "  status: 'Operational',",
+      '};'
+    ].join('\n');
+
+    const diagnostics = [
+      'TYPECHECK_FAILED',
+      "error TS2835: Relative import paths need explicit file extensions in ECMAScript imports.",
+      'MISSING_EXPECTED_FUNCTION_EXPORT:constitutionalStatus'
+    ].join('\n');
+
+    const proposal =
+      await intelligence.repair(
+        mission,
+        failedSource,
+        diagnostics
+      );
+
+    assert.match(
+      capturedSystem,
+      /ALL Vera diagnostics simultaneously/
+    );
+
+    assert.match(
+      capturedSystem,
+      /Do not stop after fixing the first compiler diagnostic/
+    );
+
+    assert.match(
+      capturedSystem,
+      /remove it rather than repairing or preserving it/
+    );
+
+    assert.match(
+      capturedSystem,
+      /directly declare export function/
+    );
+
+    assert.match(
+      capturedPrompt,
+      /Resolve compiler and semantic failures simultaneously/
+    );
+
+    assert.match(
+      capturedPrompt,
+      /MISSING_EXPECTED_FUNCTION_EXPORT/
+    );
+
+    assert.ok(
+      capturedPrompt.includes(
+        diagnostics
+      )
+    );
+
+    assert.ok(
+      capturedPrompt.includes(
+        failedSource
+      )
+    );
+
+    assert.equal(
+      proposal.mutations.length,
+      1
+    );
+
+    assert.equal(
+      proposal.mutations[0]?.path,
+      'runtime/lake-yange-constitutional-status.ts'
+    );
+
+    assert.equal(
+      proposal.mutations[0]?.operation,
+      'CREATE'
+    );
+  }
+);
