@@ -1535,6 +1535,80 @@ const server =
             return;
           }
 
+          /*
+           * Founder authorization is evaluated before
+           * ordinary engineering or generic Prime routing.
+           *
+           * This records bounded authority only.
+           * It does NOT execute Workshop engineering.
+           */
+          const {
+            interpretPrimeAuthorization
+          } =
+            await import(
+              './prime-authorization.js'
+            );
+
+          const authorizationAction =
+            interpretPrimeAuthorization(
+              message
+            );
+
+          if (
+            authorizationAction.status ===
+            'AUTHORIZE_PLAN'
+          ) {
+            const {
+              authorizeConstitutionalPlan,
+              constitutionalAuthorizationReply
+            } =
+              await import(
+                './constitutional-authority.js'
+              );
+
+            const result =
+              await authorizeConstitutionalPlan(
+                ROOT,
+                authorizationAction.plan_id
+              );
+
+            json(
+              res,
+              200,
+              {
+                status:
+                  'FOUNDER_AUTHORIZATION_RECORDED',
+
+                reply:
+                  constitutionalAuthorizationReply(
+                    result
+                  ),
+
+                mission: null,
+
+                confidence:
+                  'HIGH',
+
+                assumptions: [
+                  'Authorization is bounded to one engineering mission.',
+                  'Authorization does not itself execute engineering.',
+                  'World Gate and high-consequence operations remain prohibited.'
+                ],
+
+                constitutional:
+                  true,
+
+                engineering:
+                  false,
+
+                authorization:
+                  result.authorization
+              }
+            );
+
+            return;
+          }
+
           const engineering =
             interpretPrimeEngineering(
               message
