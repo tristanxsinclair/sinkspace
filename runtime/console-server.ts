@@ -11,6 +11,10 @@ import { fileURLToPath } from 'node:url';
 import { interpretPrimeCommand } from './prime.js';
 import { answerPrimeRunQuestion } from './prime-conversation.js';
 import {
+  interpretPrimeEngineering,
+  executePrimeEngineering
+} from './prime-engineering.js';
+import {
   MissionIntakeSchema,
   type MissionIntake
 } from './contracts.js';
@@ -1298,6 +1302,82 @@ const server =
                 unknown
               >
             ).message as string;
+
+          const engineering =
+            interpretPrimeEngineering(
+              message
+            );
+
+          if (
+            engineering.status ===
+            'NEEDS_TARGET'
+          ) {
+            json(
+              res,
+              200,
+              {
+                status:
+                  'NEEDS_CLARIFICATION',
+
+                reply:
+                  engineering.reply,
+
+                mission: null,
+
+                confidence:
+                  'HIGH',
+
+                assumptions: [],
+
+                engineering:
+                  true
+              }
+            );
+
+            return;
+          }
+
+          if (
+            engineering.status ===
+              'ENGINEERING_READY' &&
+            engineering.command
+          ) {
+            const result =
+              await executePrimeEngineering(
+                ROOT,
+                engineering.command
+              );
+
+            json(
+              res,
+              200,
+              {
+                status:
+                  result.receipt.status ===
+                  'VERIFIED'
+                    ? 'ENGINEERING_VERIFIED'
+                    : 'ENGINEERING_REJECTED',
+
+                reply:
+                  result.reply,
+
+                mission: null,
+
+                confidence:
+                  'HIGH',
+
+                assumptions: [],
+
+                engineering:
+                  true,
+
+                receipt:
+                  result.receipt
+              }
+            );
+
+            return;
+          }
 
           if (
             looksLikePrimeRunQuestion(
