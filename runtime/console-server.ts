@@ -27,6 +27,21 @@ import {
   interpretPrimeEngineering,
   executePrimeEngineering
 } from './prime-engineering.js';
+
+import {
+  constitutionalPlanReply,
+  executePrimeConstitutionalPlan,
+  interpretPrimeConstitutionalPlan
+} from './prime-constitutional-plan.js';
+
+import {
+  interpretPrimeConstitutionalEngineering
+} from './prime-constitutional-engineering.js';
+
+import {
+  constitutionalEngineeringReply,
+  executeConstitutionalEngineering
+} from './constitutional-engineering.js';
 import {
   MissionIntakeSchema,
   type MissionIntake
@@ -1536,6 +1551,64 @@ const server =
           }
 
           /*
+           * Explicit constitutional engineering planning.
+           *
+           * This freezes an exact repository operation and
+           * acceptance contract into a non-authoritative
+           * pending plan.
+           */
+          const constitutionalPlanAction =
+            interpretPrimeConstitutionalPlan(
+              message
+            );
+
+          if (
+            constitutionalPlanAction.status ===
+            'PLAN_CONSTITUTIONAL_ENGINEERING'
+          ) {
+            const plan =
+              await executePrimeConstitutionalPlan(
+                ROOT,
+                constitutionalPlanAction
+              );
+
+            json(
+              res,
+              200,
+              {
+                status:
+                  'CONSTITUTIONAL_ENGINEERING_PLAN_READY',
+
+                reply:
+                  constitutionalPlanReply(
+                    plan
+                  ),
+
+                mission: null,
+
+                confidence:
+                  'HIGH',
+
+                assumptions: [
+                  'Planning grants no execution authority.',
+                  'The engineering specification is frozen into the proposal digest.',
+                  'Founder authorization is required before execution.'
+                ],
+
+                constitutional:
+                  true,
+
+                engineering:
+                  false,
+
+                plan
+              }
+            );
+
+            return;
+          }
+
+          /*
            * Founder authorization is evaluated before
            * ordinary engineering or generic Prime routing.
            *
@@ -1603,6 +1676,71 @@ const server =
 
                 authorization:
                   result.authorization
+              }
+            );
+
+            return;
+          }
+
+          /*
+           * Constitutional execution has precedence over
+           * ordinary engineering.
+           *
+           * The consumer persists the one-shot execution
+           * claim before Forge receives work.
+           */
+          const constitutionalExecution =
+            interpretPrimeConstitutionalEngineering(
+              message
+            );
+
+          if (
+            constitutionalExecution.status ===
+            'EXECUTE_AUTHORIZATION'
+          ) {
+            const result =
+              await executeConstitutionalEngineering(
+                ROOT,
+                constitutionalExecution.authorization_id
+              );
+
+            json(
+              res,
+              200,
+              {
+                status:
+                  'CONSTITUTIONAL_ENGINEERING_COMPLETE',
+
+                reply:
+                  constitutionalEngineeringReply(
+                    result
+                  ),
+
+                mission: null,
+
+                confidence:
+                  'HIGH',
+
+                assumptions: [
+                  'The authorization is one-shot.',
+                  'The execution claim is durable before Forge runs.',
+                  'Canonical promotion remains unauthorized.'
+                ],
+
+                constitutional:
+                  true,
+
+                engineering:
+                  true,
+
+                claim:
+                  result.claim,
+
+                engineering_receipt:
+                  result.engineering_receipt,
+
+                result:
+                  result.result
               }
             );
 
