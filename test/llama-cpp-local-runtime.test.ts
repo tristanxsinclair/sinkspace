@@ -249,3 +249,253 @@ test(
     );
   }
 );
+
+test(
+  'llama.cpp runtime identifies output truncated by token limit',
+  async () => {
+    const fakeFetch =
+      async (
+        input: string | URL | Request
+      ): Promise<Response> => {
+        const url =
+          String(input);
+
+        if (
+          url.endsWith(
+            '/v1/chat/completions'
+          )
+        ) {
+          return new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  finish_reason:
+                    'length',
+
+                  message: {
+                    content:
+                      '{"value":"incomplete'
+                  }
+                }
+              ]
+            }),
+            {
+              status: 200,
+              headers: {
+                'content-type':
+                  'application/json'
+              }
+            }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            status: 'ok'
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type':
+                'application/json'
+            }
+          }
+        );
+      };
+
+    const runtime =
+      new LlamaCppLocalRuntime({
+        baseUrl:
+          'http://127.0.0.1:18181',
+
+        fetchImpl:
+          fakeFetch as typeof fetch
+      });
+
+    await assert.rejects(
+      runtime.inferStructured(
+        {
+          model_id:
+            'fixture-model',
+
+          name:
+            'Fixture',
+
+          runtime:
+            'llama.cpp',
+
+          locality:
+            'LOCAL',
+
+          capabilities: [
+            'CODING'
+          ],
+
+          context_tokens:
+            4096,
+
+          enabled:
+            true,
+
+          loaded:
+            true,
+
+          memory_class_gb:
+            3,
+
+          endpoint:
+            'http://127.0.0.1:18181'
+        },
+
+        {
+          capability:
+            'CODING',
+
+          system:
+            'Fixture.',
+
+          prompt:
+            'Return structured data.',
+
+          schema: {
+            type:
+              'object'
+          },
+
+          max_output_tokens:
+            100,
+
+          temperature:
+            0
+        }
+      ),
+
+      /LOCAL_MODEL_OUTPUT_TRUNCATED/
+    );
+  }
+);
+
+test(
+  'llama.cpp runtime distinguishes malformed completed JSON',
+  async () => {
+    const fakeFetch =
+      async (
+        input: string | URL | Request
+      ): Promise<Response> => {
+        const url =
+          String(input);
+
+        if (
+          url.endsWith(
+            '/v1/chat/completions'
+          )
+        ) {
+          return new Response(
+            JSON.stringify({
+              choices: [
+                {
+                  finish_reason:
+                    'stop',
+
+                  message: {
+                    content:
+                      '{"value":"malformed'
+                  }
+                }
+              ]
+            }),
+            {
+              status: 200,
+              headers: {
+                'content-type':
+                  'application/json'
+              }
+            }
+          );
+        }
+
+        return new Response(
+          JSON.stringify({
+            status: 'ok'
+          }),
+          {
+            status: 200,
+            headers: {
+              'content-type':
+                'application/json'
+            }
+          }
+        );
+      };
+
+    const runtime =
+      new LlamaCppLocalRuntime({
+        baseUrl:
+          'http://127.0.0.1:18181',
+
+        fetchImpl:
+          fakeFetch as typeof fetch
+      });
+
+    await assert.rejects(
+      runtime.inferStructured(
+        {
+          model_id:
+            'fixture-model',
+
+          name:
+            'Fixture',
+
+          runtime:
+            'llama.cpp',
+
+          locality:
+            'LOCAL',
+
+          capabilities: [
+            'CODING'
+          ],
+
+          context_tokens:
+            4096,
+
+          enabled:
+            true,
+
+          loaded:
+            true,
+
+          memory_class_gb:
+            3,
+
+          endpoint:
+            'http://127.0.0.1:18181'
+        },
+
+        {
+          capability:
+            'CODING',
+
+          system:
+            'Fixture.',
+
+          prompt:
+            'Return structured data.',
+
+          schema: {
+            type:
+              'object'
+          },
+
+          max_output_tokens:
+            100,
+
+          temperature:
+            0
+        }
+      ),
+
+      /LOCAL_MODEL_INVALID_JSON/
+    );
+  }
+);

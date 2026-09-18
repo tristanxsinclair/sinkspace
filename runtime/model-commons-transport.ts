@@ -22,6 +22,7 @@ export class ModelCommonsTransport
       system: string;
       prompt: string;
       schema: unknown;
+      max_output_tokens?: number;
     }
   ): Promise<unknown> {
     return this.commons
@@ -39,7 +40,8 @@ export class ModelCommonsTransport
           input.schema,
 
         max_output_tokens:
-          4096,
+          input.max_output_tokens ??
+          1500,
 
         temperature:
           0.1

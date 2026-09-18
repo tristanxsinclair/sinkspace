@@ -263,16 +263,22 @@ export class LlamaCppLocalRuntime
       const body =
         await response.json() as {
           choices?: Array<{
+            finish_reason?: unknown;
             message?: {
               content?: unknown;
             };
           }>;
         };
 
+      const choice =
+        body.choices?.[0];
+
       const content =
-        body.choices?.[0]
-          ?.message
+        choice?.message
           ?.content;
+
+      const finishReason =
+        choice?.finish_reason;
 
       if (
         typeof content !==
@@ -284,9 +290,24 @@ export class LlamaCppLocalRuntime
         );
       }
 
-      return extractJson(
-        content
-      );
+      if (
+        finishReason ===
+          'length'
+      ) {
+        throw new Error(
+          'LOCAL_MODEL_OUTPUT_TRUNCATED'
+        );
+      }
+
+      try {
+        return extractJson(
+          content
+        );
+      } catch {
+        throw new Error(
+          'LOCAL_MODEL_INVALID_JSON'
+        );
+      }
     } finally {
       clearTimeout(
         timer

@@ -12,7 +12,7 @@ import {
 } from '../runtime/engineering-mission.js';
 
 test(
-  'Forge cognition operates through local transport',
+  'Forge cognition generates source while Lake Yange supplies authority fields',
   async () => {
     let called = false;
 
@@ -26,39 +26,34 @@ test(
         ) {
           called = true;
 
-          assert.match(
-            input.system,
-            /local inference runtime/i
+          assert.equal(
+            input.max_output_tokens,
+            1000
+          );
+
+          const schema =
+            input.schema as {
+              required?: unknown;
+              properties?: {
+                content?: unknown;
+              };
+            };
+
+          assert.deepEqual(
+            schema.required,
+            [
+              'content'
+            ]
+          );
+
+          assert.ok(
+            schema.properties
+              ?.content
           );
 
           return {
-            summary:
-              'Add a bounded status view.',
-
-            mutations: [
-              {
-                path:
-                  'console/lake-yange.js',
-
-                operation:
-                  'CREATE',
-
-                content:
-                  'export const status = true;\n',
-
-                rationale:
-                  'Expose persisted Lake Yange state.'
-              }
-            ],
-
-            tests_expected: [
-              'TypeScript remains valid.'
-            ],
-
-            uncertainties: [],
-
-            requires_human_decision:
-              false
+            content:
+              'export async function applyEngineeringProposal() { return true; }\n'
           };
         }
       };
@@ -71,10 +66,18 @@ test(
     const mission =
       EngineeringMissionSchema.parse({
         objective:
-          'Improve Lake Yange status display.',
+          'Create Lake Yange status display.',
 
         repository_root:
-          '/tmp/lake-yange'
+          '/tmp/lake-yange',
+
+        allowed_paths: [
+          'console/lake-yange.js'
+        ],
+
+        verification_commands: [
+          'TYPECHECK'
+        ]
       });
 
     const proposal =
@@ -97,13 +100,35 @@ test(
     );
 
     assert.equal(
-      intelligence.locality,
-      'LOCAL'
+      proposal.mutations.length,
+      1
     );
 
     assert.equal(
       proposal.mutations[0]?.path,
       'console/lake-yange.js'
+    );
+
+    assert.equal(
+      proposal.mutations[0]?.operation,
+      'CREATE'
+    );
+
+    assert.equal(
+      proposal.mutations[0]?.content,
+      'export async function applyEngineeringProposal() { return true; }'
+    );
+
+    assert.equal(
+      proposal.requires_human_decision,
+      true
+    );
+
+    assert.deepEqual(
+      proposal.tests_expected,
+      [
+        'Independent verification required: TYPECHECK.'
+      ]
     );
   }
 );
@@ -347,6 +372,55 @@ test(
         ),
 
       /FORGE_PATCH_LIMIT_EXCEEDED/
+    );
+  }
+);
+
+test(
+  'Forge rejects structurally valid but insufficient neural source',
+  async () => {
+    const transport:
+      LocalModelTransport = {
+        name:
+          'fixture-bad-source',
+
+        async inferStructured() {
+          return {
+            content:
+              'runtime/engineering-executor.ts'
+          };
+        }
+      };
+
+    const intelligence =
+      new LocalEngineeringIntelligence(
+        transport
+      );
+
+    const mission =
+      EngineeringMissionSchema.parse({
+        objective:
+          'Create engineering executor.',
+
+        repository_root:
+          '/tmp/lake-yange',
+
+        allowed_paths: [
+          'runtime/engineering-executor.ts'
+        ],
+
+        verification_commands: [
+          'TYPECHECK'
+        ]
+      });
+
+    await assert.rejects(
+      intelligence.propose(
+        mission,
+        []
+      ),
+
+      /FORGE_NEURAL_SOURCE_INSUFFICIENT/
     );
   }
 );
