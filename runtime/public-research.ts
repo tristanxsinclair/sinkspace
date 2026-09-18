@@ -698,7 +698,7 @@ async function fetchPublicPage(
       contentType,
 
     title:
-      titleMatch
+      titleMatch?.[1]
         ? stripHtml(
             titleMatch[1]
           ).slice(
