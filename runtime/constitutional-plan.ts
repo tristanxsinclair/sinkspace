@@ -1,6 +1,11 @@
 import { createHash, randomUUID } from 'node:crypto';
 import { z } from 'zod';
 
+import {
+  ConstitutionalEngineeringSpecSchema,
+  type ConstitutionalEngineeringSpec
+} from './constitutional-execution.js';
+
 export const ConstitutionalPlanStatusSchema = z.enum([
   'PENDING',
   'AUTHORISED',
@@ -27,6 +32,18 @@ export const ConstitutionalPlanSchema = z.object({
   title: z.string().min(1).max(300),
   objective: z.string().min(1).max(8_000),
   target_system: z.string().min(1).max(200),
+
+  /*
+   * Legacy constitutional plans may omit this field.
+   * Such plans can be authorized as historical bounded
+   * authority records, but they cannot be consumed for
+   * engineering execution.
+   *
+   * New executable plans must bind this exact specification
+   * before Founder authorization.
+   */
+  engineering_spec:
+    ConstitutionalEngineeringSpecSchema.optional(),
 
   inspected_state: z.object({
     population: z.number().int().nonnegative(),
@@ -56,6 +73,9 @@ export type ConstitutionalPlanInput = {
   objective: string;
   target_system: string;
 
+  engineering_spec?:
+    ConstitutionalEngineeringSpec;
+
   inspected_state: {
     population: number;
     generation: number;
@@ -75,6 +95,8 @@ export function constitutionalProposalDigest(
         title: input.title,
         objective: input.objective,
         target_system: input.target_system,
+        engineering_spec:
+          input.engineering_spec,
         inspected_state: input.inspected_state
       })
     )
@@ -105,6 +127,9 @@ export function createPendingConstitutionalPlan(
 
     target_system:
       input.target_system,
+
+    engineering_spec:
+      input.engineering_spec,
 
     inspected_state:
       input.inspected_state,
