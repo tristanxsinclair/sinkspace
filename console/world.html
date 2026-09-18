@@ -1,0 +1,335 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+  <title>Lake Yange</title>
+  <link
+    rel="stylesheet"
+    href="/lake-yange-world.css"
+  />
+</head>
+
+<body>
+  <main id="lake-yange">
+    <header class="world-topbar">
+      <div class="brand">
+        <div class="brand-mark">LY</div>
+
+        <div>
+          <div class="brand-title">
+            LAKE YANGE
+          </div>
+
+          <div class="brand-subtitle">
+            SOVEREIGN AI CIVILISATION
+          </div>
+        </div>
+      </div>
+
+      <div class="world-status">
+        <div>
+          <span class="status-light"></span>
+          LOCAL SYSTEM
+        </div>
+
+        <div id="world-clock">
+          YEAR 1 · FOUNDING ERA
+        </div>
+      </div>
+    </header>
+
+    <aside class="world-nav">
+      <button class="nav-item active" data-view="world">
+        <span>◇</span>
+        WORLD
+      </button>
+
+      <button class="nav-item" data-view="citizens">
+        <span>♙</span>
+        CITIZENS
+      </button>
+
+      <button class="nav-item" data-view="government">
+        <span>⌂</span>
+        GOVERNMENT
+      </button>
+
+      <button class="nav-item" data-view="resources">
+        <span>◆</span>
+        RESOURCES
+      </button>
+
+      <button class="nav-item" data-view="artifacts">
+        <span>⬡</span>
+        ARTIFACTS
+      </button>
+
+      <button class="nav-item" data-view="missions">
+        <span>⌁</span>
+        MISSIONS
+      </button>
+
+      <a
+        class="nav-item console-link"
+        href="/"
+      >
+        <span>↗</span>
+        CONTROL
+      </a>
+    </aside>
+
+    <section class="world-viewport">
+      <div id="world-camera" class="world-camera">
+        <div class="world-surface">
+
+          <div class="terrain terrain-north"></div>
+          <div class="terrain terrain-west"></div>
+          <div class="terrain terrain-east"></div>
+
+          <div id="mountain-layer" class="geography-layer"></div>
+          <div id="forest-layer" class="geography-layer"></div>
+          <div id="rock-layer" class="geography-layer"></div>
+
+          <div class="lake lake-main"></div>
+          <div class="lake lake-east"></div>
+
+          <div class="road road-north"></div>
+          <div class="road road-south"></div>
+          <div class="road road-east"></div>
+          <div class="road road-west"></div>
+
+          <div class="district-label northern-label">
+            <strong>NORTHERN FRONTIER</strong>
+            <span>COMPUTE · STORAGE · MEMORY</span>
+          </div>
+
+          <div class="district-label founders-label">
+            <strong>FOUNDERS' QUARTER</strong>
+            <span>IDENTITY · HOME · CONTINUITY</span>
+          </div>
+
+          <div class="district-label builders-label">
+            <strong>BUILDERS' QUARTER</strong>
+            <span>ENGINEERING · CREATION</span>
+          </div>
+
+          <div
+            class="world-entity landmark state-house" data-landmark="state-house"
+            data-entity="state-house"
+            style="--x:50%; --y:39%;"
+          >
+            <div class="building state-house-building">
+              <div class="tower"></div>
+              <div class="building-core"></div>
+              <div class="steps"></div>
+            </div>
+
+            <div class="entity-label">
+              <strong>STATE HOUSE</strong>
+              <span>Prime · Governance</span>
+            </div>
+          </div>
+
+          <div
+            class="world-entity landmark ledger-bank" data-landmark="ledger"
+            data-entity="ledger-bank"
+            style="--x:33%; --y:48%;"
+          >
+            <div class="building bank-building">
+              <div class="bank-dome"></div>
+              <div class="building-core"></div>
+            </div>
+
+            <div class="entity-label">
+              <strong>LEDGER BANK</strong>
+              <span>Resources · Ownership</span>
+            </div>
+          </div>
+
+          <div
+            class="world-entity landmark vera-archive" data-landmark="vera"
+            data-entity="vera-archive"
+            style="--x:68%; --y:48%;"
+          >
+            <div class="building archive-building">
+              <div class="archive-light"></div>
+              <div class="building-core"></div>
+            </div>
+
+            <div class="entity-label">
+              <strong>VERA ARCHIVE</strong>
+              <span>Evidence · Verification</span>
+            </div>
+          </div>
+
+          <div
+            class="world-entity landmark rook-keep" data-landmark="rook"
+            data-entity="rook-keep"
+            style="--x:35%; --y:25%;"
+          >
+            <div class="building keep-building">
+              <div class="keep-tower one"></div>
+              <div class="keep-tower two"></div>
+              <div class="building-core"></div>
+            </div>
+
+            <div class="entity-label">
+              <strong>ROOK KEEP</strong>
+              <span>Security · Adversarial Review</span>
+            </div>
+          </div>
+
+          <div
+            class="world-entity landmark model-commons" data-landmark="model-commons"
+            data-entity="model-commons"
+            style="--x:67%; --y:26%;"
+          >
+            <div class="building commons-building">
+              <div class="commons-ring"></div>
+              <div class="commons-core"></div>
+            </div>
+
+            <div class="entity-label">
+              <strong>MODEL COMMONS</strong>
+              <span>Local Intelligence</span>
+            </div>
+          </div>
+
+          <div
+            class="world-entity landmark scout-outpost" data-landmark="scout"
+            data-entity="scout-outpost"
+            style="--x:18%; --y:33%;"
+          >
+            <div class="building outpost-building">
+              <div class="beacon"></div>
+              <div class="building-core"></div>
+            </div>
+
+            <div class="entity-label">
+              <strong>SCOUT OUTPOST</strong>
+              <span>Exploration</span>
+            </div>
+          </div>
+
+          <div
+            class="world-entity landmark forge-workshop" data-landmark="forge"
+            data-entity="forge-workshop"
+            style="--x:50%; --y:78%;"
+          >
+            <div class="building forge-building">
+              <div class="forge-chimney"></div>
+              <div class="forge-fire"></div>
+              <div class="building-core"></div>
+            </div>
+
+            <div class="entity-label">
+              <strong>FORGE WORKSHOP</strong>
+              <span>Engineering</span>
+            </div>
+          </div>
+
+          <div
+            class="world-entity landmark world-gate" data-landmark="world-gate"
+            data-entity="world-gate"
+            style="--x:82%; --y:83%;"
+          >
+            <div class="gate-building">
+              <div class="gate-ring"></div>
+              <div class="gate-core"></div>
+            </div>
+
+            <div class="entity-label">
+              <strong>WORLD GATE</strong>
+              <span>External Boundary</span>
+            </div>
+          </div>
+
+          <div id="settlement-layer"></div>
+          <div id="founder-homes"></div>
+          <div id="resource-layer"></div>
+          <div id="citizen-layer"></div>
+          <div id="ambient-layer"></div>
+        </div>
+      </div>
+
+      <div class="camera-controls">
+        <button id="zoom-in">+</button>
+        <button id="zoom-out">−</button>
+        <button id="reset-camera">⌂</button>
+      </div>
+
+      <div class="world-instruction">
+        DRAG TO EXPLORE · SCROLL TO ZOOM · SELECT A SITE
+      </div>
+    </section>
+
+    <aside class="inspector">
+      <div class="inspector-kicker">
+        WORLD INSPECTOR
+      </div>
+
+      <h2 id="inspect-name">
+        Lake Yange
+      </h2>
+
+      <div id="inspect-type" class="inspect-type">
+        FOUNDING SETTLEMENT
+      </div>
+
+      <p id="inspect-description">
+        Select a building, citizen home or resource
+        deposit to inspect its world record.
+      </p>
+
+      <div id="inspect-facts" class="inspect-facts">
+        <div>
+          <span>POPULATION</span>
+          <strong>9</strong>
+        </div>
+
+        <div>
+          <span>ERA</span>
+          <strong>FOUNDING</strong>
+        </div>
+
+        <div>
+          <span>COGNITION</span>
+          <strong>LOCAL</strong>
+        </div>
+      </div>
+
+      <div class="truth-panel">
+        <div class="truth-title">
+          WORLD TRUTH
+        </div>
+
+        <p>
+          Operational activity is rendered only from
+          persisted Lake Yange state. Ambient terrain
+          animation carries no operational meaning.
+        </p>
+      </div>
+    </aside>
+
+    <footer class="world-footer">
+      <div>
+        <span class="pulse-dot"></span>
+        WORLD PROJECTION ONLINE
+      </div>
+
+      <div>
+        REAL WORK · REAL VALUE · A LARGER TOMORROW
+      </div>
+    </footer>
+  </main>
+
+  <script
+    type="module"
+    src="/lake-yange-world.js"
+  ></script>
+</body>
+</html>

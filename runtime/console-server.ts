@@ -18,6 +18,9 @@ import {
   MissionIntakeSchema,
   type MissionIntake
 } from './contracts.js';
+import {
+  projectLakeYangeWorld
+} from './lake-yange-world.js';
 
 const HERE = path.dirname(
   fileURLToPath(import.meta.url)
@@ -1168,6 +1171,24 @@ async function serveStatic(
       [
         'empire.css',
         'text/css; charset=utf-8'
+      ],
+
+    '/world.html':
+      [
+        'world.html',
+        'text/html; charset=utf-8'
+      ],
+
+    '/lake-yange-world.js':
+      [
+        'lake-yange-world.js',
+        'text/javascript; charset=utf-8'
+      ],
+
+    '/lake-yange-world.css':
+      [
+        'lake-yange-world.css',
+        'text/css; charset=utf-8'
       ]
   };
 
@@ -1267,6 +1288,25 @@ const server =
             req.url ?? '/',
             `http://${HOST}:${PORT}`
           );
+
+        if (
+          url.pathname ===
+            '/api/lake-yange/world' &&
+          req.method === 'GET'
+        ) {
+          const projection =
+            await projectLakeYangeWorld(
+              ROOT
+            );
+
+          json(
+            res,
+            200,
+            projection
+          );
+
+          return;
+        }
 
         if (
           url.pathname ===
