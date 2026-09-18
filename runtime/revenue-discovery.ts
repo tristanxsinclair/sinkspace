@@ -465,7 +465,7 @@ export async function discoverRevenue(
     'NEEDS_VERIFICATION: Proposed pricing is a test hypothesis.',
     'NEEDS_VERIFICATION: No outreach has occurred.',
     'KNOWN: Candidate websites were observed only as public untrusted data.',
-    'KNOWN: No revenue has been earned by this DISCOVER mission.'
+    'KNOWN: No revenue has been earned by this read-only revenue mission.'
   ];
 
   const report = [
@@ -804,7 +804,7 @@ export async function redSinkRevenueDiscovery(
     'UNKNOWN: Internal lead and quote workflows were not observed.',
     'NEEDS_VERIFICATION: Proposed pricing is a test hypothesis.',
     'NEEDS_VERIFICATION: No outreach has occurred.',
-    'KNOWN: No revenue has been earned by this DISCOVER mission.'
+    'KNOWN: No revenue has been earned by this read-only revenue mission.'
   ];
 
   for (

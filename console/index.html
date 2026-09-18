@@ -18,6 +18,8 @@
   />
 
   <link rel="stylesheet" href="/empire.css" />
+  <link rel="stylesheet" href="/gold-rush.css" />
+  <link rel="stylesheet" href="/prime.css" />
 </head>
 
 <body>
@@ -61,6 +63,105 @@
         </div>
       </div>
     </header>
+
+    <section id="mission-control" class="mission-control">
+      <div class="mission-control-head">
+        <div>
+          <div class="eyebrow">DEPLOYMENT CONTROL</div>
+          <h2>What should the clones pursue?</h2>
+          <p class="subtle">
+            Select a real execution workflow. Activity shown below
+            comes from persisted run events.
+          </p>
+        </div>
+
+        <div class="mission-authority">
+          OBSERVE + ANALYSE
+        </div>
+      </div>
+
+      <div class="mission-grid">
+        <button
+          class="mission-choice active"
+          data-workflow="gold-rush"
+          data-mode="DISCOVER"
+          type="button"
+        >
+          <strong>GOLD RUSH</strong>
+          <span>
+            Search for legitimate economic opportunities,
+            verify them, model value and red-team the result.
+          </span>
+        </button>
+
+        <button
+          class="mission-choice"
+          data-workflow="revenue"
+          data-mode="DISCOVER"
+          type="button"
+        >
+          <strong>REVENUE SCOUT</strong>
+          <span>
+            Search for evidence-backed Sink Space
+            customer and revenue opportunities.
+          </span>
+        </button>
+
+        <button
+          class="mission-choice"
+          data-workflow="revenue"
+          data-mode="VALIDATE"
+          type="button"
+        >
+          <strong>VALIDATE REVENUE</strong>
+          <span>
+            Challenge and validate the strongest
+            existing revenue opportunities.
+          </span>
+        </button>
+
+        <button
+          class="mission-choice"
+          data-workflow="capability-inventory"
+          data-mode="RUN"
+          type="button"
+        >
+          <strong>SYSTEM SCAN</strong>
+          <span>
+            Run the existing Sink Space
+            capability inventory.
+          </span>
+        </button>
+      </div>
+
+      <div class="mission-deployment">
+        <div>
+          <span class="label">SELECTED MISSION</span>
+
+          <div
+            id="selected-mission-name"
+            class="selected-mission-name"
+          >
+            GOLD RUSH
+          </div>
+
+          <div
+            id="selected-mission-description"
+            class="subtle"
+          >
+            Search, verify, model and red-team legitimate
+            economic opportunities.
+          </div>
+        </div>
+
+        <div class="mission-safety">
+          <span>NO SPEND</span>
+          <span>NO WALLET SIGNING</span>
+          <span>NO OUTBOUND</span>
+          <span>PROOF REQUIRED</span>
+        </div>
+      </div>
+    </section>
 
 
     <section class="run-strip">
@@ -402,5 +503,7 @@
   ></script>
 
   <script type="module" src="/empire.js"></script>
+  <script src="/gold-rush.js"></script>
+  <script src="/prime.js"></script>
 </body>
 </html>

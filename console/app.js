@@ -5,6 +5,10 @@ const state = {
   selectedProofEntry: null
 };
 
+// Read-only bridge for Sink Empire Live.
+// Empire renders the real Mission Control state; it does not invent work.
+window.__SINK_STATE__ = state;
+
 const $ = id =>
   document.getElementById(id);
 
@@ -1147,6 +1151,91 @@ async function refresh() {
   }
 }
 
+let selectedMission = {
+  workflow: 'gold-rush',
+  mode: 'DISCOVER'
+};
+
+const missionCopy = {
+  'gold-rush:DISCOVER': {
+    name: 'GOLD RUSH',
+    description:
+      'Search, verify, model and red-team legitimate economic opportunities.'
+  },
+
+  'revenue:DISCOVER': {
+    name: 'REVENUE SCOUT',
+    description:
+      'Discover evidence-backed Sink Space revenue opportunities.'
+  },
+
+  'revenue:VALIDATE': {
+    name: 'VALIDATE REVENUE',
+    description:
+      'Audit and challenge the strongest existing revenue opportunities.'
+  },
+
+  'capability-inventory:RUN': {
+    name: 'SYSTEM SCAN',
+    description:
+      'Inspect Sink Space and produce a verified capability inventory.'
+  }
+};
+
+function selectMission(workflow, mode) {
+  selectedMission = {
+    workflow,
+    mode
+  };
+
+  document
+    .querySelectorAll('.mission-choice')
+    .forEach(button => {
+      button.classList.toggle(
+        'active',
+        button.dataset.workflow === workflow &&
+          button.dataset.mode === mode
+      );
+    });
+
+  const copy =
+    missionCopy[`${workflow}:${mode}`];
+
+  if (!copy) {
+    return;
+  }
+
+  const name =
+    $('selected-mission-name');
+
+  const description =
+    $('selected-mission-description');
+
+  if (name) {
+    name.textContent =
+      copy.name;
+  }
+
+  if (description) {
+    description.textContent =
+      copy.description;
+  }
+}
+
+document
+  .querySelectorAll('.mission-choice')
+  .forEach(button => {
+    button.addEventListener(
+      'click',
+      () => {
+        selectMission(
+          button.dataset.workflow,
+          button.dataset.mode
+        );
+      }
+    );
+  });
+
 async function updateRunControl() {
   const button =
     $('launch-run');
@@ -1190,8 +1279,17 @@ async function launchRun() {
     await api(
       '/api/run',
       {
-        method:
-          'POST'
+        method: 'POST',
+
+        headers: {
+          'Content-Type':
+            'application/json'
+        },
+
+        body:
+          JSON.stringify(
+            selectedMission
+          )
       }
     );
 

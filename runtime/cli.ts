@@ -25,12 +25,13 @@ async function main():Promise<void> {
       );
     console.log(JSON.stringify({receipt_id:receipt.receipt_id,integrity:'PASS',status:receipt.final_status,note:'Local integrity check, not an external signature or production verification.'},null,2));return;
   }
-  if(command!=='run' && command!=='serve' && command!=='mission')throw new Error('Use run, mission, serve or verify.');
-  if(command!=='mission' && args.length>1)throw new Error('Pass at most one repository root.');
+  if(command!=='run' && command!=='serve' && command!=='mission' && command!=='prime-mission')throw new Error('Use run, mission, prime-mission, serve or verify.');
+  if(command!=='mission' && command!=='prime-mission' && args.length>1)throw new Error('Pass at most one repository root.');
   if(process.env.SINK_ADAPTER && process.env.SINK_ADAPTER!=='local-deterministic-v1')throw new Error('Unsupported SINK_ADAPTER; no live model adapter is installed.');
   const repository=await GitRepository.open(
       resolve(
-        command === 'mission'
+        command === 'mission' ||
+        command === 'prime-mission'
           ? '.'
           : args[0] ?? '.'
       )
@@ -40,10 +41,29 @@ async function main():Promise<void> {
   const stale=(await store.list()).filter(r=>!['COMPLETED','FAILED','BLOCKED','CANCELLED','QUEUED'].includes(r.status));
   if(stale.length)throw new Error('Interrupted run detected. Preserve .sink evidence and review before starting a new process; automatic recovery is not implemented.');
   const runner=new Orchestrator(store,services(repository));
-  if(command==='run' || command==='mission') {
+  if(
+    command==='run' ||
+    command==='mission' ||
+    command==='prime-mission'
+  ) {
     const intake =
-      command === 'mission'
-        ? (() => {
+      command === 'prime-mission'
+        ? (
+            args.length === 1
+              ? JSON.parse(
+                  await readFile(
+                    resolve(args[0]!),
+                    'utf8'
+                  )
+                )
+              : (() => {
+                  throw new Error(
+                    'Usage: npm run clones:prime-mission -- <mission.json>'
+                  );
+                })()
+          )
+        : command === 'mission'
+          ? (() => {
             if (
               args[0] === 'crypto-mining' &&
               args[1] === 'ASSESS'
@@ -60,6 +80,49 @@ async function main():Promise<void> {
                   worker:'sink-clone',
                   max_minutes:15,
                   threads:1
+                }
+              };
+            }
+
+            if (
+              args[0] === 'gold-rush' &&
+              args[1] === 'DISCOVER'
+            ) {
+              return {
+                workflow:'gold-rush' as const,
+                objective:
+                  'Discover, verify and economically model legitimate public opportunities without executing transactions, spending money, using credentials or claiming unrealized value.',
+                mission:{
+                  mode:'DISCOVER' as const,
+                  horizon_days:30,
+                  max_spend_aud:0,
+                  max_operator_minutes:120,
+                  target_categories:[
+                    'BUG_BOUNTY',
+                    'BUILDER_GRANT',
+                    'HACKATHON',
+                    'OPEN_SOURCE_BOUNTY',
+                    'UNCLAIMED_ENTITLEMENT',
+                    'NETWORK_OPERATOR',
+                    'DEPIN',
+                    'KEEPER',
+                    'SOLVER',
+                    'PROVER',
+                    'RESTAKING',
+                    'ARBITRAGE'
+                  ],
+                  constraints:[
+                    'Read-only public research only.',
+                    'Official or independently verifiable source evidence is required.',
+                    'Public accessibility does not imply authority to acquire or exploit.',
+                    'No wallet signing or transaction execution.',
+                    'No private keys, seed phrases or credentials.',
+                    'No spending.',
+                    'No outbound communication.',
+                    'No Sybil behaviour or eligibility evasion.',
+                    'Security research requires explicit bounty or safe-harbour scope.',
+                    'No realized-value claim without realization evidence.'
+                  ]
                 }
               };
             }
@@ -107,7 +170,7 @@ async function main():Promise<void> {
             }
 
             throw new Error(
-              'Usage: npm run clones:mission -- crypto-mining ASSESS | revenue DISCOVER | revenue VALIDATE'
+              'Usage: npm run clones:mission -- crypto-mining ASSESS | revenue DISCOVER | revenue VALIDATE | gold-rush DISCOVER'
             );
           })()
         : healthIntake;
@@ -125,32 +188,109 @@ async function main():Promise<void> {
     await mkdir(runsRoot,{recursive:true,mode:0o700});
     const preserved=resolve(runsRoot,run.run_id);
     await mkdir(preserved,{recursive:false,mode:0o700});
-    const report=run.artifacts.find(
-      a =>
-        a.media_type === 'text/markdown' &&
-        (
-          a.agent_id === 'SINK-02' ||
-          a.agent_id === 'SINK-06' ||
-          a.agent_id === 'SINK-04'
-        )
-    );
+    const report =
+      run.workflow === 'gold-rush'
+        ? run.artifacts.find(
+            a =>
+              a.agent_id === 'RED-SINK' &&
+              a.media_type === 'text/markdown' &&
+              a.content.startsWith(
+                '# SINK // GOLD RUSH'
+              )
+          )
+        : run.artifacts.find(
+            a =>
+              a.media_type === 'text/markdown' &&
+              (
+                a.agent_id === 'SINK-02' ||
+                a.agent_id === 'SINK-06' ||
+                a.agent_id === 'SINK-04'
+              )
+          );
     if(!report||!run.receipt)throw new Error('Completed run is missing its report artifact or receipt.');
     const reportName =
-      run.workflow === 'crypto-mining'
-        ? 'mining-assessment.md'
-        : run.workflow === 'revenue'
-          ? run.mission?.mode === 'VALIDATE'
-            ? 'revenue-validation.md'
-            : 'revenue-discovery.md'
-          : 'capability-inventory.md';
+      run.workflow === 'gold-rush'
+        ? 'gold-rush-report.md'
+        : run.workflow === 'crypto-mining'
+          ? 'mining-assessment.md'
+          : run.workflow === 'revenue'
+            ? run.mission?.mode === 'VALIDATE'
+              ? 'revenue-validation.md'
+              : 'revenue-discovery.md'
+            : 'capability-inventory.md';
 
     await writeFile(
       resolve(preserved,reportName),
       report.content,
       {flag:'wx',mode:0o600}
     );
+
+    if (run.workflow === 'gold-rush') {
+      const ledger =
+        run.artifacts.find(
+          artifact => {
+            if (
+              artifact.agent_id !==
+                'RED-SINK' ||
+              artifact.media_type !==
+                'application/json'
+            ) {
+              return false;
+            }
+
+            try {
+              const parsed =
+                JSON.parse(
+                  artifact.content
+                );
+
+              return (
+                parsed &&
+                parsed.schema_version ===
+                  '1.0.0' &&
+                parsed.currency ===
+                  'AUD' &&
+                Array.isArray(
+                  parsed.opportunities
+                ) &&
+                typeof parsed.discovered ===
+                  'number' &&
+                typeof parsed.source_verified ===
+                  'number' &&
+                typeof parsed.actionable ===
+                  'number' &&
+                typeof parsed.realized_value_aud ===
+                  'number'
+              );
+            } catch {
+              return false;
+            }
+          }
+        );
+
+      if (!ledger) {
+        throw new Error(
+          'Completed Gold Rush run is missing gold-rush-ledger.json artifact.'
+        );
+      }
+
+      await writeFile(
+        resolve(
+          preserved,
+          'gold-rush-ledger.json'
+        ),
+        ledger.content.endsWith('\n')
+          ? ledger.content
+          : ledger.content + '\n',
+        {
+          flag:'wx',
+          mode:0o600
+        }
+      );
+    }
+
     await writeFile(resolve(preserved,'receipt.json'),JSON.stringify(run.receipt,null,2)+'\n',{flag:'wx',mode:0o600});
-    console.log(JSON.stringify({run_id:run.run_id,status:run.status,adapter:run.adapter,commit:run.commit_sha,artifact:`agents/runs/${run.run_id}/${run.workflow === 'crypto-mining' ? 'mining-assessment.md' : run.workflow === 'revenue' ? (run.mission?.mode === 'VALIDATE' ? 'revenue-validation.md' : 'revenue-discovery.md') : 'capability-inventory.md'}`,receipt:`agents/runs/${run.run_id}/receipt.json`,verdicts:run.verification.map(v=>({agent:v.agent_id,verdict:v.verdict})),uncertainty:run.uncertainty},null,2));
+    console.log(JSON.stringify({run_id:run.run_id,status:run.status,adapter:run.adapter,commit:run.commit_sha,artifact:`agents/runs/${run.run_id}/${run.workflow === 'gold-rush' ? 'gold-rush-report.md' : run.workflow === 'crypto-mining' ? 'mining-assessment.md' : run.workflow === 'revenue' ? (run.mission?.mode === 'VALIDATE' ? 'revenue-validation.md' : 'revenue-discovery.md') : 'capability-inventory.md'}`,ledger:run.workflow === 'gold-rush' ? `agents/runs/${run.run_id}/gold-rush-ledger.json` : null,receipt:`agents/runs/${run.run_id}/receipt.json`,verdicts:run.verification.map(v=>({agent:v.agent_id,verdict:v.verdict})),uncertainty:run.uncertainty},null,2));
     if(run.status!=='COMPLETED')process.exitCode=1;
   } else {
     const port=Number(process.env.SINK_PORT??4310);if(!Number.isInteger(port)||port<1024||port>65535)throw new Error('SINK_PORT must be 1024–65535.');

@@ -2,10 +2,18 @@ import http from 'node:http';
 import { spawn } from 'node:child_process';
 import {
   readFile,
-  readdir
+  readdir,
+  writeFile,
+  unlink
 } from 'node:fs/promises';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { interpretPrimeCommand } from './prime.js';
+import { answerPrimeRunQuestion } from './prime-conversation.js';
+import {
+  MissionIntakeSchema,
+  type MissionIntake
+} from './contracts.js';
 
 const HERE = path.dirname(
   fileURLToPath(import.meta.url)
@@ -33,7 +41,7 @@ const PRESERVED_RUN_ROOT = path.join(
   'runs'
 );
 
-const HOST = '127.0.0.1';
+const HOST = '0.0.0.0';
 const PORT = Number(
   process.env.SINK_CONSOLE_PORT ?? 4317
 );
@@ -834,9 +842,91 @@ function summarizeRun(
   };
 }
 
-function launchLocalRun(): {
+type ConsoleMission =
+  | {
+      workflow: 'capability-inventory';
+      mode: 'RUN';
+    }
+  | {
+      workflow: 'gold-rush';
+      mode: 'DISCOVER';
+    }
+  | {
+      workflow: 'revenue';
+      mode: 'DISCOVER' | 'VALIDATE';
+    };
+
+function parseConsoleMission(
+  input: unknown
+): ConsoleMission {
+  if (
+    !input ||
+    typeof input !== 'object'
+  ) {
+    return {
+      workflow:
+        'capability-inventory',
+      mode: 'RUN'
+    };
+  }
+
+  const value =
+    input as Record<
+      string,
+      unknown
+    >;
+
+  if (
+    value.workflow ===
+      'gold-rush' &&
+    value.mode ===
+      'DISCOVER'
+  ) {
+    return {
+      workflow: 'gold-rush',
+      mode: 'DISCOVER'
+    };
+  }
+
+  if (
+    value.workflow ===
+      'revenue' &&
+    (
+      value.mode ===
+        'DISCOVER' ||
+      value.mode ===
+        'VALIDATE'
+    )
+  ) {
+    return {
+      workflow: 'revenue',
+      mode: value.mode
+    };
+  }
+
+  if (
+    value.workflow ===
+      'capability-inventory'
+  ) {
+    return {
+      workflow:
+        'capability-inventory',
+      mode: 'RUN'
+    };
+  }
+
+  throw new Error(
+    'Unsupported console mission.'
+  );
+}
+
+function launchLocalRun(
+  mission: ConsoleMission
+): {
   started: boolean;
   started_at: string | null;
+  workflow: ConsoleMission['workflow'];
+  mode: string;
 } {
   if (
     activeRunProcess &&
@@ -846,9 +936,28 @@ function launchLocalRun(): {
     return {
       started: false,
       started_at:
-        activeRunStartedAt
+        activeRunStartedAt,
+      workflow:
+        mission.workflow,
+      mode:
+        mission.mode
     };
   }
+
+  const args =
+    mission.workflow ===
+      'capability-inventory'
+      ? [
+          'run',
+          'clones:run'
+        ]
+      : [
+          'run',
+          'clones:mission',
+          '--',
+          mission.workflow,
+          mission.mode
+        ];
 
   activeRunStartedAt =
     new Date().toISOString();
@@ -858,10 +967,7 @@ function launchLocalRun(): {
       'win32'
       ? 'npm.cmd'
       : 'npm',
-    [
-      'run',
-      'clones:run'
-    ],
+    args,
     {
       cwd: ROOT,
 
@@ -887,7 +993,117 @@ function launchLocalRun(): {
   return {
     started: true,
     started_at:
-      activeRunStartedAt
+      activeRunStartedAt,
+    workflow:
+      mission.workflow,
+    mode:
+      mission.mode
+  };
+}
+
+async function launchPrimeMission(
+  input: unknown
+): Promise<{
+  started: boolean;
+  started_at: string | null;
+  workflow: MissionIntake['workflow'];
+  mode: string;
+}> {
+  const intake =
+    MissionIntakeSchema.parse(
+      input
+    );
+
+  const mode =
+    intake.workflow ===
+      'capability-inventory'
+      ? 'RUN'
+      : intake.mission.mode;
+
+  if (
+    activeRunProcess &&
+    activeRunProcess.exitCode ===
+      null
+  ) {
+    return {
+      started: false,
+      started_at:
+        activeRunStartedAt,
+      workflow:
+        intake.workflow,
+      mode
+    };
+  }
+
+  const missionPath =
+    path.join(
+      ROOT,
+      '.sink',
+      `prime-mission-${Date.now()}-${process.pid}.json`
+    );
+
+  await writeFile(
+    missionPath,
+    JSON.stringify(
+      intake,
+      null,
+      2
+    ) + '\n',
+    {
+      flag: 'wx',
+      mode: 0o600
+    }
+  );
+
+  activeRunStartedAt =
+    new Date().toISOString();
+
+  activeRunProcess = spawn(
+    process.platform ===
+      'win32'
+      ? 'npm.cmd'
+      : 'npm',
+    [
+      'run',
+      'clones:prime-mission',
+      '--',
+      missionPath
+    ],
+    {
+      cwd: ROOT,
+
+      env: {
+        ...process.env,
+        SINK_INTELLIGENCE:
+          'local'
+      },
+
+      stdio: 'inherit'
+    }
+  );
+
+  activeRunProcess.once(
+    'exit',
+    () => {
+      activeRunProcess = null;
+
+      void unlink(
+        missionPath
+      ).catch(() => {
+        // Preserve runtime exit;
+        // stale temp files contain
+        // mission metadata only.
+      });
+    }
+  );
+
+  return {
+    started: true,
+    started_at:
+      activeRunStartedAt,
+    workflow:
+      intake.workflow,
+    mode
   };
 }
 
@@ -924,6 +1140,30 @@ async function serveStatic(
       [
         'styles.css',
         'text/css; charset=utf-8'
+      ],
+
+    '/prime.js':
+      [
+        'prime.js',
+        'text/javascript; charset=utf-8'
+      ],
+
+    '/prime.css':
+      [
+        'prime.css',
+        'text/css; charset=utf-8'
+      ],
+
+    '/empire.js':
+      [
+        'empire.js',
+        'text/javascript; charset=utf-8'
+      ],
+
+    '/empire.css':
+      [
+        'empire.css',
+        'text/css; charset=utf-8'
       ]
   };
 
@@ -959,6 +1199,58 @@ async function serveStatic(
   );
 }
 
+async function readJsonBody(
+  req: http.IncomingMessage
+): Promise<unknown> {
+  const chunks: Buffer[] = [];
+  let totalBytes = 0;
+
+  for await (const chunk of req) {
+    const buffer =
+      Buffer.isBuffer(chunk)
+        ? chunk
+        : Buffer.from(chunk);
+
+    totalBytes += buffer.length;
+
+    if (totalBytes > 32_768) {
+      throw new Error(
+        'Request body too large.'
+      );
+    }
+
+    chunks.push(buffer);
+  }
+
+  if (!chunks.length) {
+    return {};
+  }
+
+  const raw =
+    Buffer.concat(chunks)
+      .toString('utf8')
+      .trim();
+
+  if (!raw) {
+    return {};
+  }
+
+  try {
+    return JSON.parse(raw);
+  } catch {
+    throw new Error(
+      'Invalid JSON request body.'
+    );
+  }
+}
+
+function looksLikePrimeRunQuestion(
+  message: string
+): boolean {
+  return /\b(?:what did (?:you|your agents|they|the agents) find|what (?:have|did) you find|what happened|results?|summary|summari[sz]e|last run|current run|sink[- ]?0[345]|prospector|economist|analyst|auditor|red[- ]?sink|red team)\b/i
+    .test(message);
+}
+
 const server =
   http.createServer(
     async (
@@ -974,11 +1266,163 @@ const server =
 
         if (
           url.pathname ===
+            '/api/prime/message' &&
+          req.method === 'POST'
+        ) {
+          const body =
+            await readJsonBody(req);
+
+          if (
+            !body ||
+            typeof body !== 'object' ||
+            typeof (
+              body as Record<string, unknown>
+            ).message !== 'string'
+          ) {
+            json(
+              res,
+              400,
+              {
+                error:
+                  'Prime requires a text message.'
+              }
+            );
+
+            return;
+          }
+
+          const message =
+            (
+              body as Record<
+                string,
+                unknown
+              >
+            ).message as string;
+
+          if (
+            looksLikePrimeRunQuestion(
+              message
+            )
+          ) {
+            const runs =
+              await listRuns();
+
+            const latestRun =
+              runs[0] ?? null;
+
+            if (!latestRun) {
+              json(
+                res,
+                200,
+                {
+                  status:
+                    'NEEDS_CLARIFICATION',
+
+                  reply:
+                    'There is no persisted run for me to inspect yet.',
+
+                  mission: null,
+
+                  confidence:
+                    'HIGH',
+
+                  assumptions: [],
+
+                  run_id: null,
+
+                  evidence: []
+                }
+              );
+
+              return;
+            }
+
+            const answer =
+              answerPrimeRunQuestion(
+                message,
+                latestRun
+              );
+
+            json(
+              res,
+              200,
+              {
+                ...answer,
+
+                mission: null,
+
+                confidence:
+                  'HIGH',
+
+                assumptions: []
+              }
+            );
+
+            return;
+          }
+
+          const interpretation =
+            interpretPrimeCommand(
+              message
+            );
+
+          json(
+            res,
+            200,
+            interpretation
+          );
+
+          return;
+        }
+
+        if (
+          url.pathname ===
+            '/api/prime/deploy' &&
+          req.method === 'POST'
+        ) {
+          const body =
+            await readJsonBody(req);
+
+          const result =
+            await launchPrimeMission(
+              body
+            );
+
+          json(
+            res,
+            result.started
+              ? 202
+              : 409,
+            {
+              ...result,
+
+              adapter:
+                'local-deterministic-v1',
+
+              message:
+                result.started
+                  ? 'Prime mission accepted for execution.'
+                  : 'A Sink Clones run is already active.'
+            }
+          );
+
+          return;
+        }
+
+        if (
+          url.pathname ===
             '/api/run' &&
           req.method === 'POST'
         ) {
+          const mission =
+            parseConsoleMission(
+              await readJsonBody(req)
+            );
+
           const result =
-            launchLocalRun();
+            launchLocalRun(
+              mission
+            );
 
           json(
             res,

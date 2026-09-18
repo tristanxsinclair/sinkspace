@@ -17,7 +17,8 @@ export function verifyReceipt(receipt: Receipt): void {
   }
   const miningReceipt =
     receipt.mission !== undefined &&
-    receipt.mission !== null;
+    receipt.mission !== null &&
+    'miner' in receipt.mission;
 
   for (const c of receipt.claims) {
     if (
@@ -67,6 +68,23 @@ export function verifyReceipt(receipt: Receipt): void {
         throw new ControlError(
           'UNSUPPORTED_CLAIM'
         );
+      } else if (
+        c.predicate.kind === 'EVIDENCE_SOURCE_EQUALS'
+      ) {
+        if (
+          c.predicate.path !== 'evidence.source' ||
+          c.predicate.key !== null ||
+          !c.predicate.expected ||
+          c.evidence_ids.some(
+            id =>
+              evidence.get(id)?.source !==
+              c.predicate!.expected
+          )
+        ) {
+          throw new ControlError(
+            'UNSUPPORTED_CLAIM'
+          );
+        }
       }
     }
   }
@@ -126,6 +144,26 @@ export function verifyReceipt(receipt: Receipt): void {
       isRevenueDiscover ||
       isRevenueValidate;
 
+    /*
+     * Discovery workflows may legitimately complete with zero KNOWN claims.
+     *
+     * That is not a relaxation of verifier independence. If either workflow
+     * does emit a KNOWN claim, both SINK-03 and RED-SINK must still have
+     * independently checked it and neither verifier may own the claim.
+     *
+     * Gold Rush is identified structurally from its mission rather than by
+     * accepting arbitrary claimless workflows.
+     */
+    const isGoldRushDiscover =
+      !!receipt.mission &&
+      'horizon_days' in receipt.mission &&
+      'target_categories' in receipt.mission &&
+      receipt.mission.mode === 'DISCOVER';
+
+    const isDiscoveryWorkflow =
+      isRevenueDiscover ||
+      isGoldRushDiscover;
+
     if (!receipt.artifacts_created.length) {
       throw new ControlError('UNVERIFIED_COMPLETION');
     }
@@ -148,14 +186,16 @@ export function verifyReceipt(receipt: Receipt): void {
       }
     }
 
-    if (isRevenueDiscover) {
+    if (isDiscoveryWorkflow) {
       /*
-       * DISCOVER is allowed to complete without KNOWN commercial claims.
-       * Candidate existence may be evidenced while pain, demand and buying
-       * intent remain deliberately unverified.
+       * DISCOVER is allowed to complete without KNOWN claims.
        *
-       * If DISCOVER ever does emit KNOWN claims, normal verifier
-       * independence still applies to every such claim.
+       * Absence of a defensible KNOWN claim is itself a valid bounded
+       * discovery result. UNKNOWN and NEEDS_VERIFICATION must not be promoted
+       * merely to satisfy receipt sealing.
+       *
+       * If DISCOVER does emit KNOWN claims, normal verifier independence
+       * still applies to every such claim.
        */
       if (
         known.some(

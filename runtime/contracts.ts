@@ -8,7 +8,8 @@ const Timestamp = z.iso.datetime();
 export const WorkflowSchema = z.enum([
   'capability-inventory',
   'crypto-mining',
-  'revenue'
+  'revenue',
+  'gold-rush'
 ]);
 
 export type Workflow =
@@ -135,6 +136,63 @@ export const RevenueMissionSchema = z.strictObject({
 
 export type RevenueMission =
   z.infer<typeof RevenueMissionSchema>;
+
+export const GoldRushModeSchema = z.literal('DISCOVER');
+
+export type GoldRushMode =
+  z.infer<typeof GoldRushModeSchema>;
+
+export const GoldRushMissionSchema = z.strictObject({
+  mode: GoldRushModeSchema,
+
+  horizon_days: z
+    .number()
+    .int()
+    .min(1)
+    .max(90)
+    .default(30),
+
+  max_spend_aud: z
+    .number()
+    .finite()
+    .nonnegative()
+    .max(1000000)
+    .default(0),
+
+  max_operator_minutes: z
+    .number()
+    .int()
+    .nonnegative()
+    .max(100000)
+    .default(120),
+
+  target_categories: z
+    .array(z.enum([
+      'BUG_BOUNTY',
+      'BUILDER_GRANT',
+      'HACKATHON',
+      'OPEN_SOURCE_BOUNTY',
+      'UNCLAIMED_ENTITLEMENT',
+      'NETWORK_OPERATOR',
+      'DEPIN',
+      'KEEPER',
+      'SOLVER',
+      'PROVER',
+      'RESTAKING',
+      'ARBITRAGE',
+      'OTHER'
+    ]))
+    .min(1)
+    .max(13),
+
+  constraints: z
+    .array(Text)
+    .max(50)
+    .default([])
+});
+
+export type GoldRushMission =
+  z.infer<typeof GoldRushMissionSchema>;
 
 export const RevenueOpportunitySchema = z.strictObject({
   opportunity_id: Id,
@@ -418,7 +476,8 @@ export type RevenueLedger =
 
 export const MissionSchema = z.union([
   CryptoMiningMissionSchema,
-  RevenueMissionSchema
+  RevenueMissionSchema,
+  GoldRushMissionSchema
 ]);
 
 export type Mission =
@@ -460,7 +519,7 @@ export const EvidenceSchema = z.strictObject({
   timestamp: Timestamp, source: Text, trust: z.literal('UNTRUSTED_DATA'),
 });
 export type Evidence = z.infer<typeof EvidenceSchema>;
-export const PredicateSchema = z.strictObject({kind: z.enum(['FILE_EXISTS', 'TEXT_CONTAINS', 'JSON_FIELD_EQUALS']), path: Text, key: z.string().nullable(), expected: z.string()});
+export const PredicateSchema = z.strictObject({kind: z.enum(['FILE_EXISTS', 'TEXT_CONTAINS', 'JSON_FIELD_EQUALS', 'EVIDENCE_SOURCE_EQUALS']), path: Text, key: z.string().nullable(), expected: z.string()});
 export type Predicate = z.infer<typeof PredicateSchema>;
 export const ClaimSchema = z.strictObject({claim_id: Id, statement: Text, classification: z.enum(['KNOWN', 'INFERRED', 'UNKNOWN', 'NEEDS_VERIFICATION']), evidence_ids: z.array(Id), predicate: PredicateSchema.nullable(), agent_id: Id});
 export type Claim = z.infer<typeof ClaimSchema>;
@@ -529,10 +588,22 @@ export const RevenueIntakeSchema = z.strictObject({
   mission: RevenueMissionSchema
 });
 
+export const GoldRushIntakeSchema = z.strictObject({
+  workflow: z.literal('gold-rush'),
+
+  objective: z
+    .string()
+    .min(1)
+    .max(20000),
+
+  mission: GoldRushMissionSchema
+});
+
 export const MissionIntakeSchema = z.union([
   IntakeSchema,
   CryptoMiningIntakeSchema,
-  RevenueIntakeSchema
+  RevenueIntakeSchema,
+  GoldRushIntakeSchema
 ]);
 
 export type MissionIntake =

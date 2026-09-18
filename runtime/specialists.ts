@@ -17,6 +17,7 @@ export function statementFor(predicate: Predicate): string {
     case 'FILE_EXISTS': return `Tracked path ${JSON.stringify(predicate.path)} exists: ${predicate.expected}.`;
     case 'TEXT_CONTAINS': return `Blob ${JSON.stringify(predicate.path)} contains literal ${JSON.stringify(predicate.expected)}.`;
     case 'JSON_FIELD_EQUALS': return `JSON blob ${JSON.stringify(predicate.path)} field ${JSON.stringify(predicate.key)} equals string ${JSON.stringify(predicate.expected)}.`;
+    case 'EVIDENCE_SOURCE_EQUALS': return `Evidence source equals ${JSON.stringify(predicate.expected)}.`;
   }
 }
 function reportFor(output: Pick<WorkerOutput, 'claims' | 'uncertainty'>): string {
