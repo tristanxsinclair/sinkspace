@@ -138,6 +138,10 @@ export async function executePrimeConstitutionalPlan(
         action.expected_export
       ],
 
+      expected_function_exports: [
+        action.expected_export
+      ],
+
       verification_commands: [
         'TYPECHECK'
       ],
@@ -238,6 +242,7 @@ export function constitutionalPlanReply(
     `Target: ${spec.target_path}`,
     `Operation: ${spec.operation}`,
     `Expected exports: ${spec.expected_exports.join(', ')}`,
+    `Expected function exports: ${(spec.expected_function_exports ?? []).join(', ') || 'NONE'}`,
     `Verification: ${spec.verification_commands.join(', ')}`,
     `Max files changed: ${spec.max_files_changed}`,
     '',

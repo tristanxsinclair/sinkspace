@@ -88,6 +88,7 @@ export interface EngineeringRequest {
   target_path: string;
   operation?: 'CREATE' | 'REPLACE';
   expected_exports?: string[];
+  expected_function_exports?: string[];
 }
 
 const MODEL_ID = 'Qwen/Qwen2.5-Coder-3B-Instruct-GGUF:Q4_K_M' as const;
@@ -267,6 +268,108 @@ function verifyExpectedExports(
   }
 
   return failures;
+}
+
+function verifyExpectedFunctionExports(
+  source: string,
+  expectedFunctionExports: string[]
+): string[] {
+  const failures: string[] = [];
+
+  for (
+    const name
+    of expectedFunctionExports
+  ) {
+    const escaped =
+      name.replace(
+        /[.*+?^${}()|[\]\\]/g,
+        '\\$&'
+      );
+
+    const declaration =
+      new RegExp(
+        String.raw`\bexport\s+(?:async\s+)?function\s+${escaped}\b`
+      );
+
+    if (!declaration.test(source)) {
+      failures.push(
+        `MISSING_EXPECTED_FUNCTION_EXPORT:${name}`
+      );
+    }
+  }
+
+  return failures;
+}
+
+interface VeraEvaluation {
+  passed: boolean;
+  diagnostics: string;
+  acceptance_checks: string[];
+  acceptance_failures: string[];
+}
+
+function evaluateVera(
+  source: string,
+  typecheck: {
+    exit_code: number | null;
+    stdout: string;
+    stderr: string;
+  },
+  request: EngineeringRequest
+): VeraEvaluation {
+  const expectedExports =
+    request.expected_exports ?? [];
+
+  const expectedFunctionExports =
+    request.expected_function_exports ?? [];
+
+  const acceptanceChecks = [
+    ...expectedExports.map(
+      name =>
+        `EXPECTED_EXPORT:${name}`
+    ),
+    ...expectedFunctionExports.map(
+      name =>
+        `EXPECTED_FUNCTION_EXPORT:${name}`
+    )
+  ];
+
+  const acceptanceFailures = [
+    ...verifyExpectedExports(
+      source,
+      expectedExports
+    ),
+    ...verifyExpectedFunctionExports(
+      source,
+      expectedFunctionExports
+    )
+  ];
+
+  const diagnostics = [
+    typecheck.exit_code !== 0
+      ? 'TYPECHECK_FAILED'
+      : '',
+    typecheck.stdout,
+    typecheck.stderr,
+    ...acceptanceFailures
+  ]
+    .filter(Boolean)
+    .join('\n')
+    .slice(0, 12_000);
+
+  return {
+    passed:
+      typecheck.exit_code === 0 &&
+      acceptanceFailures.length === 0,
+
+    diagnostics,
+
+    acceptance_checks:
+      acceptanceChecks,
+
+    acceptance_failures:
+      acceptanceFailures
+  };
 }
 
 function buildMission(
@@ -523,9 +626,6 @@ TYPECHECK is the only executable verification command.
         context
       );
 
-    let acceptedProposal =
-      proposal;
-
     receipt.proposal =
       proposal;
 
@@ -573,11 +673,24 @@ TYPECHECK is the only executable verification command.
     receipt.typecheck_stderr =
       typecheck.stderr;
 
-    if (
-      typecheck.exit_code !== 0
-    ) {
+    const initialSource =
+      proposal.mutations[0]
+        ?.content ?? '';
+
+    const initialVera =
+      evaluateVera(
+        initialSource,
+        typecheck,
+        request
+      );
+
+    receipt.acceptance_checks =
+      initialVera.acceptance_checks;
+
+    if (!initialVera.passed) {
       /*
        * Vera has rejected the initial neural draft.
+       * Rejection may be compiler-level or semantic.
        *
        * One bounded repair is permitted inside the
        * SAME mission, workspace, target and authority
@@ -599,20 +712,14 @@ TYPECHECK is the only executable verification command.
       receipt.initial_typecheck_stderr =
         typecheck.stderr;
 
-      const diagnostics = [
-        typecheck.stdout,
-        typecheck.stderr
-      ]
-        .filter(Boolean)
-        .join('\n')
-        .slice(0, 12_000);
+      const diagnostics =
+        initialVera.diagnostics;
 
       receipt.repair_diagnostics =
         diagnostics;
 
       const failedSource =
-        proposal.mutations[0]
-          ?.content ?? '';
+        initialSource;
 
       const repairProposal =
         await forge.repair(
@@ -675,9 +782,6 @@ TYPECHECK is the only executable verification command.
           workshopRepair
         );
 
-      acceptedProposal =
-        repairProposal;
-
       receipt.proposal =
         repairProposal;
 
@@ -702,46 +806,35 @@ TYPECHECK is the only executable verification command.
       receipt.typecheck_stderr =
         repairedTypecheck.stderr;
 
-      if (
-        repairedTypecheck.exit_code !==
-          0
-      ) {
+      const repairedSource =
+        repairProposal.mutations[0]
+          ?.content ?? '';
+
+      const repairedVera =
+        evaluateVera(
+          repairedSource,
+          repairedTypecheck,
+          request
+        );
+
+      receipt.acceptance_checks =
+        repairedVera.acceptance_checks;
+
+      if (!repairedVera.passed) {
         receipt.failure =
-          'VERA_REPAIR_TYPECHECK_FAILED';
+          repairedTypecheck.exit_code !== 0
+            ? 'VERA_REPAIR_TYPECHECK_FAILED'
+            : `VERA_REPAIR_ACCEPTANCE_FAILED:${repairedVera.acceptance_failures.join(',')}`;
 
         return receipt;
       }
     }
 
-    const expectedExports =
-      request.expected_exports ?? [];
-
-    const proposedSource =
-      acceptedProposal
-        .mutations[0]
-        ?.content ?? '';
-
-    const acceptanceFailures =
-      verifyExpectedExports(
-        proposedSource,
-        expectedExports
-      );
-
-    receipt.acceptance_checks =
-      expectedExports.map(
-        name =>
-          `EXPECTED_EXPORT:${name}`
-      );
-
-    if (
-      acceptanceFailures.length > 0
-    ) {
-      receipt.failure =
-        `VERA_ACCEPTANCE_FAILED:${acceptanceFailures.join(',')}`;
-
-      return receipt;
-    }
-
+    /*
+     * If no repair occurred, initialVera already passed.
+     * If repair occurred, repairedVera passed before
+     * reaching this point.
+     */
     receipt.vera =
       'PASS';
 

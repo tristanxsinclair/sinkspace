@@ -7,6 +7,7 @@ export interface PrimeEngineeringCommand {
   objective: string;
   target_path: string;
   expected_exports: string[];
+  expected_function_exports: string[];
 }
 
 export interface PrimeEngineeringInterpretation {
@@ -126,6 +127,11 @@ export function interpretPrimeEngineering(
       target_path:
         targetPath,
       expected_exports:
+        expectedExportsFromObjective(
+          objective
+        ),
+
+      expected_function_exports:
         expectedExportsFromObjective(
           objective
         )

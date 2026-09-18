@@ -173,6 +173,10 @@ async function executableAuthorization(
         expected_exports: [
           'preflightProof'
         ],
+
+        expected_function_exports: [
+          'preflightProof'
+        ],
         verification_commands: [
           'TYPECHECK'
         ],
@@ -330,6 +334,15 @@ test(
 
     let engineeringInvocations = 0;
 
+    let observedEngineeringRequest:
+      Parameters<
+        NonNullable<
+          import('../runtime/constitutional-engineering.js')
+            .ConstitutionalEngineeringDependencies['runEngineering']
+        >
+      >[1] | undefined;
+
+
     await assert.rejects(
       () =>
         executeConstitutionalEngineering(
@@ -340,8 +353,13 @@ test(
               async () => true,
 
             runEngineering:
-              async () => {
+              async (
+                _repositoryRoot,
+                request
+              ) => {
                 engineeringInvocations += 1;
+                observedEngineeringRequest =
+                  request;
                 throw new Error(
                   'TEST_BOUNDARY_REACHED'
                 );
@@ -355,6 +373,23 @@ test(
       engineeringInvocations,
       1
     );
+
+    assert.deepEqual(
+      observedEngineeringRequest
+        ?.expected_exports,
+      [
+        'preflightProof'
+      ]
+    );
+
+    assert.deepEqual(
+      observedEngineeringRequest
+        ?.expected_function_exports,
+      [
+        'preflightProof'
+      ]
+    );
+
 
     const {
       readdir

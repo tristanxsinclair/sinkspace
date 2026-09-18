@@ -26,6 +26,16 @@ export const ConstitutionalEngineeringSpecSchema =
       )
       .max(16),
 
+    expected_function_exports:
+      z.array(
+        z.string()
+          .regex(
+            /^[A-Za-z_$][A-Za-z0-9_$]*$/
+          )
+      )
+      .max(16)
+      .optional(),
+
     verification_commands:
       z.tuple([
         z.literal('TYPECHECK')

@@ -259,7 +259,10 @@ export async function executeConstitutionalEngineering(
             spec.operation,
 
           expected_exports:
-            spec.expected_exports
+            spec.expected_exports,
+
+          expected_function_exports:
+            spec.expected_function_exports ?? []
         }
       );
   } catch (error) {
