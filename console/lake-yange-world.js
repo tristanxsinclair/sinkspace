@@ -899,6 +899,38 @@ document
           }
 
           selectElement(element);
+
+          if (id === "state-house") {
+            const panel =
+              document.querySelector(
+                "#state-house-console"
+              );
+
+            if (!panel) {
+              console.error(
+                "[Lake Yange] State House console missing."
+              );
+              return;
+            }
+
+            panel.classList.add(
+              "open"
+            );
+
+            panel.setAttribute(
+              "aria-hidden",
+              "false"
+            );
+
+            document
+              .querySelector(
+                "#state-house-input"
+              )
+              ?.focus();
+
+            return;
+          }
+
           inspect(record);
         }
       );
@@ -1293,4 +1325,445 @@ refreshLakeYangeProjection();
 window.setInterval(
   refreshLakeYangeProjection,
   1500
+);
+
+/* ============================================================
+   STATE HOUSE · PRIME
+   Existing /api/prime/message remains the authority boundary.
+   ============================================================ */
+
+const stateHouseConsole =
+  document.querySelector(
+    "#state-house-console"
+  );
+
+const stateHouseForm =
+  document.querySelector(
+    "#state-house-form"
+  );
+
+const stateHouseInput =
+  document.querySelector(
+    "#state-house-input"
+  );
+
+const stateHouseTranscript =
+  document.querySelector(
+    "#state-house-transcript"
+  );
+
+const stateHouseStatus =
+  document.querySelector(
+    "#state-house-status"
+  );
+
+const stateHouseEvidence =
+  document.querySelector(
+    "#state-house-evidence"
+  );
+
+const stateHouseSend =
+  document.querySelector(
+    "#state-house-send"
+  );
+
+const stateHouseClose =
+  document.querySelector(
+    "#state-house-close"
+  );
+
+const stateHouseLandmark =
+  document.querySelector(
+    '[data-landmark="state-house"]'
+  );
+
+function openStateHouse() {
+  if (!stateHouseConsole) {
+    return;
+  }
+
+  stateHouseConsole.classList.add(
+    "open"
+  );
+
+  stateHouseConsole.setAttribute(
+    "aria-hidden",
+    "false"
+  );
+
+  stateHouseInput?.focus();
+}
+
+function closeStateHouse() {
+  if (!stateHouseConsole) {
+    return;
+  }
+
+  stateHouseConsole.classList.remove(
+    "open"
+  );
+
+  stateHouseConsole.setAttribute(
+    "aria-hidden",
+    "true"
+  );
+}
+
+function stateHouseBusy(
+  busy
+) {
+  if (stateHouseInput) {
+    stateHouseInput.disabled =
+      busy;
+  }
+
+  if (stateHouseSend) {
+    stateHouseSend.disabled =
+      busy;
+  }
+
+  if (stateHouseStatus) {
+    stateHouseStatus.textContent =
+      busy
+        ? "PRIME WORKING · LOCAL"
+        : "READY · LOCAL";
+  }
+
+  if (stateHouseLandmark) {
+    stateHouseLandmark.dataset.primeState =
+      busy
+        ? "ENGAGED"
+        : "READY";
+  }
+}
+
+function appendStateHouseMessage(
+  author,
+  text
+) {
+  if (!stateHouseTranscript) {
+    return;
+  }
+
+  const message =
+    document.createElement(
+      "div"
+    );
+
+  message.className =
+    `state-house-message ${
+      author === "YOU"
+        ? "founder-message"
+        : "prime-message"
+    }`;
+
+  const authorElement =
+    document.createElement(
+      "span"
+    );
+
+  authorElement.className =
+    "message-author";
+
+  authorElement.textContent =
+    author;
+
+  const body =
+    document.createElement(
+      "p"
+    );
+
+  body.textContent =
+    text;
+
+  message.append(
+    authorElement,
+    body
+  );
+
+  stateHouseTranscript.append(
+    message
+  );
+
+  stateHouseTranscript.scrollTop =
+    stateHouseTranscript.scrollHeight;
+}
+
+function showStateHouseEvidence(
+  response
+) {
+  if (!stateHouseEvidence) {
+    return;
+  }
+
+  const lines = [];
+
+  if (
+    response &&
+    typeof response.run_id ===
+      "string"
+  ) {
+    lines.push(
+      `RUN ${response.run_id}`
+    );
+  }
+
+  if (
+    response &&
+    response.receipt &&
+    typeof response.receipt ===
+      "object"
+  ) {
+    const receipt =
+      response.receipt;
+
+    if (receipt.receipt_id) {
+      lines.push(
+        `RECEIPT ${receipt.receipt_id}`
+      );
+    }
+
+    if (receipt.vera) {
+      lines.push(
+        `VERA ${receipt.vera}`
+      );
+    }
+
+    if (receipt.rook) {
+      lines.push(
+        `ROOK ${receipt.rook}`
+      );
+    }
+
+    if (receipt.promotion) {
+      lines.push(
+        `PROMOTION ${receipt.promotion}`
+      );
+    }
+
+    if (receipt.failure) {
+      lines.push(
+        `FAILURE ${receipt.failure}`
+      );
+    }
+  }
+
+  if (
+    response &&
+    Array.isArray(
+      response.evidence
+    )
+  ) {
+    for (
+      const item of
+      response.evidence
+    ) {
+      if (
+        !item ||
+        typeof item !== "object"
+      ) {
+        continue;
+      }
+
+      lines.push(
+        [
+          item.agent_id ??
+            "UNKNOWN",
+          ...(item.event_ids ?? []),
+          ...(item.artifact_ids ?? [])
+        ].join(" · ")
+      );
+    }
+  }
+
+  stateHouseEvidence.hidden =
+    lines.length === 0;
+
+  stateHouseEvidence.textContent =
+    lines.join("\n");
+}
+
+async function messagePrime(
+  message
+) {
+  const response =
+    await fetch(
+      "/api/prime/message",
+      {
+        method: "POST",
+
+        headers: {
+          "content-type":
+            "application/json"
+        },
+
+        body: JSON.stringify({
+          message
+        })
+      }
+    );
+
+  let payload;
+
+  try {
+    payload =
+      await response.json();
+  } catch {
+    throw new Error(
+      "Prime returned an unreadable response."
+    );
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      payload?.error ??
+        `Prime request failed (${response.status}).`
+    );
+  }
+
+  return payload;
+}
+
+stateHouseClose?.addEventListener(
+  "click",
+  closeStateHouse
+);
+
+stateHouseConsole?.addEventListener(
+  "click",
+  event => {
+    if (
+      event.target ===
+      stateHouseConsole
+    ) {
+      closeStateHouse();
+    }
+  }
+);
+
+document.addEventListener(
+  "keydown",
+  event => {
+    if (
+      event.key === "Escape" &&
+      stateHouseConsole?.classList
+        .contains("open")
+    ) {
+      closeStateHouse();
+    }
+
+    if (
+      event.key === "Enter" &&
+      !event.shiftKey &&
+      document.activeElement ===
+        stateHouseInput
+    ) {
+      event.preventDefault();
+
+      stateHouseForm
+        ?.requestSubmit();
+    }
+  }
+);
+
+stateHouseForm?.addEventListener(
+  "submit",
+  async event => {
+    event.preventDefault();
+
+    const message =
+      stateHouseInput?.value
+        .trim();
+
+    if (!message) {
+      return;
+    }
+
+    appendStateHouseMessage(
+      "YOU",
+      message
+    );
+
+    stateHouseInput.value =
+      "";
+
+    stateHouseBusy(true);
+
+    try {
+      const response =
+        await messagePrime(
+          message
+        );
+
+      appendStateHouseMessage(
+        "PRIME",
+        typeof response.reply ===
+          "string"
+          ? response.reply
+          : "Prime completed the request but returned no readable reply."
+      );
+
+      showStateHouseEvidence(
+        response
+      );
+
+      /*
+       * Refresh persisted world truth after Prime returns.
+       * This does not invent activity.
+       */
+      await refreshLakeYangeProjection();
+    } catch (error) {
+      appendStateHouseMessage(
+        "PRIME",
+        error instanceof Error
+          ? error.message
+          : "State House request failed."
+      );
+    } finally {
+      stateHouseBusy(false);
+      stateHouseInput?.focus();
+    }
+  }
+);
+
+/* State House visible-geometry interaction bridge */
+document.addEventListener(
+  "click",
+  event => {
+    const visibleStateHouse =
+      event.target.closest?.(
+        ".state-house-building, .state-house .entity-label"
+      );
+
+    if (!visibleStateHouse) {
+      return;
+    }
+
+    event.stopPropagation();
+
+    const panel =
+      document.querySelector(
+        "#state-house-console"
+      );
+
+    if (!panel) {
+      console.error(
+        "[Lake Yange] State House console missing."
+      );
+      return;
+    }
+
+    panel.classList.add("open");
+    panel.setAttribute(
+      "aria-hidden",
+      "false"
+    );
+
+    document
+      .querySelector(
+        "#state-house-input"
+      )
+      ?.focus();
+  },
+  true
 );

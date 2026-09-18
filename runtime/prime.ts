@@ -9,6 +9,7 @@ import {
 export type PrimeInterpretation = {
   status:
     | 'READY'
+    | 'FOUNDER_MANDATE'
     | 'NEEDS_CLARIFICATION'
     | 'UNSUPPORTED';
 
@@ -125,6 +126,42 @@ function extractCashTarget(
     1_000_000_000,
     Math.max(0, value)
   );
+}
+
+function looksLikeFounderMandate(
+  input: string
+): boolean {
+  const explicitMandate =
+    /\bfound(?:er|ing)\s+mandate\b/i.test(input);
+
+  const constitutionalIntent =
+    /\b(constitution(?:al)?|institution(?:al|s)?|jurisdiction|governance|societal|society structure|reserved powers)\b/i
+      .test(input);
+
+  const lakeYangeScope =
+    /\blake yange\b/i.test(input);
+
+  const correctionOfRouting =
+    /\b(previous interpretation was false|intent-routing failure|classify this as a founder mandate)\b/i
+      .test(input);
+
+  /*
+   * Founder mandates are governance/planning instructions, not executable
+   * MissionIntakes. A correction explicitly identifying a Founder Mandate
+   * must also outrank operational keyword routing.
+   */
+  return (
+    explicitMandate ||
+    correctionOfRouting ||
+    (lakeYangeScope && constitutionalIntent)
+  );
+}
+
+function explicitlyRejectsGoldRush(
+  input: string
+): boolean {
+  return /\b(?:do not|don't|dont|not)\s+(?:run\s+)?gold rush\b/i
+    .test(input);
 }
 
 function looksLikeValidation(
@@ -296,6 +333,28 @@ export function interpretPrimeCommand(
     };
   }
 
+  /*
+   * Constitutional intent has precedence over operational keyword routing.
+   * Receiving a Founder Mandate does NOT grant execution authority.
+   */
+  if (looksLikeFounderMandate(input)) {
+    return {
+      status: 'FOUNDER_MANDATE',
+      reply: [
+        'FOUNDER_MANDATE_ACCEPTED',
+        'I interpret this as constitutional and institutional development of Lake Yange.',
+        'This is not an executable Gold Rush, revenue, research or engineering mission.',
+        'The mandate requires decomposition into bounded implementation missions before execution.',
+        'No implementation is claimed and no execution has occurred.'
+      ].join('\n'),
+      mission: null,
+      confidence: 'HIGH',
+      assumptions: [
+        'Founder Mandates describe governance intent but do not themselves grant implementation authority.'
+      ]
+    };
+  }
+
   if (
     looksLikeSystemScan(input)
   ) {
@@ -353,7 +412,8 @@ export function interpretPrimeCommand(
   }
 
   if (
-    looksLikeGoldRush(input)
+    looksLikeGoldRush(input) &&
+    !explicitlyRejectsGoldRush(input)
   ) {
     const mission =
       goldRushMission(input);

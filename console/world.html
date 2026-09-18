@@ -326,10 +326,106 @@
       </div>
     </footer>
   </main>
+<section
+      id="state-house-console"
+      class="state-house-console"
+      aria-hidden="true"
+    >
+      <div class="state-house-console-shell">
 
+        <header class="state-house-console-header">
+          <div>
+            <span class="state-house-kicker">
+              STATE HOUSE · PRIME
+            </span>
+
+            <h2>Steward Console</h2>
+          </div>
+
+          <div class="state-house-locality">
+            <span class="locality-dot"></span>
+            LOCAL
+          </div>
+
+          <button
+            id="state-house-close"
+            class="state-house-close"
+            type="button"
+            aria-label="Close State House"
+          >
+            ×
+          </button>
+        </header>
+
+        <div class="state-house-prime">
+          <div class="prime-seal">P</div>
+
+          <div>
+            <strong>Prime</strong>
+            <span>
+              Steward of Lake Yange
+            </span>
+          </div>
+        </div>
+
+        <div
+          id="state-house-transcript"
+          class="state-house-transcript"
+          aria-live="polite"
+        >
+          <div
+            class="state-house-message prime-message"
+          >
+            <span class="message-author">
+              PRIME
+            </span>
+
+            <p>
+              State House online. Give me a mission,
+              ask about persisted work, or issue a
+              bounded engineering command.
+            </p>
+          </div>
+        </div>
+
+        <div
+          id="state-house-evidence"
+          class="state-house-evidence"
+          hidden
+        ></div>
+
+        <form
+          id="state-house-form"
+          class="state-house-form"
+        >
+          <textarea
+            id="state-house-input"
+            rows="3"
+            maxlength="4000"
+            placeholder="Message Prime..."
+            autocomplete="off"
+          ></textarea>
+
+          <div class="state-house-form-footer">
+            <span id="state-house-status">
+              READY · LOCAL
+            </span>
+
+            <button
+              id="state-house-send"
+              type="submit"
+            >
+              SEND TO PRIME
+            </button>
+          </div>
+        </form>
+
+      </div>
+    </section>
   <script
     type="module"
     src="/lake-yange-world.js"
   ></script>
+
 </body>
 </html>

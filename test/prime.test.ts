@@ -166,3 +166,79 @@ test(
     );
   }
 );
+
+test(
+  'Prime classifies constitutional Lake Yange direction as a Founder Mandate',
+  () => {
+    const result =
+      interpretPrimeCommand(
+        [
+          'Prime, establish the first institutional and societal structure of Lake Yange.',
+          'Design the constitutional architecture around State House, the Court, Rook Keep, Ledger House and Model Commons.',
+          'Establish institutional jurisdiction and Founder reserved powers.',
+          'This is Lake Yange Founding Mandate I: Institutions and Society.'
+        ].join(' ')
+      );
+
+    assert.equal(
+      result.status,
+      'FOUNDER_MANDATE'
+    );
+
+    assert.equal(
+      result.mission,
+      null
+    );
+
+    assert.match(
+      result.reply,
+      /constitutional and institutional development/i
+    );
+  }
+);
+
+test(
+  'Prime does not convert an explicit Gold Rush rejection into Gold Rush intent',
+  () => {
+    const result =
+      interpretPrimeCommand(
+        [
+          'Prime, correction.',
+          'Your previous interpretation was false.',
+          'Founding Mandate I is not Gold Rush opportunity discovery.',
+          'Treat this interaction as evidence of a State House intent-routing failure.',
+          'The dominant intent is constitutional and institutional development of Lake Yange.',
+          'Do not run Gold Rush.',
+          'Classify this as a Founder Mandate requiring decomposition into bounded implementation missions.',
+          'Return your interpretation only. Do not execute yet.'
+        ].join(' ')
+      );
+
+    assert.equal(
+      result.status,
+      'FOUNDER_MANDATE'
+    );
+
+    assert.equal(
+      result.mission,
+      null
+    );
+
+
+  }
+);
+
+test(
+  'Prime does not treat explicit Gold Rush negation as positive Gold Rush authority',
+  () => {
+    const result =
+      interpretPrimeCommand(
+        'Do not run Gold Rush'
+      );
+
+    assert.equal(
+      result.mission,
+      null
+    );
+  }
+);
