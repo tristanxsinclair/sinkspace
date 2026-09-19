@@ -111,7 +111,9 @@ function usefulEvent(
     'ARTIFACT_CREATED',
     'CLAIM_CREATED',
     'EVIDENCE_ATTACHED',
-    'BLACKBOARD_ENTRY_CREATED'
+    'BLACKBOARD_ENTRY_CREATED',
+    'AUDIT_PASSED',
+    'RED_SINK_COMPLETED'
   ].includes(event.type);
 }
 

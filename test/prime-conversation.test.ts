@@ -130,3 +130,92 @@ test(
     );
   }
 );
+
+test(
+  'Prime treats persisted RED-SINK review events as substantive output',
+  () => {
+    const redSinkRun = {
+      run_id: 'run-red-sink-proof',
+      status: 'COMPLETED',
+
+      events: [
+        {
+          event_id: 'event-red-assigned',
+          type: 'AGENT_ASSIGNED',
+          timestamp:
+            '2026-09-18T00:00:00.000Z',
+          agent_id: 'RED-SINK',
+          task_id: 'task-red',
+          summary:
+            'Challenge demand and pricing assumptions.'
+        },
+
+        {
+          event_id: 'event-red-audit',
+          type: 'AUDIT_PASSED',
+          timestamp:
+            '2026-09-18T00:01:00.000Z',
+          agent_id: 'RED-SINK',
+          task_id: 'task-red',
+          summary:
+            'Candidate existence is established, but purchase intent and budget remain unverified.'
+        },
+
+        {
+          event_id: 'event-red-completed',
+          type: 'RED_SINK_COMPLETED',
+          timestamp:
+            '2026-09-18T00:02:00.000Z',
+          agent_id: 'RED-SINK',
+          task_id: 'task-red',
+          summary:
+            'Priority score is an experiment-ranking heuristic and must not be interpreted as expected income.'
+        }
+      ],
+
+      // Intentional: RED-SINK has no conventional artifact.
+      artifacts: []
+    } as any;
+
+    const answer =
+      answerPrimeRunQuestion(
+        'What did RED-SINK find?',
+        redSinkRun
+      );
+
+    assert.equal(
+      answer.status,
+      'ANSWERED'
+    );
+
+    assert.match(
+      answer.reply,
+      /purchase intent and budget remain unverified/i
+    );
+
+    assert.match(
+      answer.reply,
+      /experiment-ranking heuristic/i
+    );
+
+    assert.doesNotMatch(
+      answer.reply,
+      /no substantive persisted output/i
+    );
+
+    assert.deepEqual(
+      answer.evidence[0]
+        ?.event_ids,
+      [
+        'event-red-audit',
+        'event-red-completed'
+      ]
+    );
+
+    assert.deepEqual(
+      answer.evidence[0]
+        ?.artifact_ids,
+      []
+    );
+  }
+);
