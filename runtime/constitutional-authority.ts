@@ -64,6 +64,18 @@ export async function authorizeConstitutionalPlan(
     );
   }
 
+  /*
+   * A Founder authorization is an irreversible capability. New authority may
+   * only be issued for a plan that already freezes the exact local operation
+   * and its safety limits. Legacy plans remain readable history but cannot
+   * mint fresh execution authority.
+   */
+  if (!plan.engineering_spec) {
+    throw new Error(
+      'CONSTITUTIONAL_ENGINEERING_SPEC_REQUIRED_FOR_AUTHORIZATION'
+    );
+  }
+
   const authorization =
     createFounderAuthorization({
       mandate_id:
@@ -139,7 +151,7 @@ export function constitutionalAuthorizationReply(
     'Engineering execution occurred: NO',
     'Authorization consumed: NO',
     '',
-    'Reason: this constitutional plan does not yet contain a bounded repository engineering specification.',
-    'The next bridge must bind target path and acceptance criteria before this authority can be consumed.'
+    'This authorization is bound to the plan’s frozen engineering specification.',
+    'It can be consumed only once, after local-runtime preflight and an immutable execution claim.'
   ].join('\n');
 }

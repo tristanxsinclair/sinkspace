@@ -6,14 +6,26 @@ import {
   LakeYangeStore
 } from './lake-yange-store.js';
 
+import {
+  join
+} from 'node:path';
+
 export async function bootstrapLakeYange(
   options: {
     force?: boolean;
     foundedAt?: string;
+    repositoryRoot?: string;
   } = {}
 ) {
   const store =
-    new LakeYangeStore();
+    new LakeYangeStore(
+      options.repositoryRoot
+        ? join(
+            options.repositoryRoot,
+            '.sink/lake-yange/state.json'
+          )
+        : undefined
+    );
 
   if (
     !options.force &&

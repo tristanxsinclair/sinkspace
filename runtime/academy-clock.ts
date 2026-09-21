@@ -142,11 +142,28 @@ export function runAcademyCycle(
       continue;
     }
 
+    const hasPassedPractice =
+      state.assignments.some(
+        assignment =>
+          assignment.citizen_id ===
+            citizen.system_id &&
+          assignment.course_id ===
+            course.course_id &&
+          assignment.status === 'GRADED'
+      );
+
     const assignment =
       assignCourse(
         citizen.system_id,
         course,
-        'PRACTICAL',
+        /*
+         * A second turn is an unseen transfer assessment. It is deliberately
+         * harder than repeating the same practical and feeds the capability
+         * evidence threshold used by the neural cycle.
+         */
+        hasPassedPractice
+          ? 'EXAM'
+          : 'PRACTICAL',
         [
           'ACADEMY PRACTICAL.',
           `Course: ${course.title}.`,

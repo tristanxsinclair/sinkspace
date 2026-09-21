@@ -152,6 +152,47 @@ export async function executeConstitutionalEngineering(
     );
   }
 
+  /*
+   * Schema literals make these impossible in a newly parsed artifact, but
+   * retain explicit guards at the irreversible boundary. If an old or
+   * malformed artifact ever reaches this code, it must fail closed before
+   * health probes, claim creation or Forge invocation.
+   */
+  if (
+    authorization.consumed ||
+    authorization.executions_consumed !== 0
+  ) {
+    throw new Error(
+      'AUTHORIZATION_ALREADY_CONSUMED'
+    );
+  }
+
+  const mandatoryProhibitions = [
+    'SPEND',
+    'FINANCIAL_TRANSACTION',
+    'EXTERNAL_PUBLICATION',
+    'EXTERNAL_COMMUNICATION',
+    'PRODUCTION_DEPLOY',
+    'CREDENTIAL_ACCESS',
+    'SECRET_ACCESS',
+    'DESTRUCTIVE_OPERATION',
+    'AUTHORITY_DELEGATION',
+    'AUTONOMOUS_REPRODUCTION'
+  ] as const;
+
+  if (
+    mandatoryProhibitions.some(
+      prohibition =>
+        !authorization.prohibited_operations.includes(
+          prohibition
+        )
+    )
+  ) {
+    throw new Error(
+      'AUTHORIZATION_PROHIBITION_SET_INVALID'
+    );
+  }
+
   if (
     !authorization
       .permitted_operations

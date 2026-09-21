@@ -48,6 +48,21 @@ function planInput() {
     target_system:
       'STATE_HOUSE_MANDATE_AUTHORITY',
 
+    engineering_spec: {
+      schema_version: 1 as const,
+      target_path: 'runtime/authority-proof.ts',
+      operation: 'CREATE' as const,
+      expected_exports: ['authorityProof'],
+      verification_commands: ['TYPECHECK'] as ['TYPECHECK'],
+      max_files_changed: 1 as const,
+      network: false as const,
+      credentials: false as const,
+      external_messages: false as const,
+      deployment: false as const,
+      dependency_installation: false as const,
+      destructive_operations: false as const
+    },
+
     inspected_state: {
       population: 9,
       generation: 0,
@@ -309,6 +324,34 @@ test(
           result.authorization.authorization_id
         ),
       /FOUNDER_AUTHORIZATION_DIGEST_INVALID/
+    );
+  }
+);
+
+test(
+  'legacy plan cannot mint new Founder execution authority',
+  async () => {
+    const root = await mkdtemp(join(tmpdir(), 'ly-auth-legacy-'));
+    const plan = createPendingConstitutionalPlan({
+      mandate_id: 'LY-MANDATE-legacy',
+      proposal_id: 'LY-PROPOSAL-legacy',
+      title: 'Legacy plan',
+      objective: 'Historical plan without a frozen engineering spec.',
+      target_system: 'STATE_HOUSE_MANDATE_AUTHORITY',
+      inspected_state: {
+        population: 9,
+        generation: 0,
+        cognition: 'LOCAL',
+        external_model_api: false
+      }
+    });
+    const plans = new ConstitutionalPlanStore(
+      join(root, '.sink/lake-yange/pending-plans')
+    );
+    await plans.create(plan);
+    await assert.rejects(
+      () => authorizeConstitutionalPlan(root, plan.plan_id),
+      /CONSTITUTIONAL_ENGINEERING_SPEC_REQUIRED_FOR_AUTHORIZATION/
     );
   }
 );

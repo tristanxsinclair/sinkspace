@@ -9,7 +9,16 @@ export const ConstitutionalEngineeringSpecSchema =
     target_path:
       z.string()
         .min(1)
-        .max(500),
+        .max(500)
+        .refine(
+          value =>
+            !value.startsWith('/') &&
+            !value.startsWith('\\\\') &&
+            !value.split('/').includes('..') &&
+            !value.split('\\').includes('..') &&
+            !value.includes('\0'),
+          'CONSTITUTIONAL_ENGINEERING_TARGET_PATH_INVALID'
+        ),
 
     operation:
       z.enum([

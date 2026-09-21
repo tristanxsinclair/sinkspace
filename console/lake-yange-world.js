@@ -1394,6 +1394,9 @@ function openStateHouse() {
   stateHouseInput?.focus();
 }
 
+window.LakeYange = window.LakeYange || {};
+window.LakeYange.openPrime = openStateHouse;
+
 function closeStateHouse() {
   if (!stateHouseConsole) {
     return;
@@ -1767,3 +1770,510 @@ document.addEventListener(
   },
   true
 );
+
+/* =========================================================
+   LAKE YANGE DIGITAL CITY PRESENTATION LAYER
+   Geographic markers do not imply operational activity.
+   ========================================================= */
+
+function renderLakeYangeDigitalCity() {
+  const twin =
+    window.LAKE_YANGE_GEOGRAPHY;
+
+  if (!twin) {
+    return;
+  }
+
+  const layer =
+    document.querySelector(
+      "#lake-yange-poi-layer"
+    );
+
+  if (!layer) {
+    return;
+  }
+
+  layer.innerHTML =
+    twin.pois
+      .map(
+        poi => `
+          <div
+            class="lake-yange-poi"
+            data-lake-yange-poi="${poi.id}"
+            style="
+              left:${poi.x}%;
+              top:${poi.y}%;
+            "
+          >
+            <div class="poi-marker">
+              <span>${poi.icon}</span>
+            </div>
+
+            <div class="poi-label">
+              <strong>${poi.name}</strong>
+              <span>${poi.type}</span>
+            </div>
+          </div>
+        `
+      )
+      .join("");
+
+  layer
+    .querySelectorAll(
+      ".lake-yange-poi"
+    )
+    .forEach(
+      element => {
+        element.addEventListener(
+          "click",
+          event => {
+            event.stopPropagation();
+
+            document
+              .querySelectorAll(
+                ".lake-yange-poi.selected"
+              )
+              .forEach(
+                selected =>
+                  selected.classList
+                    .remove(
+                      "selected"
+                    )
+              );
+
+            element.classList.add(
+              "selected"
+            );
+
+            const poi =
+              twin.pois.find(
+                candidate =>
+                  candidate.id ===
+                  element.dataset
+                    .lakeYangePoi
+              );
+
+            if (!poi) {
+              return;
+            }
+
+            inspect({
+              name:
+                poi.name,
+
+              type:
+                poi.type,
+
+              description:
+                poi.description,
+
+              facts: {
+                SUBURB:
+                  "LAKE YANGE",
+
+                POSTCODE:
+                  "LAKE YANGE",
+
+                MUNICIPALITY:
+                  "LAKE YANGE",
+
+                LAYER:
+                  "GEOGRAPHIC LANDMARK",
+
+                OPERATIONAL_ACTIVITY:
+                  "NONE IMPLIED"
+              }
+            });
+          }
+        );
+      }
+    );
+
+  for (
+    const institution
+    of twin.lakeYangeInstitutions
+  ) {
+    const element =
+      document.querySelector(
+        `[data-landmark="${institution.id}"]`
+      );
+
+    if (!element) {
+      continue;
+    }
+
+    element.style.setProperty(
+      "--x",
+      `${institution.x}%`
+    );
+
+    element.style.setProperty(
+      "--y",
+      `${institution.y}%`
+    );
+
+    element.dataset.zone =
+      institution.zone;
+  }
+
+  const subtitle =
+    document.querySelector(
+      ".brand-subtitle"
+    );
+
+  if (subtitle) {
+    subtitle.textContent =
+      "SOVEREIGN LOCAL AI CIVILISATION";
+  }
+
+  const instruction =
+    document.querySelector(
+      ".world-instruction"
+    );
+
+  if (instruction) {
+    instruction.textContent =
+      "LAKE YANGE · DRAG · ZOOM · SELECT A LANDMARK OR INSTITUTION";
+  }
+}
+
+renderLakeYangeDigitalCity();
+
+/* LAKE YANGE ACADEMY UI + FUNCTIONAL NAV */
+
+let academyState = null;
+
+function academyEscape(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;");
+}
+
+async function openAcademy() {
+  const panel =
+    document.querySelector("#academy-console");
+
+  const summary =
+    document.querySelector("#academy-summary");
+
+  const roster =
+    document.querySelector("#academy-students");
+
+  const detail =
+    document.querySelector(
+      "#academy-student-detail"
+    );
+
+  if (!panel || !summary || !roster || !detail) {
+    return;
+  }
+
+  panel.classList.add("open");
+  panel.setAttribute("aria-hidden", "false");
+
+  summary.textContent =
+    "Loading persisted Academy state…";
+
+  try {
+    const response = await fetch(
+      "/api/lake-yange/academy",
+      { cache: "no-store" }
+    );
+
+    if (!response.ok) {
+      throw new Error(
+        `Academy HTTP ${response.status}`
+      );
+    }
+
+    academyState = await response.json();
+
+    const students =
+      academyState.students ?? [];
+
+    const assignments =
+      academyState.assignments ?? [];
+
+    const submissions =
+      academyState.submissions ?? [];
+
+    const grades =
+      academyState.grades ?? [];
+
+    summary.innerHTML = `
+      <div><strong>${students.length}</strong><span>STUDENTS</span></div>
+      <div><strong>${assignments.length}</strong><span>ASSIGNMENTS</span></div>
+      <div><strong>${submissions.length}</strong><span>SUBMISSIONS</span></div>
+      <div><strong>${grades.length}</strong><span>GRADES</span></div>
+    `;
+
+    function showStudent(student) {
+      const work = assignments.filter(
+        item =>
+          item.citizen_id === student.citizen_id
+      );
+
+      detail.innerHTML = `
+        <div class="academy-profile-head">
+          <div class="academy-avatar">
+            ${academyEscape(
+              student.citizen_id?.slice(-1) ?? "AI"
+            )}
+          </div>
+
+          <div>
+            <span class="academy-id">
+              ${academyEscape(student.citizen_id)}
+            </span>
+
+            <h3>
+              ${academyEscape(
+                student.name ??
+                student.citizen_id
+              )}
+            </h3>
+
+            <span class="academy-enrolment">
+              ${student.enrolled
+                ? "ENROLLED"
+                : "ACADEMY CITIZEN"}
+            </span>
+          </div>
+        </div>
+
+        <div class="academy-metrics">
+          <div>
+            <span>CAPABILITY</span>
+            <strong>${student.capability_score ?? 0}</strong>
+          </div>
+
+          <div>
+            <span>ECONOMIC FITNESS</span>
+            <strong>${student.economic_fitness ?? 0}</strong>
+          </div>
+
+          <div>
+            <span>COMPLETED</span>
+            <strong>${student.assignments_completed ?? 0}</strong>
+          </div>
+
+          <div>
+            <span>FAILED</span>
+            <strong>${student.assignments_failed ?? 0}</strong>
+          </div>
+        </div>
+
+        <section class="academy-record-section">
+          <h4>ASSIGNMENTS</h4>
+
+          ${
+            work.length
+              ? work.map(item => `
+                  <article class="academy-record">
+                    <strong>
+                      ${academyEscape(
+                        item.course_id ??
+                        item.assignment_id
+                      )}
+                    </strong>
+
+                    <em class="academy-status">
+                      ${academyEscape(
+                        item.status ?? "UNKNOWN"
+                      )}
+                    </em>
+
+                    <p>
+                      ${academyEscape(
+                        item.objective ??
+                        "Persisted Academy assignment."
+                      )}
+                    </p>
+                  </article>
+                `).join("")
+              : `
+                <p class="academy-empty">
+                  No persisted assignments.
+                </p>
+              `
+          }
+        </section>
+
+        <div class="academy-authority">
+          EDUCATIONAL AUTHORITY ONLY
+        </div>
+      `;
+    }
+
+    roster.innerHTML =
+      students.map((student, index) => `
+        <button
+          class="academy-student ${index === 0 ? "active" : ""}"
+          data-student-index="${index}"
+          type="button"
+        >
+          <span class="academy-student-symbol">
+            ${academyEscape(
+              student.citizen_id?.slice(-1) ?? "AI"
+            )}
+          </span>
+
+          <span>
+            <strong>
+              ${academyEscape(
+                student.name ??
+                student.citizen_id
+              )}
+            </strong>
+
+            <small>
+              ${
+                assignments.some(
+                  a =>
+                    a.citizen_id ===
+                    student.citizen_id
+                )
+                  ? "ASSIGNMENT ACTIVE"
+                  : "NO ACTIVE ASSIGNMENT"
+              }
+            </small>
+          </span>
+        </button>
+      `).join("");
+
+    roster
+      .querySelectorAll("[data-student-index]")
+      .forEach(button => {
+        button.addEventListener("click", () => {
+          roster
+            .querySelectorAll(".academy-student")
+            .forEach(item =>
+              item.classList.remove("active")
+            );
+
+          button.classList.add("active");
+
+          showStudent(
+            students[
+              Number(button.dataset.studentIndex)
+            ]
+          );
+        });
+      });
+
+    if (students[0]) {
+      showStudent(students[0]);
+    } else {
+      detail.textContent =
+        "No persisted Academy students.";
+    }
+
+  } catch (error) {
+    summary.innerHTML =
+      '<div class="academy-error">Academy state unavailable.</div>';
+
+    console.error(error);
+  }
+}
+
+function closeAcademy() {
+  const panel =
+    document.querySelector("#academy-console");
+
+  panel?.classList.remove("open");
+  panel?.setAttribute("aria-hidden", "true");
+}
+
+window.LakeYange =
+  window.LakeYange || {};
+
+window.LakeYange.openAcademy =
+  openAcademy;
+
+document
+  .querySelector("#academy-close")
+  ?.addEventListener("click", closeAcademy);
+
+
+/* FUNCTIONAL WORLD NAV */
+
+document
+  .querySelectorAll(
+    ".world-nav [data-view]"
+  )
+  .forEach(button => {
+    button.addEventListener("click", () => {
+      const view = button.dataset.view;
+
+      document
+        .querySelectorAll(
+          ".world-nav [data-view]"
+        )
+        .forEach(item =>
+          item.classList.toggle(
+            "active",
+            item === button
+          )
+        );
+
+      if (view === "world") {
+        closeAcademy();
+
+        camera.x = 0;
+        camera.y = 0;
+        camera.scale = 0.78;
+        applyCamera();
+
+        return;
+      }
+
+      if (view === "government") {
+        closeAcademy();
+        window.LakeYange?.openPrime?.();
+        return;
+      }
+
+      const labels = {
+        citizens: [
+          "CITIZENS",
+          "POPULATION",
+          "Persisted Lake Yange citizens."
+        ],
+        resources: [
+          "RESOURCES",
+          "WORLD RESOURCES",
+          "Persisted resource projection."
+        ],
+        artifacts: [
+          "ARTIFACTS",
+          "EVIDENCE",
+          "Verified artifacts and evidence records."
+        ],
+        missions: [
+          "MISSIONS",
+          "OPERATIONS",
+          "Persisted Lake Yange mission state."
+        ]
+      };
+
+      const selected = labels[view];
+
+      if (
+        selected &&
+        typeof window.inspect === "function"
+      ) {
+        closeAcademy();
+
+        window.inspect({
+          name: selected[0],
+          type: selected[1],
+          description: selected[2],
+          facts: {
+            SOURCE: "PERSISTED STATE ONLY",
+            TRUTH: "NO ARTIFACT / NO CLAIM"
+          }
+        });
+      }
+    });
+  });

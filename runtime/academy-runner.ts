@@ -88,7 +88,9 @@ export async function runPersistedAcademyCycle(
    * canonical state does not yet exist.
    */
   const lake =
-    await bootstrapLakeYange();
+    await bootstrapLakeYange({
+      repositoryRoot
+    });
 
   const academyBefore =
     await loadAcademyState(

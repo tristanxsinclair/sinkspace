@@ -1,6 +1,7 @@
 import {
   gradeSubmission,
-  createRemediation
+  createRemediation,
+  createCapabilityRecord
 } from './academy-learning.js';
 
 import {
@@ -31,6 +32,12 @@ export type NeuralAcademyCycleResult = {
 
   skipped_self_grading:
     string[];
+
+  model_failures: Array<{
+    assignment_id: string;
+    citizen_id: string;
+    reason: string;
+  }>;
 };
 
 export async function runNeuralAcademyCycle(
@@ -92,6 +99,12 @@ export async function runNeuralAcademyCycle(
   const skipped:
     string[] = [];
 
+  const modelFailures: Array<{
+    assignment_id: string;
+    citizen_id: string;
+    reason: string;
+  }> = [];
+
   for (
     const assignment
     of state.assignments
@@ -139,22 +152,41 @@ export async function runNeuralAcademyCycle(
         assignment
       );
 
-    const submission =
-      await intelligence
-        .attemptAssignment({
-          assignment,
+    let submission;
 
-          studentId:
-            assignment.citizen_id,
+    try {
+      submission =
+        await intelligence
+          .attemptAssignment({
+            assignment,
 
-          teacherId:
-            teacher.teacher_id,
+            studentId:
+              assignment.citizen_id,
 
-          teacherGuidance:
-            teacher.guidance,
+            teacherId:
+              teacher.teacher_id,
 
-          now
-        });
+            teacherGuidance:
+              teacher.guidance,
+
+            now
+          });
+    } catch (error) {
+      modelFailures.push({
+        assignment_id:
+          assignment.assignment_id,
+
+        citizen_id:
+          assignment.citizen_id,
+
+        reason:
+          error instanceof Error
+            ? error.message
+            : 'UNKNOWN_MODEL_FAILURE'
+      });
+
+      continue;
+    }
 
     state.submissions.push(
       submission
@@ -225,10 +257,82 @@ export async function runNeuralAcademyCycle(
       student.assignments_completed +=
         1;
 
-      /*
-       * One assignment is explicitly NOT
-       * enough to complete the course.
-       */
+      const passedAssignmentIds =
+        new Set(
+          state.grades
+            .filter(
+              candidate =>
+                candidate.passed
+            )
+            .map(
+              candidate =>
+                candidate.assignment_id
+            )
+        );
+
+      const courseAssignments =
+        state.assignments.filter(
+          candidate =>
+            candidate.citizen_id ===
+              student.citizen_id &&
+            candidate.course_id ===
+              assignment.course_id &&
+            passedAssignmentIds.has(
+              candidate.assignment_id
+            )
+        );
+
+      const courseAssignmentIds =
+        new Set(
+          courseAssignments.map(
+            candidate =>
+              candidate.assignment_id
+          )
+        );
+
+      const record =
+        createCapabilityRecord({
+          citizenId:
+            student.citizen_id,
+          courseId:
+            assignment.course_id,
+          evaluations:
+            state.evaluations.filter(
+              candidate =>
+                courseAssignmentIds.has(
+                  candidate.assignment_id
+                )
+            ),
+          /*
+           * A second independently assessed assignment is treated as an
+           * unseen transfer attempt. One strong answer remains insufficient.
+           */
+          transferDemonstrated:
+            courseAssignmentIds.size >= 2,
+          recordedAt:
+            now
+        });
+
+      state.capability_records.push(
+        record
+      );
+
+      student.capability_score =
+        Math.max(
+          student.capability_score,
+          record.capability_score
+        );
+
+      if (
+        record.demonstrated &&
+        !student.completed_courses.includes(
+          assignment.course_id
+        )
+      ) {
+        student.completed_courses.push(
+          assignment.course_id
+        );
+      }
     } else {
       failed += 1;
 
@@ -264,6 +368,9 @@ export async function runNeuralAcademyCycle(
       remediationsCreated,
 
     skipped_self_grading:
-      skipped
+      skipped,
+
+    model_failures:
+      modelFailures
   };
 }

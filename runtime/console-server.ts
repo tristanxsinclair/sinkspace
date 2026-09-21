@@ -17,6 +17,11 @@ import {
 
 import { interpretPrimeCommand } from './prime.js';
 import { answerPrimeRunQuestion } from './prime-conversation.js';
+import { looksLikePrimeRunQuestion } from './prime-routing.js';
+import {
+  answerEntertainment,
+  looksLikeEntertainmentRequest
+} from './prime-entertainment.js';
 import {
   executePrimeMandatePlanning,
   interpretPrimeMandatePlanning,
@@ -49,6 +54,10 @@ import {
 import {
   projectLakeYangeWorld
 } from './lake-yange-world.js';
+
+import {
+  loadAcademyState
+} from './academy-store.js';
 
 const HERE = path.dirname(
   fileURLToPath(import.meta.url)
@@ -1213,6 +1222,26 @@ async function serveStatic(
         'text/javascript; charset=utf-8'
       ],
 
+
+    '/lake-yange-geography.js':
+      [
+        'lake-yange-geography.js',
+        'text/javascript; charset=utf-8'
+      ],
+
+
+    '/lake-yange-city.js':
+      [
+        'lake-yange-city.js',
+        'text/javascript; charset=utf-8'
+      ],
+
+    '/lake-yange-city.css':
+      [
+        'lake-yange-city.css',
+        'text/css; charset=utf-8'
+      ],
+
     '/lake-yange-world.css':
       [
         'lake-yange-world.css',
@@ -1297,13 +1326,6 @@ async function readJsonBody(
   }
 }
 
-function looksLikePrimeRunQuestion(
-  message: string
-): boolean {
-  return /\b(?:what did (?:you|your agents|they|the agents) find|what (?:have|did) you find|what happened|results?|summary|summari[sz]e|last run|current run|sink[- ]?0[345]|prospector|economist|analyst|auditor|red[- ]?sink|red team)\b/i
-    .test(message);
-}
-
 const server =
   http.createServer(
     async (
@@ -1316,6 +1338,23 @@ const server =
             req.url ?? '/',
             `http://${HOST}:${PORT}`
           );
+
+        if (
+          url.pathname ===
+            '/api/lake-yange/academy' &&
+          req.method === 'GET'
+        ) {
+          const academy =
+            await loadAcademyState(ROOT);
+
+          json(
+            res,
+            200,
+            academy
+          );
+
+          return;
+        }
 
         if (
           url.pathname ===
@@ -1879,6 +1918,39 @@ const server =
                   'HIGH',
 
                 assumptions: []
+              }
+            );
+
+            return;
+          }
+
+          /*
+           * Cultural discovery is conversational and read-only. It must be
+           * evaluated before generic mission interpretation so words such as
+           * "discover" or "watch" never turn into a runtime deployment.
+           */
+          if (
+            looksLikeEntertainmentRequest(
+              message
+            )
+          ) {
+            const answer =
+              answerEntertainment(
+                message
+              );
+
+            json(
+              res,
+              200,
+              {
+                ...answer,
+                mission: null,
+                confidence: 'MEDIUM',
+                assumptions: [
+                  'Results are from the local editorial bootstrap catalogue.',
+                  'No provider metadata was retrieved.'
+                ],
+                entertainment: true
               }
             );
 

@@ -176,7 +176,13 @@ export function evaluateAcademySubmission(
             ? 0.8
             : 0.35
         )
-      : 0.6;
+      /*
+       * A full practical that meets both independent thresholds is competent
+       * practice, though still weaker than an unseen EXAM transfer. Keeping
+       * this at 0.70 avoids a contradictory result where both evaluators pass
+       * a submission but the composite can never reach the grade threshold.
+       */
+      : 0.7;
 
   const economicReasoning =
     assignment.course_id ===

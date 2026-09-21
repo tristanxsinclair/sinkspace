@@ -18,7 +18,7 @@ const StudentAttemptSchema =
     answer:
       z.string()
         .min(1)
-        .max(20_000),
+        .max(4_000),
 
     claims:
       z.array(
@@ -26,13 +26,13 @@ const StudentAttemptSchema =
           .min(1)
           .max(2_000)
       )
-      .max(12),
+      .max(6),
 
     evidence_refs:
       z.array(
         z.string().min(1)
       )
-      .max(12),
+      .max(6),
 
     uncertainties:
       z.array(
@@ -135,6 +135,9 @@ export class AcademyIntelligence {
             'Separate evidence from inference.',
             'Preserve uncertainty.',
             'A plausible answer is not proof.',
+            'Be concise.',
+            'Answer in no more than 350 words.',
+            'Use at most 6 claims and 6 uncertainties.',
             'Return only the requested structured object.'
           ].join('\n'),
 
@@ -155,7 +158,7 @@ export class AcademyIntelligence {
             STUDENT_ATTEMPT_JSON_SCHEMA,
 
           max_output_tokens:
-            1200,
+            1800,
 
           temperature:
             0.2

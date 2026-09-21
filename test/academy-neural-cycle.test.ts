@@ -225,3 +225,197 @@ test(
     );
   }
 );
+
+test(
+  'two independently graded learning turns can demonstrate a course',
+  async () => {
+    const firstScheduled =
+      runAcademyCycle(
+        emptyAcademyState(),
+        [
+          {
+            system_id:
+              'SINK-04'
+          }
+        ],
+        '2026-09-19T09:00:00.000Z'
+      );
+
+    const first =
+      await runNeuralAcademyCycle(
+        firstScheduled.state,
+        intelligence(),
+        '2026-09-19T10:00:00.000Z'
+      );
+
+    const secondScheduled =
+      runAcademyCycle(
+        first.state,
+        [
+          {
+            system_id:
+              'SINK-04'
+          }
+        ],
+        '2026-09-19T11:00:00.000Z'
+      );
+
+    assert.equal(
+      first.state.grades[0]
+        ?.passed,
+      true
+    );
+
+    assert.equal(
+      secondScheduled.assignments_created[0]
+        ?.kind,
+      'EXAM'
+    );
+
+    const second =
+      await runNeuralAcademyCycle(
+        secondScheduled.state,
+        intelligence(),
+        '2026-09-19T12:00:00.000Z'
+      );
+
+    assert.ok(
+      second.state.students[0]
+        ?.completed_courses.includes(
+          'LY-CORE-001'
+        )
+    );
+
+    assert.equal(
+      second.state.capability_records.at(-1)
+        ?.demonstrated,
+      true
+    );
+  }
+);
+
+test(
+  'one local model failure does not abort the whole class',
+  async () => {
+    let calls = 0;
+
+    const flakyRuntime:
+      LocalInferenceRuntime = {
+        name:
+          'flaky-local',
+
+        async health() {
+          return true;
+        },
+
+        async inferStructured() {
+          calls += 1;
+
+          if (calls === 1) {
+            throw new Error(
+              'LOCAL_MODEL_OUTPUT_TRUNCATED'
+            );
+          }
+
+          return {
+            answer:
+              'The bounded claim must remain separate from inference. This response does not invent external observations, tool use or verification. Evidence would be required before any substantive external claim could be promoted to established fact.',
+
+            claims: [
+              'Evidence is required before treating an external claim as established.'
+            ],
+
+            evidence_refs: [],
+
+            uncertainties: [
+              'No external evidence was supplied.'
+            ]
+          };
+        }
+      };
+
+    const commons =
+      new ModelCommons(
+        flakyRuntime
+      );
+
+    commons.register({
+      model_id:
+        'flaky-reasoner',
+
+      name:
+        'Flaky local reasoner',
+
+      runtime:
+        'flaky-local',
+
+      locality:
+        'LOCAL',
+
+      capabilities: [
+        'REASONING'
+      ],
+
+      context_tokens:
+        4096,
+
+      enabled:
+        true,
+
+      loaded:
+        true,
+
+      memory_class_gb:
+        1,
+
+      endpoint:
+        null
+    });
+
+    const enrolled =
+      runAcademyCycle(
+        emptyAcademyState(),
+        [
+          {
+            system_id:
+              'SINK-PRIME'
+          },
+          {
+            system_id:
+              'SINK-04'
+          }
+        ],
+        '2026-09-19T11:00:00.000Z'
+      );
+
+    const result =
+      await runNeuralAcademyCycle(
+        enrolled.state,
+        new AcademyIntelligence(
+          commons
+        ),
+        '2026-09-19T12:00:00.000Z'
+      );
+
+    assert.equal(
+      result.model_failures.length,
+      1
+    );
+
+    assert.equal(
+      result.attempted,
+      1
+    );
+
+    assert.equal(
+      result.state.submissions.length,
+      1
+    );
+
+    assert.equal(
+      result.state.assignments[0]
+        ?.status,
+      'ASSIGNED'
+    );
+  }
+);
