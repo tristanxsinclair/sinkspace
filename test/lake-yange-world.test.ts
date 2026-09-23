@@ -190,3 +190,95 @@ test(
     }
   }
 );
+
+test(
+  'world projection exposes persisted agent activity',
+  async () => {
+    const root =
+      await mkdtemp(
+        join(
+          tmpdir(),
+          'lake-yange-world-agents-'
+        )
+      );
+
+    try {
+      const store =
+        new LakeYangeStore(
+          join(
+            root,
+            '.sink/lake-yange/state.json'
+          )
+        );
+
+      await store.save(
+        createFoundingLakeYange()
+      );
+
+      const agentWorldDirectory =
+        join(
+          root,
+          '.sink/lake-yange/agents'
+        );
+
+      await mkdir(
+        agentWorldDirectory,
+        {
+          recursive: true
+        }
+      );
+
+      await writeFile(
+        join(
+          agentWorldDirectory,
+          'world.json'
+        ),
+        JSON.stringify({
+          schema_version: 1,
+          observations: [],
+          learning_outcomes: [
+            {
+              learning_id:
+                'learn-projection-test',
+              citizen_id:
+                'citizen-test-001',
+              created_at:
+                '2026-09-21T01:00:00.000Z',
+              subject:
+                'projection test',
+              outcome:
+                'persisted learning outcome'
+            }
+          ],
+          rest_records: [],
+          project_proposals: [],
+          project_contributions: []
+        }),
+        'utf8'
+      );
+
+      const projection =
+        await projectLakeYangeWorld(root);
+
+      assert.deepEqual(
+        projection.agents,
+        {
+          observations: 0,
+          learning_outcomes: 1,
+          rest_records: 0,
+          project_proposals: 0,
+          project_contributions: 0,
+          total: 1
+        }
+      );
+    } finally {
+      await rm(
+        root,
+        {
+          recursive: true,
+          force: true
+        }
+      );
+    }
+  }
+);

@@ -83,50 +83,7 @@
       </a>
     </aside>
 
-   <div class="ly-ops-hud">
-
-  <div class="ly-ops-topline">
-    <div class="ly-ops-title">
-      <span class="ly-ops-eyebrow">LAKE YANGE // OPERATIONS CORE</span>
-      <strong>WORLD CONTROL</strong>
-    </div>
-
-    <div class="ly-ops-health">
-      <span class="ly-health-dot"></span>
-      <span>LOCAL RUNTIME</span>
-      <strong id="ly-runtime-state">ONLINE</strong>
-    </div>
-  </div>
-
-  <div class="ly-ops-metrics">
-
-    <div class="ly-metric">
-      <span>WORLD</span>
-      <strong id="ly-world-state">ACTIVE</strong>
-      <small>LIVE PROJECTION</small>
-    </div>
-
-    <div class="ly-metric">
-      <span>POPULATION</span>
-      <strong id="ly-population">—</strong>
-      <small>PERSISTED STATE</small>
-    </div>
-
-    <div class="ly-metric">
-      <span>GENERATIONS</span>
-      <strong id="ly-generations">—</strong>
-      <small>WORLD STATE</small>
-    </div>
-
-    <div class="ly-metric">
-      <span>INSTITUTIONS</span>
-      <strong id="ly-institutions">8</strong>
-      <small>REGISTERED</small>
-    </div>
-
-  </div>
-
-</div> <section class="world-viewport">
+    <section class="world-viewport">
       <div id="world-camera" class="world-camera">
         <div class="world-surface lake-yange-digital-city">
 

@@ -12,8 +12,36 @@ import {
 } from './lake-yange-store.js';
 
 import {
-  citizenPublicRecord
+  citizenPublicRecord,
+  type Authority,
+  type Citizen
 } from './lake-yange.js';
+
+import {
+  LakeYangeAgentWorldStore,
+  type LakeYangeAgentWorld
+} from './lake-yange-agent-world.js';
+
+import {
+  LakeYangeAgentStore,
+  type AgentState
+} from './lake-yange-agent.js';
+
+import {
+  loadAcademyState
+} from './academy-store.js';
+
+import {
+  StudyMissionStore
+} from './study-mission.js';
+
+import {
+  LAKE_YANGE_INSTITUTIONS
+} from './lake-yange-institutions.js';
+
+import {
+  entertainmentCatalogueSnapshot
+} from './prime-entertainment.js';
 
 import type {
   EngineeringReceipt
@@ -23,6 +51,7 @@ const RECEIPT_DIRECTORY =
   '.sink/lake-yange/engineering-receipts';
 
 const MAX_RECENT_RECEIPTS = 12;
+const MAX_OPERATIONS = 24;
 
 export interface LakeYangeWorldCitizen {
   citizen_id: string;
@@ -36,6 +65,74 @@ export interface LakeYangeWorldCitizen {
   fitness: number;
   missions_completed: number;
   missions_failed: number;
+}
+
+export interface LakeYangeWorldAgentActivity {
+  observations: number;
+  learning_outcomes: number;
+  rest_records: number;
+  project_proposals: number;
+  project_contributions: number;
+  total: number;
+}
+
+export type LakeYangeAgentPresence =
+  | 'IDLE'
+  | 'DORMANT'
+  | 'TRAINING'
+  | 'RESTING'
+  | 'ARCHIVED'
+  | 'OFFLINE'
+  | 'PLANNED';
+
+export interface LakeYangeWorldAgentRecord {
+  citizen_id: string;
+  system_id: string;
+  name: string;
+  role: string;
+  rank: string;
+  citizen_status: string;
+  presence: LakeYangeAgentPresence;
+  current_mission: string | null;
+  last_action: string | null;
+  last_activity_at: string | null;
+  wake_count: number;
+  evidence_produced: number;
+  granted_authority: string[];
+  conceptual: false;
+}
+
+export interface LakeYangeWorldInstitution {
+  institution_id: string;
+  name: string;
+  purpose: string;
+  kind: string;
+  district: string;
+  status: 'FOUNDED';
+  authority_boundary: string;
+  landmark_id: string | null;
+  occupants: number;
+  occupant_names: string[];
+}
+
+export interface LakeYangeWorldMission {
+  mission_id: string;
+  kind: 'STUDY' | 'ACADEMY' | 'ENGINEERING';
+  title: string;
+  status: string;
+  responsible: string[];
+  updated_at: string | null;
+  evidence_count: number;
+}
+
+export interface LakeYangeWorldOperation {
+  operation_id: string;
+  kind: string;
+  title: string;
+  status: string;
+  occurred_at: string;
+  agents: string[];
+  evidence_id: string | null;
 }
 
 export interface LakeYangeWorldEngineering {
@@ -75,6 +172,54 @@ export interface LakeYangeWorldProjection {
 
   citizens: LakeYangeWorldCitizen[];
 
+  agents: LakeYangeWorldAgentActivity;
+
+  agent_records: LakeYangeWorldAgentRecord[];
+
+  institutions: LakeYangeWorldInstitution[];
+
+  missions: LakeYangeWorldMission[];
+
+  operations: LakeYangeWorldOperation[];
+
+  governance: {
+    pending_plans: number;
+    authorizations: number;
+    execution_claims: number;
+    execution_results: number;
+    plans_are_not_execution: true;
+  };
+
+  academy: {
+    students: number;
+    assignments: number;
+    submissions: number;
+    grades: number;
+    last_cycle_at: string | null;
+  };
+
+  entertainment: {
+    source: 'EDITORIAL_BOOTSTRAP';
+    item_count: number;
+    music_count: number;
+    film_count: number;
+    persisted_taste_profile: false;
+  };
+
+  health: {
+    persistence: 'OK';
+    academy: 'OK' | 'EMPTY';
+    study_missions: 'OK' | 'EMPTY';
+    agent_runtime: 'OK' | 'EMPTY';
+    local_ai: {
+      status: 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
+      runtime: 'llama.cpp';
+      endpoint: string | null;
+      probed_at: string | null;
+    };
+    overall: 'OK' | 'DEGRADED';
+  };
+
   engineering: {
     recent: LakeYangeWorldEngineering[];
     latest: LakeYangeWorldEngineering | null;
@@ -94,6 +239,14 @@ export interface LakeYangeWorldProjection {
     simulation_fabricated_activity: false;
   };
 }
+
+export type LakeYangeWorldProjectionOptions = {
+  localAi?: {
+    status: 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
+    endpoint: string | null;
+    probed_at: string | null;
+  };
+};
 
 function receiptProjection(
   receipt: EngineeringReceipt
@@ -134,6 +287,85 @@ function receiptProjection(
   };
 }
 
+function isMissing(
+  error: unknown
+): boolean {
+  return (
+    typeof error === 'object' &&
+    error !== null &&
+    'code' in error &&
+    (error as { code?: unknown }).code === 'ENOENT'
+  );
+}
+
+function grantedAuthority(
+  authority: Authority
+): string[] {
+  return (
+    Object.entries(authority) as Array<
+      [keyof Authority, boolean]
+    >
+  )
+    .filter(([, granted]) => granted)
+    .map(([key]) => String(key));
+}
+
+function presenceFor(
+  citizen: Citizen,
+  agent: AgentState | undefined
+): LakeYangeAgentPresence {
+  if (citizen.status === 'ARCHIVED') {
+    return 'ARCHIVED';
+  }
+
+  if (citizen.status === 'DORMANT') {
+    return 'DORMANT';
+  }
+
+  if (citizen.status === 'TRAINING') {
+    return 'TRAINING';
+  }
+
+  if (citizen.status === 'RESTING') {
+    return 'RESTING';
+  }
+
+  if (!agent || agent.wake_count === 0) {
+    return 'OFFLINE';
+  }
+
+  return 'IDLE';
+}
+
+function countCitizenEvidence(
+  citizenId: string,
+  agentWorld: LakeYangeAgentWorld,
+  agent: AgentState | undefined
+): number {
+  const worldCount =
+    agentWorld.observations.filter(
+      item => item.citizen_id === citizenId
+    ).length +
+    agentWorld.learning_outcomes.filter(
+      item => item.citizen_id === citizenId
+    ).length +
+    agentWorld.project_proposals.filter(
+      item => item.citizen_id === citizenId
+    ).length +
+    agentWorld.project_contributions.filter(
+      item => item.citizen_id === citizenId
+    ).length;
+
+  const memoryEvidence =
+    agent?.memories.reduce(
+      (total, memory) =>
+        total + memory.evidence_ids.length,
+      0
+    ) ?? 0;
+
+  return worldCount + memoryEvidence;
+}
+
 async function loadEngineeringReceipts(
   repositoryRoot: string
 ): Promise<EngineeringReceipt[]> {
@@ -149,12 +381,7 @@ async function loadEngineeringReceipts(
     names =
       await readdir(directory);
   } catch (error) {
-    if (
-      typeof error === 'object' &&
-      error !== null &&
-      'code' in error &&
-      (error as { code?: unknown }).code === 'ENOENT'
-    ) {
+    if (isMissing(error)) {
       return [];
     }
 
@@ -208,8 +435,29 @@ async function loadEngineeringReceipts(
   );
 }
 
+async function countJsonRecords(
+  directory: string
+): Promise<number> {
+  let names: string[];
+
+  try {
+    names = await readdir(directory);
+  } catch (error) {
+    if (isMissing(error)) {
+      return 0;
+    }
+
+    throw error;
+  }
+
+  return names.filter(
+    name => name.endsWith('.json')
+  ).length;
+}
+
 export async function projectLakeYangeWorld(
-  repositoryRoot: string
+  repositoryRoot: string,
+  options: LakeYangeWorldProjectionOptions = {}
 ): Promise<LakeYangeWorldProjection> {
   const store =
     new LakeYangeStore(
@@ -226,6 +474,94 @@ export async function projectLakeYangeWorld(
     await loadEngineeringReceipts(
       repositoryRoot
     );
+
+  const agentWorldStore =
+    new LakeYangeAgentWorldStore(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/agents/world.json'
+      )
+    );
+
+  const agentWorld =
+    await agentWorldStore.load();
+
+  const agentRuntime =
+    await new LakeYangeAgentStore(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/agents/state.json'
+      )
+    ).load();
+
+  const academy =
+    await loadAcademyState(
+      repositoryRoot
+    );
+
+  const studyState =
+    await new StudyMissionStore(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/study-missions.json'
+      )
+    ).load();
+
+  const pendingPlans =
+    await countJsonRecords(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/pending-plans'
+      )
+    );
+
+  const authorizations =
+    await countJsonRecords(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/authorizations'
+      )
+    );
+
+  const executionClaims =
+    await countJsonRecords(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/constitutional-executions/claims'
+      )
+    );
+
+  const executionResults =
+    await countJsonRecords(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/constitutional-executions/results'
+      )
+    );
+
+  const agentActivity = {
+    observations:
+      agentWorld.observations.length,
+
+    learning_outcomes:
+      agentWorld.learning_outcomes.length,
+
+    rest_records:
+      agentWorld.rest_records.length,
+
+    project_proposals:
+      agentWorld.project_proposals.length,
+
+    project_contributions:
+      agentWorld.project_contributions.length,
+
+    total:
+      agentWorld.observations.length +
+      agentWorld.learning_outcomes.length +
+      agentWorld.rest_records.length +
+      agentWorld.project_proposals.length +
+      agentWorld.project_contributions.length
+  };
 
   const recent =
     receipts
@@ -275,6 +611,195 @@ export async function projectLakeYangeWorld(
       }
     );
 
+  const agentByCitizen = new Map(
+    agentRuntime.agents.map(
+      agent => [agent.citizen_id, agent]
+    )
+  );
+
+  const studyByAgent = new Map<string, string[]>();
+
+  for (const mission of studyState.missions) {
+    if (
+      mission.status === 'completed' ||
+      mission.status === 'failed'
+    ) {
+      continue;
+    }
+
+    for (const agentId of mission.assigned_agents) {
+      const current =
+        studyByAgent.get(agentId) ?? [];
+
+      current.push(mission.topic);
+      studyByAgent.set(agentId, current);
+    }
+  }
+
+  const agentRecords: LakeYangeWorldAgentRecord[] =
+    state.citizens.map(citizen => {
+      const agent =
+        agentByCitizen.get(citizen.citizen_id);
+
+      const assigned =
+        studyByAgent.get(citizen.citizen_id) ??
+        studyByAgent.get(citizen.system_id) ??
+        [];
+
+      return {
+        citizen_id: citizen.citizen_id,
+        system_id: citizen.system_id,
+        name: citizen.name,
+        role: citizen.role,
+        rank: citizen.rank,
+        citizen_status: citizen.status,
+        presence: presenceFor(citizen, agent),
+        current_mission:
+          assigned[0] ?? null,
+        last_action:
+          agent?.last_action ?? null,
+        last_activity_at:
+          agent?.last_wake_at ?? null,
+        wake_count:
+          agent?.wake_count ?? 0,
+        evidence_produced:
+          countCitizenEvidence(
+            citizen.citizen_id,
+            agentWorld,
+            agent
+          ),
+        granted_authority:
+          grantedAuthority(citizen.authority),
+        conceptual: false
+      };
+    });
+
+  const institutions: LakeYangeWorldInstitution[] =
+    LAKE_YANGE_INSTITUTIONS.map(definition => {
+      const occupants =
+        definition.district === 'FORGE_WORKSHOP'
+          ? []
+          : state.citizens.filter(
+              citizen =>
+                citizen.status !== 'ARCHIVED' &&
+                citizen.home === definition.district
+            );
+
+      return {
+        institution_id:
+          definition.institution_id,
+        name: definition.name,
+        purpose: definition.purpose,
+        kind: definition.kind,
+        district: definition.district,
+        status: 'FOUNDED',
+        authority_boundary:
+          definition.authority_boundary,
+        landmark_id:
+          definition.landmark_id,
+        occupants: occupants.length,
+        occupant_names:
+          occupants.map(citizen => citizen.name)
+      };
+    });
+
+  const missions: LakeYangeWorldMission[] = [
+    ...studyState.missions.map(mission => ({
+      mission_id: mission.id,
+      kind: 'STUDY' as const,
+      title: mission.topic,
+      status: mission.status.toUpperCase(),
+      responsible: [...mission.assigned_agents],
+      updated_at: mission.updated_at,
+      evidence_count:
+        mission.findings.length +
+        mission.outputs.length +
+        mission.sources.length
+    })),
+    ...academy.assignments.map(assignment => ({
+      mission_id: assignment.assignment_id,
+      kind: 'ACADEMY' as const,
+      title: assignment.objective,
+      status: assignment.status,
+      responsible: [assignment.citizen_id],
+      updated_at: assignment.created_at,
+      evidence_count: 0
+    })),
+    ...receipts.map(receipt => ({
+      mission_id: receipt.receipt_id,
+      kind: 'ENGINEERING' as const,
+      title: receipt.objective,
+      status: receipt.status,
+      responsible: ['Forge', 'Vera', 'Rook'],
+      updated_at: receipt.created_at,
+      evidence_count: 1
+    }))
+  ];
+
+  const operations: LakeYangeWorldOperation[] = [
+    ...receipts.map(receipt => ({
+      operation_id: receipt.receipt_id,
+      kind: 'ENGINEERING_RECEIPT',
+      title: receipt.objective,
+      status: receipt.status,
+      occurred_at: receipt.created_at,
+      agents: ['Forge', 'Vera', 'Rook'],
+      evidence_id: receipt.receipt_id
+    })),
+    ...agentRuntime.agents.flatMap(agent => {
+      const citizen =
+        state.citizens.find(
+          candidate =>
+            candidate.citizen_id === agent.citizen_id
+        );
+
+      if (!agent.last_wake_at) {
+        return [];
+      }
+
+      return [{
+        operation_id:
+          `${agent.citizen_id}:${agent.last_wake_at}`,
+        kind: 'AGENT_WAKE',
+        title:
+          agent.last_action
+            ? `${citizen?.name ?? agent.citizen_id} ${agent.last_action}`
+            : `${citizen?.name ?? agent.citizen_id} last wake`,
+        status: 'RECORDED',
+        occurred_at: agent.last_wake_at,
+        agents: [citizen?.name ?? agent.citizen_id],
+        evidence_id: null
+      }];
+    })
+  ]
+    .sort(
+      (left, right) =>
+        Date.parse(right.occurred_at) -
+        Date.parse(left.occurred_at)
+    )
+    .slice(0, MAX_OPERATIONS);
+
+  const localAi = options.localAi ?? {
+    status: 'UNKNOWN' as const,
+    endpoint: null,
+    probed_at: null
+  };
+
+  const academyEmpty =
+    academy.students.length === 0 &&
+    academy.assignments.length === 0;
+
+  const studyEmpty =
+    studyState.missions.length === 0;
+
+  const agentRuntimeEmpty =
+    agentRuntime.agents.length === 0;
+
+  const overall =
+    localAi.status === 'OFFLINE'
+      ? 'DEGRADED'
+      : 'OK';
+
   return {
     projection_version: 1,
 
@@ -319,6 +844,50 @@ export async function projectLakeYangeWorld(
     },
 
     citizens,
+
+    agents: agentActivity,
+
+    agent_records: agentRecords,
+
+    institutions,
+
+    missions,
+
+    operations,
+
+    governance: {
+      pending_plans: pendingPlans,
+      authorizations,
+      execution_claims: executionClaims,
+      execution_results: executionResults,
+      plans_are_not_execution: true
+    },
+
+    academy: {
+      students: academy.students.length,
+      assignments: academy.assignments.length,
+      submissions: academy.submissions.length,
+      grades: academy.grades.length,
+      last_cycle_at: academy.last_cycle_at
+    },
+
+    entertainment:
+      entertainmentCatalogueSnapshot(),
+
+    health: {
+      persistence: 'OK',
+      academy: academyEmpty ? 'EMPTY' : 'OK',
+      study_missions: studyEmpty ? 'EMPTY' : 'OK',
+      agent_runtime:
+        agentRuntimeEmpty ? 'EMPTY' : 'OK',
+      local_ai: {
+        status: localAi.status,
+        runtime: 'llama.cpp',
+        endpoint: localAi.endpoint,
+        probed_at: localAi.probed_at
+      },
+      overall
+    },
 
     engineering: {
       recent,

@@ -69,6 +69,22 @@ export function looksLikeEntertainmentRequest(message: string): boolean {
   return MUSIC_WORDS.test(message) || FILM_WORDS.test(message);
 }
 
+export function entertainmentCatalogueSnapshot(): {
+  source: 'EDITORIAL_BOOTSTRAP';
+  item_count: number;
+  music_count: number;
+  film_count: number;
+  persisted_taste_profile: false;
+} {
+  return {
+    source: 'EDITORIAL_BOOTSTRAP',
+    item_count: CATALOGUE.length,
+    music_count: CATALOGUE.filter(item => item.kind === 'MUSIC').length,
+    film_count: CATALOGUE.filter(item => item.kind === 'FILM').length,
+    persisted_taste_profile: false
+  };
+}
+
 function tokens(value: string): string[] {
   return value.toLowerCase().match(/[a-z0-9]+/g) ?? [];
 }
