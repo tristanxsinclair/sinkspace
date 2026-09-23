@@ -1246,7 +1246,7 @@ function updateOperationsHud(projection) {
   if (institutions) {
     institutions.textContent =
       String(
-        projection.citizens.length
+        projection.institutions.length
       );
   }
 
@@ -1290,13 +1290,11 @@ function applyWorldProjection(
     projection
   );
 
-    new CustomEvent(
-    'lake-yange:projection',
-    {
-      detail: projection
-    }
-  )
-);window.dispatchEvent(
+  updateOperationsHud(
+    projection
+  );
+
+  window.dispatchEvent(
     new CustomEvent(
       'lake-yange:projection',
       {
@@ -1305,26 +1303,27 @@ function applyWorldProjection(
     )
   );
 }
-updateOperationsHud(projection);
+
 function markWorldProjectionOffline() {
-const runtime =
-  document.querySelector("#ly-runtime-state");
+  const runtime =
+    document.querySelector("#ly-runtime-state");
 
-const world =
-  document.querySelector("#ly-world-state");
+  const world =
+    document.querySelector("#ly-world-state");
 
-if (runtime) {
-  runtime.textContent =
-    "OFFLINE";
-}
+  if (runtime) {
+    runtime.textContent =
+      "OFFLINE";
+  }
 
-if (world) {
-  world.textContent =
-    "PROJECTION OFFLINE";
-}
+  if (world) {
+    world.textContent =
+      "PROJECTION OFFLINE";
+  }
 
-document.documentElement.dataset.opsOnline =
-  "false";
+  document.documentElement.dataset.opsOnline =
+    "false";
+
   worldTruth.online =
     false;
 

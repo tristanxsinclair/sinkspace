@@ -56,6 +56,14 @@ import {
 } from './lake-yange-world.js';
 
 import {
+  projectLakeYangeEconomy
+} from './lake-yange-economy.js';
+
+import {
+  probeLocalAi
+} from './local-ai-status.js';
+
+import {
   loadAcademyState
 } from './academy-store.js';
 
@@ -1363,8 +1371,28 @@ const server =
         ) {
           const projection =
             await projectLakeYangeWorld(
-              ROOT
+              ROOT,
+              {
+                localAi: await probeLocalAi()
+              }
             );
+
+          json(
+            res,
+            200,
+            projection
+          );
+
+          return;
+        }
+
+        if (
+          url.pathname ===
+            '/api/lake-yange/economy' &&
+          req.method === 'GET'
+        ) {
+          const projection =
+            await projectLakeYangeEconomy(ROOT);
 
           json(
             res,

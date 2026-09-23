@@ -75,13 +75,29 @@ export function entertainmentCatalogueSnapshot(): {
   music_count: number;
   film_count: number;
   persisted_taste_profile: false;
+  items: Array<{
+    id: string;
+    kind: EntertainmentKind;
+    title: string;
+    creators: string[];
+    year: number;
+    genres: string[];
+  }>;
 } {
   return {
     source: 'EDITORIAL_BOOTSTRAP',
     item_count: CATALOGUE.length,
     music_count: CATALOGUE.filter(item => item.kind === 'MUSIC').length,
     film_count: CATALOGUE.filter(item => item.kind === 'FILM').length,
-    persisted_taste_profile: false
+    persisted_taste_profile: false,
+    items: CATALOGUE.map(item => ({
+      id: item.id,
+      kind: item.kind,
+      title: item.title,
+      creators: [...item.creators],
+      year: item.year,
+      genres: [...item.genres]
+    }))
   };
 }
 

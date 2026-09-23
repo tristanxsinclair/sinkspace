@@ -44,34 +44,59 @@
     </header>
 
     <aside class="world-nav">
-      <button class="nav-item active" data-view="world">
+      <button class="nav-item active" data-view="overview">
+        <span>◎</span>
+        OVERVIEW
+      </button>
+
+      <button class="nav-item" data-view="world">
         <span>◇</span>
         WORLD
       </button>
 
-      <button class="nav-item" data-view="citizens">
+      <button class="nav-item" data-view="agents">
         <span>♙</span>
-        CITIZENS
+        AGENTS
       </button>
 
-      <button class="nav-item" data-view="government">
-        <span>⌂</span>
-        GOVERNMENT
-      </button>
-
-      <button class="nav-item" data-view="resources">
-        <span>◆</span>
-        RESOURCES
-      </button>
-
-      <button class="nav-item" data-view="artifacts">
-        <span>⬡</span>
-        ARTIFACTS
+      <button class="nav-item" data-view="operations">
+        <span>⚙</span>
+        OPS
       </button>
 
       <button class="nav-item" data-view="missions">
         <span>⌁</span>
         MISSIONS
+      </button>
+
+      <button class="nav-item" data-view="institutions">
+        <span>⌂</span>
+        INSTITUTES
+      </button>
+
+      <button class="nav-item" data-view="economy">
+        <span>◆</span>
+        ECONOMY
+      </button>
+
+      <button class="nav-item" data-view="entertainment">
+        <span>♪</span>
+        MEDIA
+      </button>
+
+      <button class="nav-item" data-view="governance">
+        <span>⚖</span>
+        GOVERN
+      </button>
+
+      <button class="nav-item" data-view="audit">
+        <span>⟐</span>
+        AUDIT
+      </button>
+
+      <button class="nav-item" data-view="system">
+        <span>▣</span>
+        SYSTEM
       </button>
 
       <a
@@ -102,7 +127,7 @@
 
     <div class="ly-metric">
       <span>WORLD</span>
-      <strong id="ly-world-state">ACTIVE</strong>
+      <strong id="ly-world-state">—</strong>
       <small>LIVE PROJECTION</small>
     </div>
 
@@ -120,13 +145,13 @@
 
     <div class="ly-metric">
       <span>INSTITUTIONS</span>
-      <strong id="ly-institutions">8</strong>
+      <strong id="ly-institutions">—</strong>
       <small>REGISTERED</small>
     </div>
 
   </div>
 
-</div> <section class="world-viewport">
+</div> <section class="ly-data-view" id="ly-data-view" hidden></section><section class="world-viewport">
       <div id="world-camera" class="world-camera">
         <div class="world-surface lake-yange-digital-city">
 
@@ -378,12 +403,12 @@
       <div id="inspect-facts" class="inspect-facts">
         <div>
           <span>POPULATION</span>
-          <strong>9</strong>
+          <strong data-world-population>—</strong>
         </div>
 
         <div>
           <span>ERA</span>
-          <strong>FOUNDING</strong>
+          <strong id="inspect-era">—</strong>
         </div>
 
         <div>
@@ -408,7 +433,9 @@
     <footer class="world-footer">
       <div>
         <span class="pulse-dot"></span>
-        WORLD PROJECTION ONLINE
+        <span id="footer-projection-state">
+          WORLD PROJECTION CONNECTING
+        </span>
       </div>
 
       <div>
@@ -567,6 +594,7 @@
     type="module"
     src="/lake-yange-world.js"
   ></script>
+    <script src="/lake-yange-views.js"></script>
     <script src="/lake-yange-city.js"></script>
 
 </body>

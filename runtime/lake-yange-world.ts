@@ -18,21 +18,26 @@ import {
 } from './lake-yange.js';
 
 import {
+  EMPTY_LAKE_YANGE_AGENT_WORLD,
   LakeYangeAgentWorldStore,
   type LakeYangeAgentWorld
 } from './lake-yange-agent-world.js';
 
 import {
   LakeYangeAgentStore,
+  type AgentRuntimeState,
   type AgentState
 } from './lake-yange-agent.js';
 
 import {
-  loadAcademyState
+  emptyAcademyState,
+  loadAcademyState,
+  type AcademyState
 } from './academy-store.js';
 
 import {
-  StudyMissionStore
+  StudyMissionStore,
+  type StudyMissionState
 } from './study-mission.js';
 
 import {
@@ -76,14 +81,32 @@ export interface LakeYangeWorldAgentActivity {
   total: number;
 }
 
+/**
+ * Agent presence is an agent-process state, derived only from
+ * persisted agent runtime data:
+ *
+ * - ACTIVE   — the agent process woke within the active window.
+ * - IDLE     — the agent has woken before, but not recently.
+ * - PLANNED  — no agent process record exists yet for this citizen.
+ * - OFFLINE  — an agent record exists but has never woken, or the
+ *              citizen is archived and will not be scheduled.
+ * - QUEUED   — reserved vocabulary for a persisted scheduler queue.
+ * - BLOCKED  — reserved vocabulary for a persisted block record.
+ * - ERROR    — the agent runtime store could not be read, so no
+ *              process claim can be made either way.
+ *
+ * Civic state (TRAINING / RESTING / DORMANT / ARCHIVED) is reported
+ * separately via `citizen_status` and is never conflated with
+ * agent-process presence.
+ */
 export type LakeYangeAgentPresence =
+  | 'ACTIVE'
   | 'IDLE'
-  | 'DORMANT'
-  | 'TRAINING'
-  | 'RESTING'
-  | 'ARCHIVED'
+  | 'PLANNED'
   | 'OFFLINE'
-  | 'PLANNED';
+  | 'QUEUED'
+  | 'BLOCKED'
+  | 'ERROR';
 
 export interface LakeYangeWorldAgentRecord {
   citizen_id: string;
@@ -94,10 +117,14 @@ export interface LakeYangeWorldAgentRecord {
   citizen_status: string;
   presence: LakeYangeAgentPresence;
   current_mission: string | null;
+  current_operation: string | null;
+  objective: string | null;
   last_action: string | null;
   last_activity_at: string | null;
+  latest_activity: string | null;
   wake_count: number;
   evidence_produced: number;
+  evidence_sample: string[];
   granted_authority: string[];
   conceptual: false;
 }
@@ -133,6 +160,19 @@ export interface LakeYangeWorldOperation {
   occurred_at: string;
   agents: string[];
   evidence_id: string | null;
+}
+
+/**
+ * A bounded summary of a persisted governance artifact. Field `status`
+ * is the record's own persisted status — never inferred.
+ */
+export interface LakeYangeGovernanceRecord {
+  record_id: string;
+  kind: 'MANDATE' | 'PLAN' | 'AUTHORIZATION' | 'CLAIM' | 'RESULT';
+  title: string;
+  status: string;
+  created_at: string;
+  detail: string | null;
 }
 
 export interface LakeYangeWorldEngineering {
@@ -187,6 +227,14 @@ export interface LakeYangeWorldProjection {
     authorizations: number;
     execution_claims: number;
     execution_results: number;
+    records: {
+      mandates: LakeYangeGovernanceRecord[];
+      plans: LakeYangeGovernanceRecord[];
+      authorizations: LakeYangeGovernanceRecord[];
+      claims: LakeYangeGovernanceRecord[];
+      results: LakeYangeGovernanceRecord[];
+      invalid_records: number;
+    };
     plans_are_not_execution: true;
   };
 
@@ -208,9 +256,9 @@ export interface LakeYangeWorldProjection {
 
   health: {
     persistence: 'OK';
-    academy: 'OK' | 'EMPTY';
-    study_missions: 'OK' | 'EMPTY';
-    agent_runtime: 'OK' | 'EMPTY';
+    academy: 'OK' | 'EMPTY' | 'ERROR';
+    study_missions: 'OK' | 'EMPTY' | 'ERROR';
+    agent_runtime: 'OK' | 'EMPTY' | 'ERROR';
     local_ai: {
       status: 'ONLINE' | 'OFFLINE' | 'UNKNOWN';
       runtime: 'llama.cpp';
@@ -310,31 +358,140 @@ function grantedAuthority(
     .map(([key]) => String(key));
 }
 
+/**
+ * Presence is measured from persisted agent runtime records only.
+ *
+ * ACTIVE means the agent process executed a wake within
+ * `ACTIVE_WINDOW_MS` of `nowMs` — a measurement against persisted
+ * timestamps, not a claim that a process is running right now.
+ */
+const ACTIVE_WINDOW_MS = 10 * 60_000;
+
 function presenceFor(
   citizen: Citizen,
-  agent: AgentState | undefined
+  agent: AgentState | undefined,
+  agentStoreHealthy: boolean,
+  nowMs: number
 ): LakeYangeAgentPresence {
+  if (!agentStoreHealthy) {
+    return 'ERROR';
+  }
+
   if (citizen.status === 'ARCHIVED') {
-    return 'ARCHIVED';
-  }
-
-  if (citizen.status === 'DORMANT') {
-    return 'DORMANT';
-  }
-
-  if (citizen.status === 'TRAINING') {
-    return 'TRAINING';
-  }
-
-  if (citizen.status === 'RESTING') {
-    return 'RESTING';
-  }
-
-  if (!agent || agent.wake_count === 0) {
     return 'OFFLINE';
   }
 
+  if (!agent) {
+    return 'PLANNED';
+  }
+
+  if (agent.wake_count === 0) {
+    return 'OFFLINE';
+  }
+
+  const lastWake = agent.last_wake_at
+    ? Date.parse(agent.last_wake_at)
+    : Number.NaN;
+
+  if (
+    Number.isFinite(lastWake) &&
+    nowMs - lastWake <= ACTIVE_WINDOW_MS
+  ) {
+    return 'ACTIVE';
+  }
+
   return 'IDLE';
+}
+
+/**
+ * The most recent persisted world record a citizen produced, plus a
+ * bounded sample of evidence identifiers. Returns nulls for citizens
+ * with no persisted activity — never an invented summary.
+ */
+function citizenActivity(
+  citizenId: string,
+  agentWorld: LakeYangeAgentWorld,
+  agent: AgentState | undefined
+): {
+  latest_kind: string | null;
+  latest_summary: string | null;
+  latest_at: string | null;
+  evidence_sample: string[];
+} {
+  type WorldRecord = {
+    kind: string;
+    summary: string;
+    at: string;
+    id: string;
+  };
+
+  const records: WorldRecord[] = [
+    ...agentWorld.observations
+      .filter(item => item.citizen_id === citizenId)
+      .map(item => ({
+        kind: 'OBSERVATION',
+        summary: item.content,
+        at: item.created_at,
+        id: item.observation_id
+      })),
+    ...agentWorld.learning_outcomes
+      .filter(item => item.citizen_id === citizenId)
+      .map(item => ({
+        kind: 'STUDY',
+        summary: `${item.subject}: ${item.outcome}`,
+        at: item.created_at,
+        id: item.learning_id
+      })),
+    ...agentWorld.rest_records
+      .filter(item => item.citizen_id === citizenId)
+      .map(item => ({
+        kind: 'REST',
+        summary: 'Rest recorded',
+        at: item.created_at,
+        id: item.rest_id
+      })),
+    ...agentWorld.project_proposals
+      .filter(item => item.citizen_id === citizenId)
+      .map(item => ({
+        kind: 'PROPOSE_PROJECT',
+        summary: item.objective,
+        at: item.created_at,
+        id: item.project_id
+      })),
+    ...agentWorld.project_contributions
+      .filter(item => item.citizen_id === citizenId)
+      .map(item => ({
+        kind: 'CONTRIBUTE_PROJECT',
+        summary: item.contribution,
+        at: item.created_at,
+        id: item.contribution_id
+      }))
+  ].sort(
+    (left, right) => Date.parse(right.at) - Date.parse(left.at)
+  );
+
+  const latest = records[0];
+
+  const memoryEvidence =
+    agent?.memories.flatMap(
+      memory => memory.evidence_ids
+    ) ?? [];
+
+  const evidence_sample = [
+    ...new Set([
+      ...records.map(record => record.id),
+      ...memoryEvidence
+    ])
+  ].slice(0, 5);
+
+  return {
+    latest_kind: latest?.kind ?? null,
+    latest_summary: latest
+      ? latest.summary.slice(0, 240)
+      : null,
+    latest_at: latest?.at ?? null,
+    evidence_sample
+  };
 }
 
 function countCitizenEvidence(
@@ -455,6 +612,80 @@ async function countJsonRecords(
   ).length;
 }
 
+const MAX_GOVERNANCE_RECORDS = 12;
+
+/**
+ * Load bounded governance record summaries from a directory of
+ * persisted JSON artifacts. Malformed files are counted in
+ * `invalid` instead of breaking the projection.
+ */
+async function loadGovernanceRecords(
+  directory: string,
+  kind: LakeYangeGovernanceRecord['kind'],
+  map: (raw: Record<string, unknown>) =>
+    LakeYangeGovernanceRecord | null
+): Promise<{
+  records: LakeYangeGovernanceRecord[];
+  invalid: number;
+}> {
+  let names: string[];
+
+  try {
+    names = await readdir(directory);
+  } catch (error) {
+    if (isMissing(error)) {
+      return { records: [], invalid: 0 };
+    }
+
+    throw error;
+  }
+
+  const records: LakeYangeGovernanceRecord[] = [];
+
+  let invalid = 0;
+
+  for (const name of names) {
+    if (!name.endsWith('.json')) {
+      continue;
+    }
+
+    try {
+      const raw = JSON.parse(
+        await readFile(join(directory, name), 'utf8')
+      ) as Record<string, unknown>;
+
+      const record = map(raw);
+
+      if (record && record.kind === kind) {
+        records.push(record);
+      } else {
+        invalid += 1;
+      }
+    } catch {
+      invalid += 1;
+    }
+  }
+
+  records.sort(
+    (left, right) =>
+      Date.parse(right.created_at) -
+      Date.parse(left.created_at)
+  );
+
+  return {
+    records: records.slice(0, MAX_GOVERNANCE_RECORDS),
+    invalid
+  };
+}
+
+function asString(value: unknown): string | null {
+  return typeof value === 'string' ? value : null;
+}
+
+function textOr(value: unknown, fallback: string): string {
+  return asString(value) ?? fallback;
+}
+
 export async function projectLakeYangeWorld(
   repositoryRoot: string,
   options: LakeYangeWorldProjectionOptions = {}
@@ -483,29 +714,108 @@ export async function projectLakeYangeWorld(
       )
     );
 
-  const agentWorld =
-    await agentWorldStore.load();
+  /*
+   * A malformed secondary store must never take the whole
+   * civilisation console offline. Core state.json failures still
+   * throw (without citizens there is nothing truthful to show),
+   * but agent / academy / study stores degrade to EMPTY or ERROR
+   * and the health block reports exactly which one broke.
+   */
+  let agentWorld: LakeYangeAgentWorld =
+    EMPTY_LAKE_YANGE_AGENT_WORLD;
 
-  const agentRuntime =
-    await new LakeYangeAgentStore(
+  let agentWorldHealth: 'OK' | 'EMPTY' | 'ERROR' = 'OK';
+
+  try {
+    const loaded = await agentWorldStore.load();
+
+    agentWorld = loaded;
+
+    const emptyWorld =
+      loaded.observations.length === 0 &&
+      loaded.learning_outcomes.length === 0 &&
+      loaded.rest_records.length === 0 &&
+      loaded.project_proposals.length === 0 &&
+      loaded.project_contributions.length === 0;
+
+    agentWorldHealth = emptyWorld ? 'EMPTY' : 'OK';
+  } catch {
+    agentWorldHealth = 'ERROR';
+  }
+
+  let agentRuntime: AgentRuntimeState = {
+    schema_version: 1,
+    settlement_id: 'LAKE-YANGE',
+    updated_at: new Date(0).toISOString(),
+    agents: []
+  };
+
+  let agentRuntimeHealth: 'OK' | 'EMPTY' | 'ERROR' = 'OK';
+
+  try {
+    const loaded = await new LakeYangeAgentStore(
       join(
         repositoryRoot,
         '.sink/lake-yange/agents/state.json'
       )
     ).load();
 
-  const academy =
-    await loadAcademyState(
+    agentRuntime = loaded;
+
+    agentRuntimeHealth =
+      loaded.agents.length === 0 ? 'EMPTY' : 'OK';
+  } catch {
+    agentRuntimeHealth = 'ERROR';
+  }
+
+  const agentStoreHealthy =
+    agentRuntimeHealth !== 'ERROR' &&
+    agentWorldHealth !== 'ERROR';
+
+  let academyHealth: 'OK' | 'EMPTY' | 'ERROR' = 'OK';
+
+  let academy: AcademyState;
+
+  try {
+    academy = await loadAcademyState(
       repositoryRoot
     );
 
-  const studyState =
-    await new StudyMissionStore(
+    const emptyAcademy =
+      academy.students.length === 0 &&
+      academy.assignments.length === 0;
+
+    academyHealth = emptyAcademy ? 'EMPTY' : 'OK';
+  } catch {
+    academy = emptyAcademyState();
+
+    academyHealth = 'ERROR';
+  }
+
+  let studyHealth: 'OK' | 'EMPTY' | 'ERROR' = 'OK';
+
+  let studyState: StudyMissionState;
+
+  try {
+    studyState = await new StudyMissionStore(
       join(
         repositoryRoot,
         '.sink/lake-yange/study-missions.json'
       )
     ).load();
+
+    studyHealth =
+      studyState.missions.length === 0 ? 'EMPTY' : 'OK';
+  } catch {
+    studyState = {
+      schema_version: 1,
+      settlement_id: 'LAKE-YANGE',
+      missions: [],
+      updated_at: new Date(0).toISOString()
+    };
+
+    studyHealth = 'ERROR';
+  }
 
   const pendingPlans =
     await countJsonRecords(
@@ -538,6 +848,163 @@ export async function projectLakeYangeWorld(
         '.sink/lake-yange/constitutional-executions/results'
       )
     );
+
+  const [
+    mandateRecords,
+    planRecords,
+    authorizationRecords,
+    claimRecords,
+    resultRecords
+  ] = await Promise.all([
+    loadGovernanceRecords(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/mandates'
+      ),
+      'MANDATE',
+      raw => {
+        const recordId = asString(raw.mandate_id);
+        const createdAt = asString(raw.issued_at);
+
+        if (!recordId || !createdAt) {
+          return null;
+        }
+
+        return {
+          record_id: recordId,
+          kind: 'MANDATE',
+          title: textOr(
+            raw.title,
+            'Untitled mandate'
+          ),
+          status: textOr(raw.status, 'UNKNOWN'),
+          created_at: createdAt,
+          detail: asString(raw.issued_by)
+        };
+      }
+    ),
+
+    loadGovernanceRecords(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/pending-plans'
+      ),
+      'PLAN',
+      raw => {
+        const recordId = asString(raw.plan_id);
+        const createdAt = asString(raw.created_at);
+
+        if (!recordId || !createdAt) {
+          return null;
+        }
+
+        return {
+          record_id: recordId,
+          kind: 'PLAN',
+          title: textOr(raw.title, 'Untitled plan'),
+          status: textOr(raw.status, 'UNKNOWN'),
+          created_at: createdAt,
+          detail: asString(raw.target_system)
+        };
+      }
+    ),
+
+    loadGovernanceRecords(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/authorizations'
+      ),
+      'AUTHORIZATION',
+      raw => {
+        const recordId =
+          asString(raw.authorization_id);
+        const createdAt = asString(raw.issued_at);
+
+        if (!recordId || !createdAt) {
+          return null;
+        }
+
+        return {
+          record_id: recordId,
+          kind: 'AUTHORIZATION',
+          title: textOr(
+            raw.target_system,
+            'Authorization'
+          ),
+          status:
+            raw.consumed === true
+              ? 'CONSUMED'
+              : 'OUTSTANDING',
+          created_at: createdAt,
+          detail: asString(raw.issued_by)
+        };
+      }
+    ),
+
+    loadGovernanceRecords(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/constitutional-executions/claims'
+      ),
+      'CLAIM',
+      raw => {
+        const recordId = asString(raw.claim_id);
+        const createdAt = asString(raw.claimed_at);
+
+        if (!recordId || !createdAt) {
+          return null;
+        }
+
+        return {
+          record_id: recordId,
+          kind: 'CLAIM',
+          title: textOr(
+            raw.authorization_id,
+            'Execution claim'
+          ),
+          status: 'CLAIMED',
+          created_at: createdAt,
+          detail: asString(raw.plan_id)
+        };
+      }
+    ),
+
+    loadGovernanceRecords(
+      join(
+        repositoryRoot,
+        '.sink/lake-yange/constitutional-executions/results'
+      ),
+      'RESULT',
+      raw => {
+        const recordId = asString(raw.result_id);
+        const createdAt =
+          asString(raw.completed_at) ??
+          asString(raw.created_at);
+
+        if (!recordId || !createdAt) {
+          return null;
+        }
+
+        const vera = asString(raw.vera);
+        const rook = asString(raw.rook);
+
+        return {
+          record_id: recordId,
+          kind: 'RESULT',
+          title: textOr(
+            raw.engineering_receipt_id,
+            'Execution result'
+          ),
+          status: textOr(raw.status, 'UNKNOWN'),
+          created_at: createdAt,
+          detail:
+            vera && rook
+              ? `VERA ${vera} · ROOK ${rook}`
+              : null
+        };
+      }
+    )
+  ]);
 
   const agentActivity = {
     observations:
@@ -646,6 +1113,18 @@ export async function projectLakeYangeWorld(
         studyByAgent.get(citizen.system_id) ??
         [];
 
+      const activity = citizenActivity(
+        citizen.citizen_id,
+        agentWorld,
+        agent
+      );
+
+      const latestDecision =
+        agent?.decisions.at(-1) ?? null;
+
+      const lastActivityAt =
+        agent?.last_wake_at ?? activity.latest_at;
+
       return {
         citizen_id: citizen.citizen_id,
         system_id: citizen.system_id,
@@ -653,13 +1132,24 @@ export async function projectLakeYangeWorld(
         role: citizen.role,
         rank: citizen.rank,
         citizen_status: citizen.status,
-        presence: presenceFor(citizen, agent),
+        presence: presenceFor(
+          citizen,
+          agent,
+          agentStoreHealthy,
+          Date.now()
+        ),
         current_mission:
           assigned[0] ?? null,
+        current_operation:
+          activity.latest_kind ??
+          agent?.last_action ??
+          null,
+        objective:
+          latestDecision?.objective ?? null,
         last_action:
           agent?.last_action ?? null,
-        last_activity_at:
-          agent?.last_wake_at ?? null,
+        last_activity_at: lastActivityAt,
+        latest_activity: activity.latest_summary,
         wake_count:
           agent?.wake_count ?? 0,
         evidence_produced:
@@ -668,6 +1158,8 @@ export async function projectLakeYangeWorld(
             agentWorld,
             agent
           ),
+        evidence_sample:
+          activity.evidence_sample,
         granted_authority:
           grantedAuthority(citizen.authority),
         conceptual: false
@@ -785,18 +1277,11 @@ export async function projectLakeYangeWorld(
     probed_at: null
   };
 
-  const academyEmpty =
-    academy.students.length === 0 &&
-    academy.assignments.length === 0;
-
-  const studyEmpty =
-    studyState.missions.length === 0;
-
-  const agentRuntimeEmpty =
-    agentRuntime.agents.length === 0;
-
   const overall =
-    localAi.status === 'OFFLINE'
+    localAi.status === 'OFFLINE' ||
+    academyHealth === 'ERROR' ||
+    studyHealth === 'ERROR' ||
+    agentRuntimeHealth === 'ERROR'
       ? 'DEGRADED'
       : 'OK';
 
@@ -860,6 +1345,19 @@ export async function projectLakeYangeWorld(
       authorizations,
       execution_claims: executionClaims,
       execution_results: executionResults,
+      records: {
+        mandates: mandateRecords.records,
+        plans: planRecords.records,
+        authorizations: authorizationRecords.records,
+        claims: claimRecords.records,
+        results: resultRecords.records,
+        invalid_records:
+          mandateRecords.invalid +
+          planRecords.invalid +
+          authorizationRecords.invalid +
+          claimRecords.invalid +
+          resultRecords.invalid
+      },
       plans_are_not_execution: true
     },
 
@@ -876,10 +1374,9 @@ export async function projectLakeYangeWorld(
 
     health: {
       persistence: 'OK',
-      academy: academyEmpty ? 'EMPTY' : 'OK',
-      study_missions: studyEmpty ? 'EMPTY' : 'OK',
-      agent_runtime:
-        agentRuntimeEmpty ? 'EMPTY' : 'OK',
+      academy: academyHealth,
+      study_missions: studyHealth,
+      agent_runtime: agentRuntimeHealth,
       local_ai: {
         status: localAi.status,
         runtime: 'llama.cpp',
