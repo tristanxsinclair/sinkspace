@@ -66,6 +66,14 @@ import {
 import {
   loadAcademyState
 } from './academy-store.js';
+import {
+  listAutonomousCycles,
+  readAutonomousCycle,
+  runAutonomousCycle
+} from './autonomous-engine.js';
+import {
+  executePrimeAgentCommand
+} from './prime-agent-command.js';
 
 const HERE = path.dirname(
   fileURLToPath(import.meta.url)
@@ -1366,6 +1374,67 @@ const server =
 
         if (
           url.pathname ===
+            '/api/lake-yange/autonomous/cycles' &&
+          req.method === 'GET'
+        ) {
+          json(
+            res,
+            200,
+            await listAutonomousCycles(ROOT)
+          );
+
+          return;
+        }
+
+        if (
+          url.pathname ===
+            '/api/lake-yange/autonomous/cycle' &&
+          req.method === 'POST'
+        ) {
+          const body = await readJsonBody(req);
+          const cycle = await runAutonomousCycle(
+            ROOT,
+            {
+              dryRun:
+                typeof body === 'object' &&
+                body !== null &&
+                'dry_run' in body &&
+                body.dry_run === true
+            }
+          );
+
+          json(
+            res,
+            200,
+            cycle
+          );
+
+          return;
+        }
+
+        const autonomousCycleMatch =
+          url.pathname.match(
+            /^\/api\/lake-yange\/autonomous\/cycles\/([^/]+)$/
+          );
+
+        if (
+          autonomousCycleMatch &&
+          req.method === 'GET'
+        ) {
+          json(
+            res,
+            200,
+            await readAutonomousCycle(
+              ROOT,
+              safeId(autonomousCycleMatch[1]!)
+            )
+          );
+
+          return;
+        }
+
+        if (
+          url.pathname ===
             '/api/lake-yange/world' &&
           req.method === 'GET'
         ) {
@@ -1398,6 +1467,34 @@ const server =
             res,
             200,
             projection
+          );
+
+          return;
+        }
+
+        if (
+          url.pathname ===
+            '/api/prime/agent-command' &&
+          req.method === 'POST'
+        ) {
+          const body = await readJsonBody(req);
+          const command =
+            typeof body === 'object' &&
+            body !== null &&
+            'command' in body &&
+            typeof body.command === 'string'
+              ? body.command
+              : '';
+
+          if (!command.trim()) {
+            json(res, 400, { error: 'Prime requires a natural-language command.' });
+            return;
+          }
+
+          json(
+            res,
+            200,
+            await executePrimeAgentCommand(ROOT, command)
           );
 
           return;

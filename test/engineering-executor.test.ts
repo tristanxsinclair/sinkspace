@@ -49,6 +49,7 @@ function proposal(
 
 test(
   'executor creates an absent file',
+  { concurrency: true },
   async () => {
     const workspace =
       await createEngineeringWorkspace(
@@ -96,6 +97,7 @@ test(
 
 test(
   'executor rejects CREATE for existing file',
+  { concurrency: true },
   async () => {
     const workspace =
       await createEngineeringWorkspace(
@@ -146,6 +148,7 @@ test(
 
 test(
   'executor replaces an existing file',
+  { concurrency: true },
   async () => {
     const workspace =
       await createEngineeringWorkspace(
@@ -199,6 +202,7 @@ test(
 
 test(
   'executor rejects REPLACE for missing file',
+  { concurrency: true },
   async () => {
     const workspace =
       await createEngineeringWorkspace(

@@ -7,7 +7,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
+    "build": "tsc -p tsconfig.json && mkdir -p build/agents build/console && cp agents/registry.json build/agents/registry.json && cp console/app.js console/index.html console/styles.css build/console/",
     "typecheck": "tsc -p tsconfig.json --noEmit",
     "lint": "eslint runtime test && node --check dist/app.js && node --check console/app.js",
     "test": "tsx --test test/*.test.ts",
