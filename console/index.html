@@ -1,0 +1,509 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1.0"
+  />
+
+  <title>
+    Sink Clones Mission Control
+  </title>
+
+  <link
+    rel="stylesheet"
+    href="/styles.css"
+  />
+
+  <link rel="stylesheet" href="/empire.css" />
+  <link rel="stylesheet" href="/gold-rush.css" />
+  <link rel="stylesheet" href="/prime.css" />
+</head>
+
+<body>
+  <div class="shell">
+
+    <header class="topbar">
+      <div>
+        <div class="eyebrow">
+          SINK SPACE / EXECUTION NETWORK
+        </div>
+
+        <h1>
+          Sink Clones
+        </h1>
+
+        <div class="subtitle">
+          Evidence-bound agent mission control
+        </div>
+      </div>
+
+      <div class="top-actions">
+        <button
+          id="launch-run"
+          class="launch-button"
+          type="button"
+        >
+          RUN SINK CLONES
+        </button>
+
+        <div class="connection">
+          <span
+            id="connection-dot"
+            class="dot"
+          ></span>
+
+          <span
+            id="connection-text"
+          >
+            Connecting
+          </span>
+        </div>
+      </div>
+    </header>
+
+    <section id="mission-control" class="mission-control">
+      <div class="mission-control-head">
+        <div>
+          <div class="eyebrow">DEPLOYMENT CONTROL</div>
+          <h2>What should the clones pursue?</h2>
+          <p class="subtle">
+            Select a real execution workflow. Activity shown below
+            comes from persisted run events.
+          </p>
+        </div>
+
+        <div class="mission-authority">
+          OBSERVE + ANALYSE
+        </div>
+      </div>
+
+      <div class="mission-grid">
+        <button
+          class="mission-choice active"
+          data-workflow="gold-rush"
+          data-mode="DISCOVER"
+          type="button"
+        >
+          <strong>GOLD RUSH</strong>
+          <span>
+            Search for legitimate economic opportunities,
+            verify them, model value and red-team the result.
+          </span>
+        </button>
+
+        <button
+          class="mission-choice"
+          data-workflow="revenue"
+          data-mode="DISCOVER"
+          type="button"
+        >
+          <strong>REVENUE SCOUT</strong>
+          <span>
+            Search for evidence-backed Sink Space
+            customer and revenue opportunities.
+          </span>
+        </button>
+
+        <button
+          class="mission-choice"
+          data-workflow="revenue"
+          data-mode="VALIDATE"
+          type="button"
+        >
+          <strong>VALIDATE REVENUE</strong>
+          <span>
+            Challenge and validate the strongest
+            existing revenue opportunities.
+          </span>
+        </button>
+
+        <button
+          class="mission-choice"
+          data-workflow="capability-inventory"
+          data-mode="RUN"
+          type="button"
+        >
+          <strong>SYSTEM SCAN</strong>
+          <span>
+            Run the existing Sink Space
+            capability inventory.
+          </span>
+        </button>
+      </div>
+
+      <div class="mission-deployment">
+        <div>
+          <span class="label">SELECTED MISSION</span>
+
+          <div
+            id="selected-mission-name"
+            class="selected-mission-name"
+          >
+            GOLD RUSH
+          </div>
+
+          <div
+            id="selected-mission-description"
+            class="subtle"
+          >
+            Search, verify, model and red-team legitimate
+            economic opportunities.
+          </div>
+        </div>
+
+        <div class="mission-safety">
+          <span>NO SPEND</span>
+          <span>NO WALLET SIGNING</span>
+          <span>NO OUTBOUND</span>
+          <span>PROOF REQUIRED</span>
+        </div>
+      </div>
+    </section>
+
+
+    <section class="run-strip">
+      <div class="run-selector-wrap">
+        <span class="label">
+          RUN
+        </span>
+
+        <select
+          id="run-selector"
+        ></select>
+      </div>
+
+      <div class="run-meta">
+        <span
+          id="run-status"
+          class="status-pill"
+        >
+          —
+        </span>
+
+        <span
+          id="run-adapter"
+          class="mono"
+        >
+          —
+        </span>
+
+        <span
+          id="run-commit"
+          class="mono subtle"
+        >
+          —
+        </span>
+      </div>
+    </section>
+
+
+    <main>
+
+      <section class="hero-grid">
+        <article class="card objective-card">
+          <div class="card-label">
+            ACTIVE OBJECTIVE
+          </div>
+
+          <div
+            id="objective"
+            class="objective"
+          >
+            No run loaded.
+          </div>
+        </article>
+
+        <article class="card receipt-card">
+          <div class="card-label">
+            RECEIPT
+          </div>
+
+          <div class="receipt-row">
+            <span
+              id="receipt-state"
+              class="receipt-state"
+            >
+              —
+            </span>
+
+            <span
+              id="receipt-confidence"
+              class="mono subtle"
+            >
+              —
+            </span>
+          </div>
+
+          <div
+            id="receipt-hash"
+            class="hash mono"
+          >
+            —
+          </div>
+        </article>
+      </section>
+
+
+      <section>
+        <div class="section-header">
+          <div>
+            <div class="section-kicker">
+              EXECUTION GRAPH
+            </div>
+
+            <h2>
+              Live Agent Pipeline
+            </h2>
+          </div>
+        </div>
+
+        <div
+          id="pipeline"
+          class="pipeline"
+        ></div>
+      </section>
+
+
+      <section class="metrics-grid">
+        <article class="metric">
+          <div
+            id="metric-known"
+            class="metric-number"
+          >
+            0
+          </div>
+
+          <div class="metric-label">
+            KNOWN
+          </div>
+        </article>
+
+        <article class="metric">
+          <div
+            id="metric-inferred"
+            class="metric-number"
+          >
+            0
+          </div>
+
+          <div class="metric-label">
+            INFERRED
+          </div>
+        </article>
+
+        <article class="metric">
+          <div
+            id="metric-evidence"
+            class="metric-number"
+          >
+            0
+          </div>
+
+          <div class="metric-label">
+            EVIDENCE
+          </div>
+        </article>
+
+        <article class="metric">
+          <div
+            id="metric-artifacts"
+            class="metric-number"
+          >
+            0
+          </div>
+
+          <div class="metric-label">
+            ARTIFACTS
+          </div>
+        </article>
+
+        <article class="metric">
+          <div
+            id="metric-uncertainty"
+            class="metric-number"
+          >
+            0
+          </div>
+
+          <div class="metric-label">
+            UNCERTAINTY
+          </div>
+        </article>
+      </section>
+
+
+      <section class="two-col">
+
+        <article class="card">
+          <div class="card-label">
+            SINK-05 ANALYST
+          </div>
+
+          <div class="analyst-grid">
+            <div>
+              <div class="mini-label">
+                FACTS
+              </div>
+
+              <div
+                id="analyst-facts-count"
+                class="analyst-number"
+              >
+                0
+              </div>
+            </div>
+
+            <div>
+              <div class="mini-label">
+                HYPOTHESES
+              </div>
+
+              <div
+                id="analyst-hypotheses-count"
+                class="analyst-number"
+              >
+                0
+              </div>
+            </div>
+
+            <div>
+              <div class="mini-label">
+                UNCERTAINTIES
+              </div>
+
+              <div
+                id="analyst-uncertainties-count"
+                class="analyst-number"
+              >
+                0
+              </div>
+            </div>
+          </div>
+
+          <div
+            id="analyst-content"
+            class="stack-list"
+          ></div>
+        </article>
+
+
+        <article class="card">
+          <div class="card-label">
+            VERIFICATION
+          </div>
+
+          <div
+            id="verification"
+            class="verification-list"
+          ></div>
+        </article>
+
+      </section>
+
+
+      <section class="card proof-explorer-card">
+        <div class="proof-header">
+          <div>
+            <div class="card-label">
+              FORENSIC PROOF GRAPH
+            </div>
+
+            <div class="proof-subtitle">
+              Click an epistemic entry to trace it to source evidence and the sealed receipt.
+            </div>
+          </div>
+
+          <div
+            id="proof-integrity"
+            class="proof-integrity"
+          >
+            —
+          </div>
+        </div>
+
+        <div class="proof-layout">
+          <div
+            id="proof-entry-list"
+            class="proof-entry-list"
+          ></div>
+
+          <div
+            id="proof-detail"
+            class="proof-detail"
+          >
+            <div class="empty">
+              Select a Blackboard entry.
+            </div>
+          </div>
+        </div>
+      </section>
+
+
+      <section class="two-col">
+
+        <article class="card">
+          <div class="card-label">
+            PRESERVED UNCERTAINTY
+          </div>
+
+          <div
+            id="uncertainty"
+            class="stack-list"
+          ></div>
+        </article>
+
+
+        <article class="card">
+          <div class="card-label">
+            RED-SINK FINDINGS
+          </div>
+
+          <div
+            id="red-findings"
+            class="stack-list"
+          ></div>
+        </article>
+
+      </section>
+
+
+      <section class="card">
+        <div class="card-label">
+          ARTIFACT LEDGER
+        </div>
+
+        <div
+          id="artifacts"
+          class="artifact-list"
+        ></div>
+      </section>
+
+
+      <section class="card">
+        <div class="card-label">
+          LIVE EVENT STREAM
+        </div>
+
+        <div
+          id="events"
+          class="events"
+        ></div>
+      </section>
+
+    </main>
+
+  </div>
+
+  <script
+    type="module"
+    src="/app.js"
+  ></script>
+
+  <script type="module" src="/empire.js"></script>
+  <script src="/gold-rush.js"></script>
+  <script src="/prime.js"></script>
+</body>
+</html>

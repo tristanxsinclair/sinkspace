@@ -1,0 +1,1897 @@
+/* =========================================================
+   LAKE YANGE — DIGITAL ROBOT CITY
+   ========================================================= */
+
+#lake-yange-city {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  isolation: isolate;
+
+  background:
+    radial-gradient(
+      ellipse at 50% 45%,
+      rgba(52, 222, 224, .13),
+      transparent 26%
+    ),
+    radial-gradient(
+      ellipse at 18% 28%,
+      rgba(36, 111, 79, .28),
+      transparent 32%
+    ),
+    radial-gradient(
+      ellipse at 82% 72%,
+      rgba(34, 102, 78, .24),
+      transparent 32%
+    ),
+    linear-gradient(
+      145deg,
+      #102f2b 0%,
+      #0d2828 48%,
+      #06191e 100%
+    );
+
+  color: #e3fbff;
+}
+
+
+/* ---------- TERRAIN ---------- */
+
+.ly-city-terrain,
+.ly-city-grid {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+.ly-city-terrain {
+  z-index: 0;
+
+  background:
+    repeating-linear-gradient(
+      31deg,
+      transparent 0 64px,
+      rgba(135, 188, 163, .045) 65px 67px,
+      transparent 68px 120px
+    ),
+    repeating-linear-gradient(
+      116deg,
+      transparent 0 88px,
+      rgba(135, 188, 163, .035) 89px 91px,
+      transparent 92px 148px
+    );
+}
+
+.ly-city-grid {
+  z-index: 1;
+  opacity: .38;
+
+  background-image:
+    linear-gradient(
+      rgba(81, 225, 240, .035) 1px,
+      transparent 1px
+    ),
+    linear-gradient(
+      90deg,
+      rgba(81, 225, 240, .035) 1px,
+      transparent 1px
+    );
+
+  background-size: 32px 32px;
+
+  mask-image:
+    radial-gradient(
+      ellipse at center,
+      black 20%,
+      transparent 90%
+    );
+}
+
+
+/* ---------- WATER ---------- */
+
+.ly-water {
+  position: absolute;
+  z-index: 2;
+
+  border:
+    1px solid rgba(82, 225, 255, .27);
+
+  background:
+    radial-gradient(
+      ellipse at 35% 25%,
+      rgba(103, 235, 255, .30),
+      transparent 32%
+    ),
+    linear-gradient(
+      145deg,
+      #087086,
+      #06475d 55%,
+      #032c3e
+    );
+
+  box-shadow:
+    inset 0 0 55px rgba(76, 225, 255, .15),
+    0 15px 35px rgba(0, 0, 0, .40);
+}
+
+.ly-water-nw {
+  width: 21%;
+  height: 15%;
+  left: 4%;
+  top: 8%;
+
+  border-radius: 53% 47% 60% 40%;
+  transform: rotate(-8deg);
+}
+
+.ly-water-se {
+  width: 18%;
+  height: 14%;
+  right: 4%;
+  bottom: 5%;
+
+  border-radius: 61% 39% 46% 54%;
+  transform: rotate(11deg);
+}
+
+
+/* ---------- ROAD NETWORK ---------- */
+
+.ly-road {
+  position: absolute;
+  z-index: 4;
+
+  height: 11px;
+  border-radius: 999px;
+  transform-origin: center;
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(166, 190, 181, .30),
+      #17282b 36%,
+      #0c191c 48% 52%,
+      #17282b 64%,
+      rgba(166, 190, 181, .30)
+    );
+
+  box-shadow:
+    0 7px 14px rgba(0, 0, 0, .42),
+    0 0 2px rgba(95, 230, 244, .18);
+}
+
+.ly-road-a {
+  width: 78%;
+  left: 10%;
+  top: 34%;
+  transform: rotate(-4deg);
+}
+
+.ly-road-b {
+  width: 77%;
+  left: 11%;
+  top: 70%;
+  transform: rotate(6deg);
+}
+
+.ly-road-c {
+  width: 58%;
+  left: 22%;
+  top: 51%;
+  transform: rotate(72deg);
+}
+
+.ly-road-d {
+  width: 48%;
+  left: 42%;
+  top: 47%;
+  transform: rotate(-57deg);
+}
+
+.ly-road-e {
+  width: 44%;
+  left: 27%;
+  top: 53%;
+  transform: rotate(16deg);
+}
+
+
+/* ---------- URBAN BLOCKS ---------- */
+
+.ly-neighbourhood {
+  position: absolute;
+  z-index: 3;
+
+  width: 24%;
+  height: 20%;
+
+  opacity: .68;
+
+  border:
+    1px solid rgba(129, 188, 160, .08);
+
+  background:
+    repeating-linear-gradient(
+      28deg,
+      rgba(88, 126, 106, .22) 0 13px,
+      rgba(25, 57, 48, .12) 14px 18px,
+      transparent 19px 29px
+    );
+
+  clip-path:
+    polygon(
+      8% 0,
+      100% 12%,
+      91% 100%,
+      0 83%
+    );
+}
+
+.ly-neighbourhood-a {
+  left: 8%;
+  top: 39%;
+}
+
+.ly-neighbourhood-b {
+  right: 8%;
+  top: 20%;
+}
+
+.ly-neighbourhood-c {
+  left: 14%;
+  bottom: 8%;
+}
+
+.ly-neighbourhood-d {
+  right: 12%;
+  bottom: 18%;
+}
+
+
+/* ---------- CIVIC CORE ---------- */
+
+.ly-core-ring {
+  position: absolute;
+  z-index: 6;
+
+  left: 31%;
+  top: 20%;
+  width: 38%;
+  height: 59%;
+
+  border:
+    1px solid rgba(72, 229, 244, .17);
+
+  border-radius: 48%;
+
+  background:
+    radial-gradient(
+      ellipse at center,
+      rgba(52, 220, 235, .045),
+      transparent 67%
+    );
+
+  box-shadow:
+    inset 0 0 90px rgba(46, 215, 235, .035),
+    0 0 60px rgba(46, 215, 235, .035);
+
+  pointer-events: none;
+}
+
+.ly-core-ring span {
+  position: absolute;
+  left: 50%;
+  top: -10px;
+
+  transform: translateX(-50%);
+
+  padding: 5px 11px;
+
+  border:
+    1px solid rgba(85, 224, 239, .15);
+
+  background:
+    rgba(3, 17, 21, .92);
+
+  color:
+    rgba(153, 234, 244, .72);
+
+  font-size: 7px;
+  font-weight: 700;
+  letter-spacing: .24em;
+
+  white-space: nowrap;
+}
+
+
+/* ---------- LAYERS ---------- */
+
+#ly-building-layer,
+#ly-poi-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+
+#ly-building-layer {
+  z-index: 20;
+}
+
+#ly-poi-layer {
+  z-index: 12;
+}
+
+
+/* ---------- INSTITUTIONS ---------- */
+
+.ly-building {
+  position: absolute;
+
+  width: 82px;
+  height: 108px;
+
+  padding: 0;
+  border: 0;
+  outline: 0;
+
+  transform: translate(-50%, -50%);
+
+  background: transparent;
+  color: inherit;
+
+  pointer-events: auto;
+  cursor: pointer;
+
+  filter:
+    drop-shadow(
+      0 14px 12px rgba(0, 0, 0, .55)
+    );
+}
+
+.ly-building-glow {
+  position: absolute;
+
+  left: 50%;
+  bottom: 8px;
+
+  width: 88px;
+  height: 32px;
+
+  transform: translateX(-50%);
+
+  border-radius: 50%;
+
+  background:
+    radial-gradient(
+      ellipse,
+      rgba(62, 229, 242, .20),
+      transparent 70%
+    );
+}
+
+.ly-building-body {
+  position: absolute;
+
+  left: 50%;
+  bottom: 25px;
+
+  width: 42px;
+  height: 58px;
+
+  transform: translateX(-50%);
+
+  border:
+    1px solid rgba(112, 231, 244, .40);
+
+  clip-path:
+    polygon(
+      20% 0,
+      80% 0,
+      100% 100%,
+      0 100%
+    );
+
+  background:
+    linear-gradient(
+      90deg,
+      #122b33,
+      #34717a 48%,
+      #0e2730
+    );
+
+  box-shadow:
+    inset 0 0 20px rgba(68, 230, 247, .14),
+    0 13px 17px rgba(0, 0, 0, .58);
+
+  transition:
+    filter .16s ease,
+    transform .16s ease;
+}
+
+.ly-building:hover .ly-building-body {
+  filter: brightness(1.28);
+  transform:
+    translateX(-50%)
+    translateY(-3px);
+}
+
+
+/* Prime Tower */
+
+.ly-tower .ly-building-body {
+  width: 47px;
+  height: 81px;
+
+  background:
+    linear-gradient(
+      90deg,
+      #15323a,
+      #64dce4 48%,
+      #173039
+    );
+
+  clip-path:
+    polygon(
+      42% 0,
+      58% 0,
+      73% 24%,
+      86% 100%,
+      14% 100%,
+      27% 24%
+    );
+}
+
+
+/* Academy */
+
+.ly-academy .ly-building-body {
+  width: 62px;
+  height: 49px;
+
+  clip-path:
+    polygon(
+      50% 0,
+      100% 36%,
+      87% 100%,
+      13% 100%,
+      0 36%
+    );
+
+  background:
+    linear-gradient(
+      90deg,
+      #17353a,
+      #3f8587,
+      #17353a
+    );
+}
+
+
+/* Model Commons */
+
+.ly-spire .ly-building-body {
+  width: 25px;
+  height: 77px;
+
+  clip-path:
+    polygon(
+      50% 0,
+      100% 100%,
+      0 100%
+    );
+
+  background:
+    linear-gradient(
+      90deg,
+      #15404b,
+      #59e2ee,
+      #15404b
+    );
+}
+
+
+/* Rook */
+
+.ly-keep .ly-building-body {
+  width: 55px;
+  height: 49px;
+
+  clip-path:
+    polygon(
+      0 15%,
+      18% 15%,
+      18% 0,
+      38% 0,
+      38% 15%,
+      62% 15%,
+      62% 0,
+      82% 0,
+      82% 15%,
+      100% 15%,
+      100% 100%,
+      0 100%
+    );
+
+  background:
+    linear-gradient(
+      90deg,
+      #192b34,
+      #455566,
+      #192b34
+    );
+}
+
+
+/* World Gate */
+
+.ly-gate .ly-building-body {
+  width: 58px;
+  height: 75px;
+
+  border-radius:
+    32px 32px 7px 7px;
+
+  clip-path: none;
+
+  background:
+    radial-gradient(
+      ellipse,
+      #69e7ef 0%,
+      #2b7886 40%,
+      #173b45 62%,
+      #0d252c 70%
+    );
+
+  box-shadow:
+    inset 0 0 19px rgba(118, 241, 255, .42),
+    0 0 25px rgba(75, 222, 239, .18);
+}
+
+
+/* Forge */
+
+.ly-forge .ly-building-body {
+  background:
+    linear-gradient(
+      90deg,
+      #33251e,
+      #9a5b2f 50%,
+      #2d211c
+    );
+
+  border-color:
+    rgba(239, 155, 87, .42);
+}
+
+
+/* ---------- BUILDING LABEL ---------- */
+
+.ly-building-label {
+  position: absolute;
+
+  top: 88px;
+  left: 50%;
+
+  min-width: 108px;
+
+  transform: translateX(-50%);
+
+  padding: 5px 7px;
+
+  border:
+    1px solid rgba(83, 208, 223, .13);
+
+  background:
+    rgba(3, 15, 19, .94);
+
+  box-shadow:
+    0 6px 13px rgba(0, 0, 0, .55);
+
+  backdrop-filter: blur(6px);
+}
+
+.ly-building-label strong,
+.ly-building-label small {
+  display: block;
+  white-space: nowrap;
+}
+
+.ly-building-label strong {
+  color: #e3fbff;
+
+  font-size: 7px;
+  font-weight: 800;
+  letter-spacing: .13em;
+}
+
+.ly-building-label small {
+  margin-top: 2px;
+
+  color:
+    rgba(130, 211, 222, .65);
+
+  font-size: 5px;
+  letter-spacing: .11em;
+}
+
+
+/* ---------- LANDMARKS ---------- */
+
+.ly-poi {
+  position: absolute;
+
+  padding: 0;
+  border: 0;
+
+  transform: translate(-50%, -50%);
+
+  background: transparent;
+  color: inherit;
+
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+.ly-poi-dot {
+  display: block;
+
+  width: 14px;
+  height: 14px;
+
+  transform: rotate(45deg);
+
+  border:
+    1px solid rgba(128, 255, 184, .78);
+
+  background:
+    linear-gradient(
+      145deg,
+      #255a46,
+      #102d28
+    );
+
+  box-shadow:
+    0 0 17px rgba(93, 247, 168, .25);
+
+  transition:
+    transform .16s ease,
+    box-shadow .16s ease;
+}
+
+.ly-poi:hover .ly-poi-dot {
+  transform:
+    rotate(45deg)
+    scale(1.25);
+
+  box-shadow:
+    0 0 25px rgba(93, 247, 168, .42);
+}
+
+.ly-poi-label {
+  position: absolute;
+
+  left: 17px;
+  top: 10px;
+
+  padding: 5px 7px;
+
+  border-left:
+    1px solid rgba(125, 230, 170, .45);
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(4, 19, 20, .92),
+      rgba(4, 19, 20, .55),
+      transparent
+    );
+
+  text-align: left;
+}
+
+.ly-poi-label strong,
+.ly-poi-label small {
+  display: block;
+  white-space: nowrap;
+}
+
+.ly-poi-label strong {
+  color: #e3f9e9;
+  font-size: 7px;
+  letter-spacing: .08em;
+}
+
+.ly-poi-label small {
+  margin-top: 2px;
+
+  color:
+    rgba(171, 211, 184, .66);
+
+  font-size: 5px;
+  letter-spacing: .08em;
+}
+
+
+/* ---------- CITY IDENTITY ---------- */
+
+.ly-city-title {
+  position: absolute;
+
+  left: 28px;
+  top: 24px;
+
+  z-index: 40;
+
+  padding: 10px 14px;
+
+  border-left:
+    2px solid #4be1ef;
+
+  background:
+    linear-gradient(
+      90deg,
+      rgba(3, 17, 21, .91),
+      rgba(3, 17, 21, .30),
+      transparent
+    );
+}
+
+.ly-city-title strong,
+.ly-city-title span {
+  display: block;
+}
+
+.ly-city-title strong {
+  font-size: 14px;
+  letter-spacing: .22em;
+}
+
+.ly-city-title span {
+  margin-top: 4px;
+
+  color:
+    rgba(145, 218, 228, .68);
+
+  font-size: 6px;
+  letter-spacing: .20em;
+}
+
+.ly-map-status {
+  position: absolute;
+
+  right: 25px;
+  bottom: 20px;
+
+  z-index: 40;
+
+  padding: 6px 9px;
+
+  border:
+    1px solid rgba(77, 214, 228, .14);
+
+  background:
+    rgba(3, 16, 20, .88);
+
+  color:
+    rgba(130, 211, 220, .67);
+
+  font-size: 6px;
+  letter-spacing: .16em;
+}
+
+
+/* ---------- DEPTH / ATMOSPHERE ---------- */
+
+#lake-yange-city::after {
+  content: "";
+
+  position: absolute;
+  inset: 0;
+
+  z-index: 50;
+
+  pointer-events: none;
+
+  box-shadow:
+    inset 0 0 120px rgba(0, 0, 0, .36);
+
+  background:
+    linear-gradient(
+      180deg,
+      rgba(73, 222, 232, .018),
+      transparent 22%,
+      transparent 78%,
+      rgba(0, 0, 0, .12)
+    );
+}
+
+
+/* =========================================================
+   LAKE YANGE CITY V2
+   HIGH-DENSITY ROBOT URBANISM
+   Decorative urban fabric has no operational meaning.
+   ========================================================= */
+
+#ly-urban-fabric,
+.ly-urban-fabric {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  pointer-events: none;
+  overflow: hidden;
+}
+
+.ly-fabric-building {
+  position: absolute;
+  width: var(--fw);
+  height: var(--fh);
+  transform: translate(-50%, -50%) rotate(var(--fr));
+  filter: drop-shadow(4px 7px 3px rgba(0,0,0,.58));
+}
+
+.ly-fabric-core {
+  position: absolute;
+  inset: 1px;
+  border: 1px solid rgba(94,190,180,.18);
+  background:
+    linear-gradient(135deg,#28534c 0%,#143633 48%,#071c20 100%);
+}
+
+.ly-fabric-roof {
+  position: absolute;
+  z-index: 2;
+  left: 1px;
+  right: 1px;
+  top: 0;
+  height: 3px;
+  background: rgba(111,193,180,.48);
+}
+
+.ly-fabric-light {
+  position: absolute;
+  z-index: 3;
+  right: 3px;
+  bottom: 3px;
+  width: 2px;
+  height: 2px;
+  background: #65e8dd;
+  box-shadow: 0 0 5px rgba(101,232,221,.45);
+}
+
+.ly-fabric-building.tall .ly-fabric-core {
+  background:
+    linear-gradient(90deg,#15383b,#337176 48%,#09252a);
+}
+
+
+/* INFRASTRUCTURE */
+
+#ly-infrastructure,
+.ly-infrastructure {
+  position: absolute;
+  inset: 0;
+  z-index: 8;
+  pointer-events: none;
+}
+
+.ly-infra-node {
+  position: absolute;
+  width: 18px;
+  height: 18px;
+  transform: translate(-50%,-50%);
+}
+
+.ly-infra-node span {
+  position: absolute;
+  inset: 5px;
+  border: 1px solid rgba(72,222,230,.48);
+  border-radius: 50%;
+  background: #143c3f;
+  box-shadow: 0 0 10px rgba(72,222,230,.30);
+}
+
+.ly-infra-node i {
+  position: absolute;
+  left: 13px;
+  top: 9px;
+  color: rgba(91,192,198,.45);
+  font: normal 4px/1 monospace;
+}
+
+
+/* MOORHEN OVAL */
+
+.ly-moorhen-complex {
+  position: absolute;
+  left: 8%;
+  top: 16%;
+  width: 20%;
+  height: 15%;
+  z-index: 11;
+  transform: rotate(-7deg);
+}
+
+.ly-oval-field {
+  position: absolute;
+  inset: 0;
+  overflow: hidden;
+  border: 3px solid rgba(187,226,169,.58);
+  border-radius: 50%;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      #376849 0 16px,
+      #2b573e 17px 32px
+    );
+  box-shadow:
+    inset 0 0 28px rgba(5,26,17,.65),
+    0 12px 25px rgba(0,0,0,.42);
+}
+
+.ly-oval-field::after {
+  content: "";
+  position: absolute;
+  inset: 8%;
+  border: 1px solid rgba(220,239,211,.28);
+  border-radius: 50%;
+}
+
+.ly-oval-centre {
+  position: absolute;
+  left: 40%;
+  top: 34%;
+  width: 20%;
+  height: 32%;
+  border: 1px solid rgba(225,240,215,.38);
+  border-radius: 50%;
+}
+
+.ly-goal {
+  position: absolute;
+  left: 50%;
+  width: 1px;
+  height: 15px;
+  background: rgba(230,243,220,.7);
+}
+
+.ly-goal.north { top: -4px; }
+.ly-goal.south { bottom: -4px; }
+
+.ly-oval-stand {
+  position: absolute;
+  right: 10%;
+  bottom: -9px;
+  width: 37%;
+  height: 10px;
+  transform: skewX(-22deg);
+  background: linear-gradient(#3a5254,#101f22);
+  box-shadow: 0 5px 8px rgba(0,0,0,.58);
+}
+
+.ly-landmark-caption {
+  position: absolute;
+  left: 102%;
+  top: 43%;
+  min-width: 92px;
+  padding: 5px 8px;
+  transform: rotate(7deg);
+  border-left: 1px solid rgba(111,221,166,.55);
+  background: rgba(2,15,17,.94);
+}
+
+.ly-landmark-caption strong,
+.ly-landmark-caption span {
+  display: block;
+  white-space: nowrap;
+}
+
+.ly-landmark-caption strong {
+  font-size: 7px;
+  letter-spacing: .1em;
+}
+
+.ly-landmark-caption span {
+  margin-top: 2px;
+  color: rgba(159,215,181,.68);
+  font-size: 4px;
+}
+
+
+/* PARKLAND */
+
+.ly-park-district {
+  position: absolute;
+  z-index: 7;
+  overflow: hidden;
+  border: 1px solid rgba(81,163,106,.22);
+  background:
+    radial-gradient(
+      ellipse,
+      rgba(59,128,75,.56),
+      rgba(20,62,42,.33)
+    );
+  box-shadow: inset 0 0 24px rgba(7,31,20,.48);
+}
+
+.ly-park-district.levi {
+  left: 18%;
+  top: 50%;
+  width: 16%;
+  height: 13%;
+  border-radius: 44% 30% 47% 35%;
+}
+
+.ly-park-district.ronsard {
+  right: 13%;
+  top: 20%;
+  width: 15%;
+  height: 16%;
+  border-radius: 35% 51% 32% 48%;
+}
+
+.ly-park-district > span {
+  position: absolute;
+  left: 8px;
+  bottom: 7px;
+  color: rgba(191,231,196,.70);
+  font-size: 5px;
+  font-weight: 800;
+  letter-spacing: .14em;
+}
+
+.ly-park-tree {
+  position: absolute;
+  left: var(--tx);
+  top: var(--ty);
+  width: 6px;
+  height: 11px;
+  transform: translate(-50%,-50%);
+  background: #347856;
+  clip-path:
+    polygon(
+      50% 0,
+      100% 72%,
+      66% 72%,
+      66% 100%,
+      34% 100%,
+      34% 72%,
+      0 72%
+    );
+  filter: drop-shadow(2px 3px 2px rgba(0,0,0,.42));
+}
+
+.ly-park-path {
+  position: absolute;
+  height: 2px;
+  background: rgba(179,192,153,.28);
+}
+
+.ly-park-path.one {
+  width: 120%;
+  left: -10%;
+  top: 45%;
+  transform: rotate(14deg);
+}
+
+.ly-park-path.two {
+  width: 80%;
+  left: 10%;
+  top: 55%;
+  transform: rotate(-39deg);
+}
+
+
+/* COMMERCIAL PRECINCT */
+
+.ly-commercial-precinct {
+  position: absolute;
+  right: 7%;
+  bottom: 18%;
+  width: 27%;
+  height: 19%;
+  z-index: 13;
+  border: 1px solid rgba(79,181,184,.18);
+  background: rgba(9,35,35,.50);
+  box-shadow: 0 10px 25px rgba(0,0,0,.28);
+  transform: rotate(3deg);
+}
+
+.ly-commercial-road {
+  position: absolute;
+  left: -5%;
+  right: -5%;
+  top: 49%;
+  height: 8px;
+  background:
+    linear-gradient(
+      #33484a,
+      #0c1719 45%,
+      #0c1719 55%,
+      #33484a
+    );
+}
+
+.ly-shop {
+  position: absolute;
+  width: 27%;
+  height: 31%;
+  box-sizing: border-box;
+  padding: 8px;
+  border: 1px solid rgba(74,183,187,.22);
+  background: linear-gradient(145deg,#1b4848,#092428);
+  box-shadow: 5px 8px 8px rgba(0,0,0,.48);
+}
+
+.ly-shop.xiga {
+  left: 3%;
+  top: 7%;
+}
+
+.ly-shop.cookhouse {
+  left: 36.5%;
+  top: 7%;
+}
+
+.ly-shop.chickens {
+  right: 3%;
+  top: 7%;
+}
+
+.ly-shop-roof {
+  position: absolute;
+  left: -3px;
+  right: -3px;
+  top: -4px;
+  height: 7px;
+  transform: skewX(-19deg);
+  background: #3d6c6e;
+}
+
+.ly-shop strong,
+.ly-shop span {
+  display: block;
+}
+
+.ly-shop strong {
+  font-size: 6px;
+  letter-spacing: .05em;
+}
+
+.ly-shop span {
+  margin-top: 4px;
+  color: rgba(139,214,216,.62);
+  font-size: 4px;
+}
+
+.ly-carpark {
+  position: absolute;
+  left: 5%;
+  right: 5%;
+  bottom: 4%;
+  height: 34%;
+  background:
+    repeating-linear-gradient(
+      90deg,
+      transparent 0 17px,
+      rgba(171,190,184,.15) 18px 19px
+    );
+}
+
+.ly-carpark i {
+  position: absolute;
+  left: calc(4% + var(--car) * 7%);
+  top: calc(6px + (var(--car) % 2) * 13px);
+  width: 8px;
+  height: 4px;
+  border-radius: 2px;
+  background: rgba(91,139,139,.62);
+}
+
+
+/* PRIME CIVIC PLAZA */
+
+.ly-prime-plaza {
+  position: absolute;
+  left: 50%;
+  top: 43%;
+  width: 29%;
+  aspect-ratio: 1;
+  z-index: 9;
+  transform: translate(-50%,-50%);
+  pointer-events: none;
+}
+
+.ly-plaza-ring {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%,-50%);
+  border: 1px solid rgba(67,219,231,.16);
+  border-radius: 50%;
+}
+
+.ly-plaza-ring.outer {
+  width: 100%;
+  height: 100%;
+}
+
+.ly-plaza-ring.middle {
+  width: 70%;
+  height: 70%;
+}
+
+.ly-plaza-ring.inner {
+  width: 39%;
+  height: 39%;
+  border-color: rgba(83,230,240,.30);
+  box-shadow: inset 0 0 35px rgba(55,211,222,.09);
+}
+
+.ly-plaza-axis {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 48%;
+  height: 3px;
+  transform-origin: 0 50%;
+  background:
+    linear-gradient(
+      90deg,
+      rgba(62,218,227,.25),
+      transparent
+    );
+}
+
+.ly-plaza-axis.north { transform: rotate(-90deg); }
+.ly-plaza-axis.east  { transform: rotate(0deg); }
+.ly-plaza-axis.south { transform: rotate(90deg); }
+.ly-plaza-axis.west  { transform: rotate(180deg); }
+
+.ly-prime-beacon {
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  width: 7px;
+  height: 7px;
+  transform: translate(-50%,-50%);
+  border-radius: 50%;
+  background: #81f5ff;
+  box-shadow:
+    0 0 10px #65dfea,
+    0 0 30px rgba(101,223,234,.50);
+}
+
+
+/* PRIME TOWER */
+
+.ly-prime-megastructure {
+  width: 150px !important;
+  height: 180px !important;
+  z-index: 35 !important;
+}
+
+.ly-prime-megastructure .ly-building-body {
+  width: 98px !important;
+  height: 130px !important;
+  overflow: visible;
+  clip-path: none !important;
+  border: 0 !important;
+  background: transparent !important;
+  box-shadow: none !important;
+}
+
+.ly-prime-spine {
+  position: absolute;
+  left: 44px;
+  bottom: 15px;
+  width: 10px;
+  height: 102px;
+  background:
+    linear-gradient(
+      90deg,
+      #123941,
+      #8cf5fc 48%,
+      #16454c
+    );
+  clip-path:
+    polygon(
+      42% 0,
+      58% 0,
+      100% 100%,
+      0 100%
+    );
+  filter: drop-shadow(0 0 9px rgba(98,232,243,.36));
+}
+
+.ly-prime-wing {
+  position: absolute;
+  bottom: 17px;
+  width: 45px;
+  height: 69px;
+  border: 1px solid rgba(89,214,226,.38);
+  background: linear-gradient(145deg,#1d555a,#09272e);
+}
+
+.ly-prime-wing.left {
+  left: 2px;
+  clip-path:
+    polygon(
+      100% 0,
+      100% 100%,
+      0 100%,
+      30% 32%
+    );
+}
+
+.ly-prime-wing.right {
+  right: 2px;
+  clip-path:
+    polygon(
+      0 0,
+      70% 32%,
+      100% 100%,
+      0 100%
+    );
+}
+
+.ly-prime-chamber {
+  position: absolute;
+  left: 24px;
+  bottom: 14px;
+  width: 50px;
+  height: 31px;
+  border: 1px solid rgba(91,229,239,.46);
+  background: linear-gradient(#286a6e,#102c32);
+  clip-path:
+    polygon(
+      15% 0,
+      85% 0,
+      100% 100%,
+      0 100%
+    );
+}
+
+.ly-prime-crown {
+  position: absolute;
+  left: 50%;
+  top: 0;
+  width: 56px;
+  height: 26px;
+  transform: translateX(-50%);
+}
+
+.ly-prime-crown i {
+  position: absolute;
+  bottom: 0;
+  width: 3px;
+  background: #75edf5;
+  box-shadow: 0 0 8px rgba(117,237,245,.65);
+}
+
+.ly-prime-crown i:nth-child(1) {
+  left: 8px;
+  height: 14px;
+}
+
+.ly-prime-crown i:nth-child(2) {
+  left: 27px;
+  height: 26px;
+}
+
+.ly-prime-crown i:nth-child(3) {
+  right: 8px;
+  height: 14px;
+}
+
+.ly-prime-entrance {
+  position: absolute;
+  left: 42px;
+  bottom: 10px;
+  width: 14px;
+  height: 19px;
+  border-radius: 8px 8px 0 0;
+  background: linear-gradient(#7be9ef,#1c6670);
+  box-shadow: 0 0 13px rgba(87,224,235,.34);
+}
+
+.ly-prime-megastructure .ly-building-label {
+  top: 150px !important;
+  min-width: 132px;
+}
+
+
+/* INSTITUTIONAL DISTINCTION */
+
+.ly-academy-campus .ly-building-glow {
+  width: 140px;
+  height: 52px;
+}
+
+.ly-forge-complex .ly-building-glow {
+  width: 130px;
+  background:
+    radial-gradient(
+      ellipse,
+      rgba(232,130,65,.27),
+      transparent 70%
+    );
+}
+
+.ly-world-gate-complex .ly-building-glow {
+  width: 135px;
+  height: 58px;
+}
+
+
+/* ATMOSPHERE */
+
+.lake-yange-city-v2::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  pointer-events: none;
+  background:
+    radial-gradient(
+      ellipse at 50% 44%,
+      rgba(68,222,230,.06),
+      transparent 24%
+    ),
+    linear-gradient(
+      110deg,
+      transparent 20%,
+      rgba(84,225,233,.025) 48%,
+      transparent 72%
+    );
+}
+
+
+/* =========================================================
+   LAKE YANGE ACADEMY OS
+   ========================================================= */
+
+.academy-console {
+  position: fixed;
+  inset: 0;
+  z-index: 1000;
+
+  display: none;
+  align-items: center;
+  justify-content: center;
+
+  padding: 38px;
+
+  background:
+    rgba(1, 8, 10, .82);
+
+  backdrop-filter:
+    blur(12px);
+}
+
+.academy-console.open {
+  display: flex;
+}
+
+.academy-shell {
+  width: min(1100px, 94vw);
+  height: min(720px, 88vh);
+
+  overflow: hidden;
+
+  border:
+    1px solid
+    rgba(86, 225, 216, .28);
+
+  background:
+    linear-gradient(
+      145deg,
+      rgba(8, 31, 34, .98),
+      rgba(3, 15, 19, .99)
+    );
+
+  box-shadow:
+    0 35px 100px
+    rgba(0, 0, 0, .7),
+    0 0 60px
+    rgba(61, 216, 207, .07);
+}
+
+.academy-header {
+  display: grid;
+  grid-template-columns:
+    1fr auto auto;
+  align-items: center;
+  gap: 22px;
+
+  min-height: 76px;
+  padding: 0 25px;
+
+  border-bottom:
+    1px solid
+    rgba(76, 192, 188, .16);
+}
+
+.academy-kicker {
+  color:
+    rgba(106, 228, 217, .64);
+
+  font-size: 9px;
+  letter-spacing: .18em;
+}
+
+.academy-header h2 {
+  margin: 4px 0 0;
+
+  color: #d8efea;
+
+  font-size: 20px;
+  letter-spacing: .04em;
+}
+
+.academy-locality {
+  color:
+    rgba(115, 220, 193, .64);
+
+  font:
+    8px monospace;
+
+  letter-spacing: .12em;
+}
+
+.academy-close {
+  width: 34px;
+  height: 34px;
+
+  border:
+    1px solid
+    rgba(93, 211, 207, .22);
+
+  background:
+    rgba(10, 44, 47, .65);
+
+  color: #9ddbd5;
+
+  cursor: pointer;
+}
+
+.academy-summary {
+  display: grid;
+  grid-template-columns:
+    repeat(4, 1fr);
+
+  min-height: 78px;
+
+  border-bottom:
+    1px solid
+    rgba(76, 192, 188, .12);
+}
+
+.academy-summary > div {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+
+  padding: 0 24px;
+
+  border-right:
+    1px solid
+    rgba(76, 192, 188, .09);
+}
+
+.academy-summary strong {
+  color: #b9ece4;
+  font-size: 22px;
+}
+
+.academy-summary span {
+  margin-top: 4px;
+
+  color:
+    rgba(128, 187, 180, .55);
+
+  font-size: 7px;
+  letter-spacing: .15em;
+}
+
+.academy-layout {
+  display: grid;
+  grid-template-columns:
+    290px 1fr;
+
+  height:
+    calc(100% - 155px);
+}
+
+.academy-students {
+  overflow-y: auto;
+
+  padding: 14px;
+
+  border-right:
+    1px solid
+    rgba(76, 192, 188, .13);
+}
+
+.academy-student {
+  display: grid;
+  grid-template-columns:
+    35px 1fr;
+  gap: 11px;
+  align-items: center;
+
+  width: 100%;
+
+  margin-bottom: 6px;
+  padding: 10px;
+
+  border:
+    1px solid transparent;
+
+  background:
+    rgba(10, 38, 41, .42);
+
+  color: #b9d7d2;
+
+  text-align: left;
+
+  cursor: pointer;
+}
+
+.academy-student:hover,
+.academy-student.active {
+  border-color:
+    rgba(91, 226, 214, .30);
+
+  background:
+    rgba(20, 67, 68, .58);
+}
+
+.academy-student-symbol {
+  display: grid;
+  place-items: center;
+
+  width: 32px;
+  height: 32px;
+
+  border:
+    1px solid
+    rgba(89, 213, 203, .25);
+
+  background:
+    rgba(23, 74, 72, .6);
+
+  color: #a8e5dc;
+
+  font-size: 12px;
+}
+
+.academy-student strong,
+.academy-student small {
+  display: block;
+}
+
+.academy-student strong {
+  font-size: 10px;
+  letter-spacing: .06em;
+}
+
+.academy-student small {
+  margin-top: 4px;
+
+  color:
+    rgba(142, 190, 183, .55);
+
+  font-size: 6px;
+}
+
+.academy-student-detail {
+  overflow-y: auto;
+  padding: 28px;
+}
+
+.academy-profile-head {
+  display: flex;
+  gap: 16px;
+  align-items: center;
+}
+
+.academy-avatar {
+  display: grid;
+  place-items: center;
+
+  width: 62px;
+  height: 62px;
+
+  border:
+    1px solid
+    rgba(86, 229, 217, .35);
+
+  background:
+    radial-gradient(
+      circle,
+      #246d68,
+      #0b2e31
+    );
+
+  color: #c9f5ed;
+
+  font-size: 22px;
+
+  box-shadow:
+    0 0 25px
+    rgba(63, 219, 207, .12);
+}
+
+.academy-id {
+  color:
+    rgba(113, 205, 197, .55);
+
+  font:
+    8px monospace;
+}
+
+.academy-profile-head h3 {
+  margin: 3px 0;
+  color: #d8eeea;
+  font-size: 23px;
+}
+
+.academy-enrolment {
+  color: #74cfae;
+  font-size: 7px;
+  letter-spacing: .14em;
+}
+
+.academy-metrics {
+  display: grid;
+  grid-template-columns:
+    repeat(4, 1fr);
+  gap: 8px;
+
+  margin: 24px 0;
+}
+
+.academy-metrics > div {
+  padding: 13px;
+
+  border:
+    1px solid
+    rgba(83, 189, 184, .12);
+
+  background:
+    rgba(9, 35, 38, .52);
+}
+
+.academy-metrics span,
+.academy-metrics strong {
+  display: block;
+}
+
+.academy-metrics span {
+  color:
+    rgba(134, 185, 180, .55);
+
+  font-size: 6px;
+  letter-spacing: .1em;
+}
+
+.academy-metrics strong {
+  margin-top: 7px;
+  color: #bce7df;
+  font-size: 17px;
+}
+
+.academy-record-section {
+  margin-top: 20px;
+}
+
+.academy-record-section h4 {
+  color:
+    rgba(108, 218, 208, .68);
+
+  font-size: 8px;
+  letter-spacing: .16em;
+}
+
+.academy-record {
+  position: relative;
+
+  margin-top: 8px;
+  padding: 13px;
+
+  border-left:
+    2px solid
+    rgba(82, 214, 202, .38);
+
+  background:
+    rgba(8, 30, 33, .64);
+}
+
+.academy-record strong {
+  color: #c6e9e3;
+  font-size: 9px;
+}
+
+.academy-record > span {
+  margin-left: 8px;
+  color:
+    rgba(134, 187, 180, .55);
+  font-size: 7px;
+}
+
+.academy-record p {
+  max-width: 700px;
+  margin: 9px 0 0;
+
+  color:
+    rgba(179, 207, 201, .68);
+
+  font-size: 9px;
+  line-height: 1.55;
+}
+
+.academy-status {
+  position: absolute;
+  right: 12px;
+  top: 12px;
+
+  color: #8ed7b9;
+
+  font:
+    normal 7px monospace;
+}
+
+.academy-record-grid {
+  display: grid;
+  grid-template-columns:
+    repeat(5, 1fr);
+  gap: 6px;
+}
+
+.academy-record-grid span {
+  padding: 10px;
+
+  background:
+    rgba(11, 39, 41, .5);
+
+  color:
+    rgba(143, 191, 185, .6);
+
+  font-size: 7px;
+}
+
+.academy-record-grid b {
+  display: block;
+
+  margin-top: 5px;
+
+  color: #c4e8e1;
+
+  font-size: 13px;
+}
+
+.academy-authority {
+  margin-top: 22px;
+  padding-top: 12px;
+
+  border-top:
+    1px solid
+    rgba(79, 183, 178, .11);
+
+  color:
+    rgba(105, 191, 168, .5);
+
+  font:
+    7px monospace;
+
+  letter-spacing: .13em;
+}
+
+.academy-empty,
+.academy-error {
+  color:
+    rgba(159, 188, 183, .55);
+
+  font-size: 9px;
+}
