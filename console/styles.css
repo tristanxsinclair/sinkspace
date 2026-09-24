@@ -16,3 +16,71 @@ main{max-width:1480px;min-height:calc(100vh - 135px);margin:auto;padding:50px 4.
 .drawer-link{display:flex;width:100%;align-items:center;justify-content:space-between;gap:15px;padding:13px 0;border:0;border-bottom:1px solid var(--line);background:transparent;color:var(--text);cursor:pointer;text-align:left}.drawer-link:hover strong{color:var(--cyan)}.drawer-link strong,.drawer-link small{display:block}.drawer-link strong{font-size:12px;font-weight:500}.drawer-link small{margin-top:5px;color:var(--muted);font:9px 'DM Mono',monospace;text-transform:uppercase}.drawer-link b{color:var(--cyan);font-weight:400}.drawer-subhead{display:block;margin-top:22px}
 .cycle-panel{margin-bottom:16px;padding:24px;background:rgba(12,35,45,.64)}.cycle-grid{display:grid;grid-template-columns:repeat(4,1fr);gap:12px;margin:18px 0}.cycle-grid>div{min-width:0;padding:14px;border:1px solid var(--line)}.cycle-grid strong{display:block;overflow-wrap:anywhere;margin-top:8px;font-size:12px}.cycle-panel .primary-button{background:var(--cyan2);color:var(--ink)}
 .prime-command-panel{display:grid;grid-template-columns:1fr minmax(320px,.9fr);gap:20px;align-items:center;margin-bottom:16px;padding:24px;border-color:rgba(141,226,220,.26);background:linear-gradient(105deg,rgba(18,54,63,.68),rgba(11,31,41,.62))}.prime-command-panel h2{margin:8px 0;font:500 21px 'Space Grotesk',sans-serif}.prime-command-form{display:flex;gap:8px}.prime-command-form input{min-width:0;flex:1;padding:12px;border:1px solid var(--line-strong);outline:0;background:rgba(5,18,26,.55);color:var(--text)}.prime-command-form input:focus{border-color:var(--cyan)}.prime-command-result{grid-column:1/-1;display:grid;gap:5px;color:var(--cyan);font:11px 'DM Mono',monospace}.prime-command-result span{color:var(--text);font:12px Manrope,sans-serif}
+
+/* Academy Student Cards */
+.student-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:12px}
+.student-card{position:relative;padding:18px;border:1px solid var(--line);background:rgba(13,35,45,.52);cursor:pointer;text-align:left;transition:.23s}
+.student-card:hover{border-color:var(--cyan2);background:rgba(18,54,63,.65);transform:translateY(-2px)}
+.student-card-header{display:flex;align-items:center;gap:14px}
+.student-sigil{display:grid;width:36px;height:36px;flex:0 0 36px;place-items:center;border:1px solid rgba(223,182,95,.4);color:var(--gold);font-size:19px}
+.student-name{margin-top:0;font-size:13px;font-weight:600}
+.student-id{color:var(--muted);font:10px 'DM Mono',monospace}
+.student-status{margin-left:auto;padding:3px 6px;border:1px solid var(--line);color:var(--cyan);font:8px 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+.student-status.not-enrolled{border-color:rgba(239,140,129,.3);color:var(--red)}
+.student-stats{display:flex;align-items:center;gap:8px;margin:14px 0 0;color:var(--muted);font:9px 'DM Mono',monospace;letter-spacing:.08em}.student-stats .separator{color:var(--line)}
+.student-stats .score{margin-left:auto;color:var(--gold2)}
+
+/* Progress Bars */
+.progress-bar-container{margin-top:14px}
+.progress-bar-label{display:block;margin-bottom:8px;color:var(--muted);font:9px 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+.progress-bar-track{height:8px;background:rgba(141,226,220,.12);border-radius:4px;overflow:hidden}
+.progress-bar-fill{height:100%;background:linear-gradient(90deg,var(--cyan2),var(--cyan));border-radius:4px;transition:.3s}
+.progress-bar-fill[data-progress="0"]{background:var(--line)}
+
+/* Assignment Cards */
+.assignment-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:12px}
+.assignment-card{padding:16px;border:1px solid var(--line);background:rgba(12,35,45,.48);text-align:left}
+.assignment-card.assigned{background:rgba(18,54,63,.6)}
+.assignment-card.submitted{background:rgba(141,226,220,.08)}
+.assignment-card.graded{background:rgba(15,50,58,.6);border-color:rgba(79,201,192,.3)}
+.assignment-card.failed{background:rgba(50,24,30,.3);border-color:rgba(239,140,129,.3)}
+.assignment-header{display:flex;align-items:center;gap:11px;margin-bottom:11px}
+.assignment-icon{color:var(--cyan2);font-size:16px}
+.assignment-card strong{display:block;font-size:11px;line-height:1.3}
+.assignment-card .mono{color:var(--muted);font:9px 'DM Mono',monospace}
+.assignment-body{margin-bottom:12px}
+.assignment-body p{margin:0;color:#abc0bf;font-size:11px;line-height:1.5}
+.assignment-footer{display:flex;align-items:center;gap:10px;padding-top:12px;border-top:1px solid var(--line)}
+.assignment-footer .student-id{color:var(--muted);font:9px 'DM Mono',monospace}
+.assignment-footer .status{padding:4px 7px;border:1px solid var(--line);color:var(--text);font:8px 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+.assignment-footer .status.assigned{border-color:rgba(141,226,220,.2);color:var(--cyan)}
+.assignment-footer .status.submitted{border-color:rgba(223,182,95,.3);color:var(--gold)}
+.assignment-footer .status.graded{border-color:rgba(79,201,192,.3);color:var(--cyan2)}
+.assignment-footer .status.failed{border-color:rgba(239,140,129,.3);color:var(--red)}
+.assignment-footer .grade{padding:3px 8px;border-radius:3px;color:var(--text);font:8px 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase;font-weight:600}
+.assignment-footer .grade.pass{background:rgba(79,201,192,.2);color:var(--cyan2)}
+.assignment-footer .grade.fail{background:rgba(239,140,129,.15);color:var(--red)}
+
+/* Academy Overview Panel */
+.academy-overview-panel{padding:27px}
+.academy-overview-panel h3{margin:7px 0;font:500 21px 'Space Grotesk',sans-serif}
+.academy-status-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:18px;margin-top:20px}
+.academy-status-grid>div{padding:14px;border:1px solid var(--line)}
+.academy-status-grid span{display:block;color:var(--muted);font:10px 'DM Mono',monospace;letter-spacing:.08em;text-transform:uppercase}
+.academy-status-grid strong{display:block;margin-top:8px;font-size:13px;color:var(--text)}
+
+/* Students Panel */
+.students-panel{margin-bottom:16px;padding:27px}
+
+/* Assignments Panel */
+.assignments-panel{padding:27px}
+
+/* Prime Command Result Styles */
+.prime-command-result{grid-column:1/-1;display:grid;gap:5px;min-height:20px;padding:12px 0;margin-top:12px;border-top:1px solid var(--line);color:var(--cyan);font:11px 'DM Mono',monospace}
+.prime-command-result.error{color:var(--red)}
+.prime-command-result .status-completed{color:var(--cyan2)}
+.prime-command-result .status-failed{color:var(--red)}
+.prime-command-result .status-unsupported{color:var(--gold2)}
+.prime-command-result .error-message{color:var(--red);font:12px Manrope,sans-serif}
+.prime-command-result .warning-message{color:var(--gold2);font:12px Manrope,sans-serif}
+.prime-command-result span{color:var(--text);font:12px Manrope,sans-serif}
