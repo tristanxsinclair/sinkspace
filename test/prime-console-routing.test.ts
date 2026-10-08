@@ -86,3 +86,15 @@ test(
     );
   }
 );
+
+test(
+  'generic natural-language requests containing tell me are not mistaken for run history',
+  () => {
+    assert.equal(
+      looksLikePrimeRunQuestion(
+        'Could you inspect this project and tell me what capabilities it has?'
+      ),
+      false
+    );
+  }
+);

@@ -1,10 +1,12 @@
 import { runPersistedAcademyCycle, type AcademyCycleReceipt } from './academy-runner.js';
+import { runAcademyTopicTraining, type AcademyFocusReceipt } from './academy-focus.js';
 import { loadAcademyState } from './academy-store.js';
 import { bootstrapLakeYange } from './lake-yange-bootstrap.js';
 import { loadGraduationState } from './academy-graduation-store.js';
 import { type AcademyGraduationState } from './academy-graduation-types.js';
 
 export type PrimeAgentCommand =
+  | { kind: 'ACADEMY_TRAIN'; topics: string[] }
   | { kind: 'ACADEMY_CYCLE'; dryRun: boolean }
   | { kind: 'ACADEMY_START'; agentId?: string }
   | { kind: 'ACADEMY_PROGRESS'; agentId?: string }
@@ -17,44 +19,67 @@ export type PrimeAgentCommandResult = {
   status: 'COMPLETED' | 'UNSUPPORTED' | 'REQUIRES_APPROVAL' | 'FAILED';
   reply: string;
   command: PrimeAgentCommand;
-  academy?: AcademyCycleReceipt | Record<string, unknown>;
+  academy?: AcademyCycleReceipt | AcademyFocusReceipt | Record<string, unknown>;
   progress?: Record<string, unknown>;
 };
 
+function findAgentTarget(input: string): string | undefined {
+  const match = input.match(/\b(?:agent|citizen|student|for)\s+([a-z0-9_-]+)/i)
+    ?? input.match(/\b(?:how is|how's|progress for|status of|check on)\s+(?:the\s+)?([a-z0-9_-]+)/i);
+  const candidate = match?.[1];
+  if (!candidate || ['a', 'an', 'the', 'its', 'their', 'next', 'another', 'academy', 'learning', 'system', 'everyone'].includes(candidate.toLowerCase())) {
+    return undefined;
+  }
+  return candidate;
+}
+
+export function parseTrainingTopics(input: string): string[] | null {
+  const match = input.match(/\b(?:train|teach|educate|focus|upskill)\b[^]*?\b(?:academy|students|agents|citizens)?\s*\b(?:for|on|in|about|toward|towards)\b\s*([^]+)$/i);
+  if (!match || !/\bacademy|students|agents|citizens\b/i.test(input)) return null;
+  const raw = match[1]!;
+  const quoted = [...raw.matchAll(/["'\u2018\u2019\u201c\u201d]([^"'\u2018\u2019\u201c\u201d]+)["'\u2018\u2019\u201c\u201d]/g)].map(m => m[1]!);
+  const parts = quoted.length > 0 ? quoted : raw.replace(/[.!?]+$/, '').split(/\s*(?:,|;|\band\b|&)\s*/i);
+  const topics = parts.map(p => p.trim().replace(/^(?:the|and)\s+/i, '')).filter(p => p.length > 1);
+  return topics.length > 0 ? topics : null;
+}
+
 export function interpretPrimeAgentCommand(input: string): PrimeAgentCommand {
   const normalized = input.trim().toLowerCase();
+
+  const topics = parseTrainingTopics(input);
+  if (topics) return { kind: 'ACADEMY_TRAIN', topics };
   
   // Academy progress and status queries
-  if (/\b(show|display|what is|tell me)\b.*\b(academy.*progress|progress.*academy|agent.*academy|academy.*status)\b/i.test(normalized)) {
-    const match = normalized.match(/\b(agent|citizen|student)\s+(\S+)/i);
-    return { kind: 'ACADEMY_PROGRESS', ...(match ? { agentId: match[2] } : {}) };
+  if (/\b(show|display|what is|what's|tell me|check|report|how is|how are|list|give me)\b.*\b(academy.*(?:progress|status|doing)|(?:progress|status|doing).*academy|agent.*academy|academy.*student)\b/i.test(normalized)) {
+    const agentId = findAgentTarget(input);
+    return { kind: 'ACADEMY_PROGRESS', ...(agentId ? { agentId } : {}) };
   }
   
   // Graduation status
-  if (/\b(show|display|check|report)\b.*\b(graduation|graduate|academy.*graduation)\b/i.test(normalized)) {
-    const match = normalized.match(/\b(agent|citizen|student)\s+(\S+)/i);
-    return { kind: 'ACADEMY_GRADUATION', ...(match ? { agentId: match[2] } : {}) };
+  if (/\b(show|display|check|report|is|are|who|which|has|have|tell me)\b.*\b(graduation|graduate|graduated|eligible to graduate|academy.*graduation)\b/i.test(normalized)) {
+    const agentId = findAgentTarget(input);
+    return { kind: 'ACADEMY_GRADUATION', ...(agentId ? { agentId } : {}) };
   }
   
   // Next lesson/assignment
-  if (/\b(give|start|run|continue|advance|next|assign)\b.*\b(lesson|assignment|course|class)\b.*\b(academy|learning)/i.test(normalized)) {
-    const match = normalized.match(/\b(agent|citizen|student|for)\s+(\S+)/i);
-    return { kind: 'ACADEMY_NEXT_LESSON', ...(match ? { agentId: match[2] } : {}) };
+  if (/\b(give|start|run|continue|advance|next|assign|provide|set up)\b.*\b(academy|learning)\b.*\b(lesson|assignment|course|class)\b|\b(give|start|run|continue|advance|next|assign|provide|set up)\b.*\b(lesson|assignment|course|class)\b.*\b(academy|learning)\b/i.test(normalized)) {
+    const agentId = findAgentTarget(input);
+    return { kind: 'ACADEMY_NEXT_LESSON', ...(agentId ? { agentId } : {}) };
   }
   
   // Start Academy for agent
-  if (/\b(start|begin|initiate|enroll)\b.*\b(academy|learning|education)\b/i.test(normalized)) {
-    const match = normalized.match(/\b(agent|citizen|student|for)\s+(\S+)/i);
-    return { kind: 'ACADEMY_START', ...(match ? { agentId: match[2] } : {}) };
+  if (/\b(start|begin|initiate|enroll|sign up)\b.*\b(academy|learning|education)\b/i.test(normalized)) {
+    const agentId = findAgentTarget(input);
+    return { kind: 'ACADEMY_START', ...(agentId ? { agentId } : {}) };
   }
   
   // Run Academy cycle
-  if (/\b(run|continue|advance|start|cycle)\b.*\b(academy|learning|class|course)/i.test(normalized)) {
+  if (/\b(run|continue|advance|start|cycle|complete)\b.*\b(academy|learning|class|course)/i.test(normalized)) {
     return { kind: 'ACADEMY_CYCLE', dryRun: false };
   }
   
   // Report work
-  if (/\b(what are|report|show|tell me)\b.*\b(agent|mission|work|doing|result)/i.test(normalized)) {
+  if (/\b(what are|what's|what is|report|show|tell me|give me|list|any updates|how are)\b.*\b(agent|mission|work|doing|result|happening|status)/i.test(normalized)) {
     return { kind: 'REPORT_WORK' };
   }
   
@@ -73,6 +98,23 @@ export async function executePrimeAgentCommand(repositoryRoot: string, input: st
     return { status: 'UNSUPPORTED', reply: command.reason, command };
   }
   
+  if (command.kind === 'ACADEMY_TRAIN') {
+    try {
+      const academy = await runAcademyTopicTraining({ repositoryRoot, topics: command.topics });
+      const topicList = command.topics.map(t => `"${t}"`).join(', ');
+      return {
+        status: 'COMPLETED',
+        reply: `Academy training focus set: ${topicList}. ${academy.assignments_created} educational assignment(s) created`
+          + (academy.students_busy > 0 ? `; ${academy.students_busy} student(s) already have active work and will get topics next cycle` : '')
+          + `. Nothing is learned until assignments are submitted and independently graded. Educational authority only; no external actions. Receipt: ${academy.receipt_id}.`,
+        command,
+        academy
+      };
+    } catch (error) {
+      return { status: 'FAILED', reply: error instanceof Error ? error.message : String(error), command };
+    }
+  }
+
   if (command.kind === 'REPORT_WORK') {
     return { 
       status: 'COMPLETED', 

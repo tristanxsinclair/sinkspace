@@ -8,6 +8,7 @@ import {
 import type {
   ExecutionContext
 } from './context.js';
+import { publicResearchThroughCapability } from './capabilities.js';
 
 import {
   discoverRevenueOpportunity,
@@ -262,7 +263,7 @@ export async function discoverRevenue(
       `${vertical.label} Perth WA quote services`;
 
     const searchObservation =
-      await ctx.publicResearch({
+      await publicResearchThroughCapability(ctx,{
         mode: 'search',
         query
       });
@@ -316,7 +317,7 @@ export async function discoverRevenue(
 
       try {
         directObservation =
-          await ctx.publicResearch({
+          await publicResearchThroughCapability(ctx,{
             mode: 'fetch',
             url: candidate.url
           });
@@ -605,7 +606,7 @@ export async function auditRevenueDiscovery(
 
     try {
       observation =
-        await ctx.publicResearch({
+        await publicResearchThroughCapability(ctx,{
           mode: 'fetch',
           url: canonical
         });

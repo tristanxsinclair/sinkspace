@@ -4,16 +4,16 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <meta name="theme-color" content="#07131c" />
-  <title>Lake Yange | Living Civilization</title>
+  <title>Sinkspace | System Console</title>
   <link rel="stylesheet" href="/styles.css" />
 </head>
 <body>
   <div class="app-shell">
     <aside class="sidebar" id="sidebar" aria-label="Primary navigation">
-      <div class="brand-mark"><span class="brand-orbit" aria-hidden="true">◉</span><span><strong>LAKE YANGE</strong><small>LIVING CIVILIZATION</small></span></div>
+      <div class="brand-mark"><span class="brand-orbit" aria-hidden="true">◉</span><span><strong>SINKSPACE</strong><small>SYSTEM CONSOLE</small></span></div>
       <button class="mobile-close icon-button" id="close-nav" type="button" aria-label="Close navigation">×</button>
       <nav class="nav-groups">
-        <div class="nav-group"><span class="nav-label">WORLD</span><button class="nav-item active" data-view="overview" type="button"><span>⌂</span>Overview</button><button class="nav-item" data-view="agents" type="button"><span>◈</span>Agents</button><button class="nav-item" data-view="missions" type="button"><span>✦</span>Missions</button><button class="nav-item" data-view="world" type="button"><span>◎</span>World</button></div>
+        <div class="nav-group"><span class="nav-label">SYSTEM</span><button class="nav-item active" data-view="overview" type="button"><span>⌂</span>Overview</button><button class="nav-item" data-view="agents" type="button"><span>◈</span>Agents</button><button class="nav-item" data-view="missions" type="button"><span>✦</span>Missions</button><button class="nav-item" data-view="world" type="button"><span>◎</span>World</button></div>
         <div class="nav-group"><span class="nav-label">CIVILIZATION</span><button class="nav-item" data-view="economy" type="button"><span>◌</span>Economy</button><button class="nav-item" data-view="institutions" type="button"><span>▦</span>Institutions</button><button class="nav-item" data-view="academy" type="button"><span>△</span>Academy</button><button class="nav-item" data-view="entertainment" type="button"><span>♫</span>Entertainment</button></div>
         <div class="nav-group"><span class="nav-label">TRUST LAYER</span><button class="nav-item" data-view="governance" type="button"><span>⊙</span>Governance</button><button class="nav-item" data-view="operations" type="button"><span>⌁</span>Operations</button><button class="nav-item" data-view="evidence" type="button"><span>✓</span>Evidence</button></div>
       </nav>
@@ -21,12 +21,12 @@
     </aside>
     <div class="scrim" id="scrim"></div>
     <div class="main-frame">
-      <header class="topbar"><button class="mobile-menu icon-button" id="open-nav" type="button" aria-label="Open navigation">☰</button><div class="breadcrumb"><span id="view-kicker">WORLD</span><b>/</b><strong id="view-title">Overview</strong></div><div class="topbar-actions"><button class="command-trigger" id="command-trigger" type="button"><span>⌕</span><span>Search Lake Yange</span><kbd>⌘ K</kbd></button><button class="icon-button" id="refresh-button" type="button" aria-label="Refresh world state" title="Refresh world state">↻</button><div class="prime-chip"><span class="status-dot live"></span><span><small>PRIME</small><strong>STEWARD ACTIVE</strong></span></div></div></header>
+      <header class="topbar"><button class="mobile-menu icon-button" id="open-nav" type="button" aria-label="Open navigation">☰</button><div class="breadcrumb"><span id="view-kicker">SYSTEM</span><b>/</b><strong id="view-title">Overview</strong></div><div class="topbar-actions"><button class="command-trigger" id="ask-prime-trigger" type="button" aria-label="Ask Prime (Command+J)" title="Ask Prime (⌘J)"><span aria-hidden="true">↗</span><span>Ask Prime</span><kbd>⌘ J</kbd></button><button class="command-trigger command-search-trigger" id="command-trigger" type="button" aria-label="Search system" title="Search system (⌘K)"><span aria-hidden="true">⌕</span><span>Search system</span><kbd>⌘ K</kbd></button><button class="icon-button" id="refresh-button" type="button" aria-label="Refresh world state" title="Refresh world state">↻</button><div class="prime-chip"><span class="status-dot live"></span><span><small>PRIME</small><strong>STEWARD ACTIVE</strong></span></div></div></header>
       <main id="app" tabindex="-1"><div class="loading-state"><span class="loader"></span><span>Loading Lake Yange projection...</span></div></main>
-      <footer class="statusbar"><span><span class="status-dot live"></span><strong id="footer-status">WORLD ONLINE</strong></span><span>AGENTS <b id="footer-agents">—</b></span><span>LAST SYNC <b id="footer-sync">—</b></span><span class="footer-right">PERSISTED STATE · READ ONLY</span></footer>
+      <footer class="statusbar"><span><span class="status-dot live"></span><strong id="footer-status">SYSTEM ONLINE</strong></span><span>AGENTS <b id="footer-agents">—</b></span><span>LAST SYNC <b id="footer-sync">—</b></span><span class="footer-right">LOCAL RUNTIME · GOVERNED EXECUTION</span></footer>
     </div>
   </div>
-  <dialog class="command-palette" id="command-palette" aria-label="Lake Yange command palette"><div class="palette-head"><span class="eyebrow">COMMAND BRIDGE</span><button class="icon-button" id="close-palette" type="button" aria-label="Close command palette">×</button></div><input id="command-input" type="search" placeholder="Search views, agents, missions..." autocomplete="off" /><div id="command-results" class="command-results"></div><div class="palette-foot"><span>Navigate with ↑ ↓</span><kbd>ESC</kbd></div></dialog>
+  <dialog class="command-palette" id="command-palette" aria-label="Search system"><div class="palette-head"><span class="eyebrow">SYSTEM SEARCH</span><button class="icon-button" id="close-palette" type="button" aria-label="Close system search">×</button></div><input id="command-input" type="search" placeholder="Search views, agents, missions..." autocomplete="off" /><div id="command-results" class="command-results"></div><div class="palette-foot"><span>Navigate system records</span><kbd>ESC</kbd></div></dialog>
   <aside class="drawer" id="drawer" aria-label="Details" aria-hidden="true"><button class="drawer-close icon-button" id="close-drawer" type="button" aria-label="Close details">×</button><div id="drawer-content"></div></aside>
   <script type="module" src="/app.js"></script>
 </body>

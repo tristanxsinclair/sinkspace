@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { mkdtemp, mkdir, writeFile, readFile, symlink } from 'node:fs/promises';
+import { mkdtemp, mkdir, writeFile, readFile, symlink, readdir } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { execFile } from 'node:child_process';
@@ -14,6 +14,9 @@ import { healthIntake, localAdapter } from '../runtime/orchestrator.js';
 import { commandCentre } from '../runtime/server.js';
 import type { ExecutionContext } from '../runtime/context.js';
 import { ControlError } from '../runtime/security.js';
+import { interpretPrimeCommand } from '../runtime/prime.js';
+import { coreCapabilityRegistry } from '../runtime/capabilities.js';
+import { loadRegistry } from '../runtime/registry.js';
 
 const exec=promisify(execFile);
 test('Git tool pins immutable blobs, ignores replacement refs and rejects paths and symlinks',async()=>{
@@ -33,11 +36,55 @@ test('Git tool pins immutable blobs, ignores replacement refs and rejects paths 
 test('file persistence reopens receipts, detects tampering, and refuses resealing',async()=>{
   const dir=await mkdtemp(join(tmpdir(),'sink-store-'));const store=new FileRunStore(dir);const r=await harness().run();
   await store.seal(r.receipt!);await store.save(r);assert.deepEqual(await new FileRunStore(dir).get(r.run_id),r);
+  const snapshots=Array.from({length:32},(_,index)=>({...r,errors:[...r.errors,`concurrent-save-${index}`]}));
+  await Promise.all(snapshots.map(snapshot=>store.save(snapshot)));
+  assert.deepEqual(await store.get(r.run_id),snapshots.at(-1));
+  assert.deepEqual((await readdir(dir)).filter(name=>name.endsWith('.tmp')),[]);
   await assert.rejects(store.seal(r.receipt!));
   const path=join(dir,`${r.run_id}.json`);const data=JSON.parse(await readFile(path,'utf8'));data.receipt.objective='forged';await writeFile(path,JSON.stringify(data));await assert.rejects(store.get(r.run_id),/RECEIPT_TAMPERED/);
 });
 test('receipt rejects dangling verifier evidence even after digest recomputed',async()=>{
   const r=await harness().run();const receipt=r.receipt!;receipt.verification[0]!.evidence_ids=['absent'];receipt.hash=receiptDigest(receipt);assert.throws(()=>verifyReceipt(receipt),/VERIFIER_EVIDENCE_MISMATCH/);
+});
+test('Prime mission discovers bounded capabilities and persists linked evidence and scoped memory',async()=>{
+  let discovered:string[]=[];
+  const h=harness({
+    ...localAdapter,
+    research:async ctx=>{
+      discovered=ctx.discoverCapabilities?.().map(capability=>capability.id) ?? [];
+      assert.deepEqual(discovered,['repo_read','repo_inventory','mission_memory_write']);
+      const invokeCapability=ctx.invokeCapability;
+      assert.ok(invokeCapability);
+      await assert.rejects(invokeCapability('repo_read',{path:'../README.md'}),/PATH_DENIED/);
+      const output=await localAdapter.research!(ctx);
+      assert.ok(ctx.memory?.list().some(item=>item.item.kind==='RUN'));
+      return output;
+    }
+  });
+  const interpreted=interpretPrimeCommand('Prime, run a system scan');
+  assert.equal(interpreted.status,'READY');
+  assert.ok(interpreted.mission);
+  const created=await h.runner.create(interpreted.mission);
+  const run=await h.runner.run(created.run_id);
+  assert.equal(run.status,'COMPLETED');
+  assert.deepEqual(discovered,['repo_read','repo_inventory','mission_memory_write']);
+  const capabilityEvents=run.events.filter(event=>event.type==='CAPABILITY_EXECUTED');
+  assert.ok(capabilityEvents.length>=7);
+  for(const event of capabilityEvents) {
+    assert.ok(event.capability_id);
+    assert.ok(event.evidence_ids?.length);
+    assert.ok(event.evidence_ids.every(id=>run.evidence.some(evidence=>evidence.evidence_id===id)));
+  }
+  assert.ok(run.events.some(event=>event.type==='CAPABILITY_FAILED' && event.capability_id==='repo_read'));
+  assert.equal(run.receipt?.memories?.length,1);
+  assert.ok(run.receipt?.memories?.[0]?.provenance.every(id=>run.evidence.some(evidence=>evidence.evidence_id===id)));
+  const auditor=loadRegistry().find(agent=>agent.id==='SINK-03')!;
+  const auditorTask=run.tasks.find(task=>task.assigned_agent===auditor.id)!;
+  assert.deepEqual(
+    coreCapabilityRegistry().discover(auditor,auditorTask).map(capability=>capability.id),
+    ['repo_read','repo_inventory']
+  );
+  verifyReceipt(run.receipt!);
 });
 test('cancellation interrupts a stalled adapter and revokes its context',async()=>{
   let capture:ExecutionContext|undefined;let ready!:()=>void;const started=new Promise<void>(r=>{ready=r;});

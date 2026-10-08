@@ -188,7 +188,7 @@ function looksLikeGoldRush(
 function looksLikeSystemScan(
   input: string
 ): boolean {
-  return /\b(system scan|capability inventory|scan sink|inspect sink|inspect repository)\b/i
+  return /\b(?:scan|inspect|audit|inventory|review|map|summari[sz]e|list)\b.{0,80}\b(?:sink space|sink|system|repository|repo|project|codebase|source code)\b|\b(?:sink space|sink|system|repository|repo|project|codebase|source code)\b.{0,80}\b(?:scan|inspect|audit|inventory|review|map|summari[sz]e|list)\b|\bcapabilit(?:y|ies)\b.{0,60}\b(?:system|repository|repo|project|codebase|sink space)\b|\b(?:system|repository|repo|project|codebase|sink space)\b.{0,60}\bcapabilit(?:y|ies)\b/i
     .test(input);
 }
 
@@ -319,13 +319,13 @@ export function interpretPrimeCommand(
   }
 
   if (
-    input.length > 4000
+    input.length > 18_000
   ) {
     return {
       status: 'UNSUPPORTED',
 
       reply:
-        'That command is too large for Prime v0. Reduce it to one bounded objective.',
+        "That message exceeds Prime's 18,000-character limit. Break it into bounded requests.",
 
       mission: null,
       confidence: 'HIGH',

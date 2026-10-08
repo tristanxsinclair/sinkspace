@@ -2,6 +2,7 @@ import { WorkerOutputSchema, type Claim, type Predicate, type Verification, type
 import type { ExecutionContext, Observation } from './context.js';
 import { ControlError, hash } from './security.js';
 import { PERMITTED_FILES } from './repository.js';
+import { observeWithCapability } from './capabilities.js';
 
 const LIMITATIONS = [
   'UNKNOWN: Production deployment identity and current production behaviour were not observed.',
@@ -31,7 +32,7 @@ function inventoryPaths(observation: Observation): string[] {
 
 export async function scout(ctx: ExecutionContext): Promise<unknown> {
   if (ctx.task.assigned_agent !== 'SINK-01') throw new ControlError('INVALID_SPECIALIST');
-  const inventory = await ctx.inventory();
+  const inventory = await observeWithCapability(ctx,'repo_inventory',{},()=>ctx.inventory());
   const paths = inventoryPaths(inventory);
   const claims: Claim[] = [];
   const add = (predicate: Predicate, observation: Observation): void => {
@@ -40,7 +41,10 @@ export async function scout(ctx: ExecutionContext): Promise<unknown> {
   const essentials = ['README.md', 'dist/index.html', '.github/workflows/static.yml', 'dist/release.json', 'dist/app.js'];
   for (const path of essentials) add({kind: 'FILE_EXISTS', path, key: null, expected: String(paths.includes(path))}, inventory);
   const observations = new Map<string, Observation>();
-  for (const path of essentials.filter(path => paths.includes(path))) observations.set(path, await ctx.read(path));
+  for (const path of essentials.filter(path => paths.includes(path))) {
+    const observation = await observeWithCapability(ctx,'repo_read',{path},()=>ctx.read(path));
+    observations.set(path, observation);
+  }
   const readme = observations.get('README.md');
   for (const capability of ['Business and service websites','Lead capture, quote and customer intake systems','Focused custom software','AI and automation where it creates measurable value','Eblocki','WorkProof']) {
     if (readme?.content.includes(capability)) add({kind:'TEXT_CONTAINS',path:'README.md',key:null,expected:capability},readme);
@@ -59,6 +63,14 @@ export async function scout(ctx: ExecutionContext): Promise<unknown> {
     } catch { uncertainty.push('NEEDS_VERIFICATION: Release metadata is not valid JSON.'); }
   }
   claims.push({claim_id: ctx.id(), statement: RECOMMENDATION, classification: 'INFERRED', evidence_ids: [inventory.evidence.evidence_id], predicate: null, agent_id: 'SINK-01'});
+  if (ctx.invokeCapability) {
+    await ctx.invokeCapability('mission_memory_write', {
+      kind: 'RUN',
+      content: 'The pinned repository inventory was observed during this mission.',
+      confidence: 1,
+      provenance: [inventory.evidence.evidence_id]
+    });
+  }
   const output = {claims, uncertainty, report: ''};
   output.report = reportFor(output);
   return WorkerOutputSchema.parse(output);
@@ -108,8 +120,8 @@ export async function audit(ctx: ExecutionContext, raw: WorkerOutput): Promise<V
       failures.push(`Assertion wording or shape is unsupported: ${claim.claim_id}.`); continue;
     }
     let fresh: Observation;
-    if (p.kind === 'FILE_EXISTS') { inventory ??= await ctx.inventory(); fresh = inventory; }
-    else { const previous = cache.get(p.path); fresh = previous ?? await ctx.read(p.path); cache.set(p.path, fresh); }
+    if (p.kind === 'FILE_EXISTS') { inventory ??= await observeWithCapability(ctx,'repo_inventory',{},()=>ctx.inventory()); fresh = inventory; }
+    else { const previous = cache.get(p.path); fresh = previous ?? await observeWithCapability(ctx,'repo_read',{path:p.path},()=>ctx.read(p.path)); cache.set(p.path, fresh); }
     observedEvidence.push(fresh.evidence.evidence_id);
     for (const id of claim.evidence_ids) {
       const e = ctx.run.evidence.find(e => e.evidence_id === id);
@@ -147,7 +159,7 @@ export async function redSink(ctx: ExecutionContext, raw: WorkerOutput, prior: V
       if (!evidence || !artifact || artifact.sha256 !== hash(artifact.content)) { failures.push(`Evidence artifact is missing or corrupted: ${c.claim_id}.`); continue; }
       if (evidence.source !== 'git:tree' && !PERMITTED_FILES.includes(evidence.source)) { failures.push(`Evidence source is outside the permitted scope: ${c.claim_id}.`); continue; }
       let fresh = freshSources.get(evidence.source);
-      if (!fresh) { fresh = evidence.source === 'git:tree' ? await ctx.inventory() : await ctx.read(evidence.source); freshSources.set(evidence.source, fresh); independentEvidence.push(fresh.evidence.evidence_id); }
+      if (!fresh) { fresh = evidence.source === 'git:tree' ? await observeWithCapability(ctx,'repo_inventory',{},()=>ctx.inventory()) : await observeWithCapability(ctx,'repo_read',{path:evidence.source},()=>ctx.read(evidence.source)); freshSources.set(evidence.source, fresh); independentEvidence.push(fresh.evidence.evidence_id); }
       if (fresh.content !== artifact.content) failures.push(`Evidence differs from Red Sink's independent observation: ${c.claim_id}.`);
     }
     if (c.classification === 'KNOWN' && !prior.checked_claim_ids.includes(c.claim_id)) failures.push(`Claim escaped auditor review: ${c.claim_id}.`);
