@@ -41,6 +41,8 @@ from lake_yange.audit.anchor import verify_anchor_chain
 from lake_yange.hardware.diagnostics import HardwareDiagnosticHarness
 from lake_yange.middleware.circuit_breaker import CircuitBreaker, SessionKeyError
 from lake_yange.research.vector_store import VectorStore
+from lake_yange.research.deep_research import DeepResearch, ResearchReport, Passage, Claim, ClaimAudit, EvidenceRow, Statement
+import logging
 from lake_yange.middleware.time_lock import CANCEL_DECISION, TimeLockEngine
 from lake_yange.middleware.gateway import BoundedAgentGateway
 from lake_yange.middleware.lifecycle import ORDER, Stage
@@ -119,6 +121,97 @@ class PendingSignature(BaseModel):
     decision: str = Field(min_length=1, max_length=64)
 
 
+# Research API Models
+class ResearchRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    question: str = Field(min_length=10, max_length=2000)
+    depth: str = Field(default="standard", pattern="^(quick|standard|deep|investigation)$")
+
+
+class SourceMetadata(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_id: str
+    title: Optional[str] = None
+    publisher: Optional[str] = None
+    publication_date: Optional[str] = None
+    source_type: str = "unknown"  # primary, secondary, context
+    jurisdiction: Optional[str] = None
+    quality: str = "medium"  # high, medium, low
+    relevance: Optional[str] = None
+    doc_hash: str
+    chunk_hash: str
+
+
+class EvidenceItem(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str
+    source: SourceMetadata
+    confidence: str = "medium"  # high, medium, low, unknown
+    evidence_type: str = "fact"  # fact, interpretation, claim, opinion, unknown
+
+
+class Finding(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str
+    evidence_type: str = "fact"  # fact, interpretation, claim, opinion, unknown
+    confidence: str = "medium"  # high, medium, low, unknown
+    supporting_evidence: List[EvidenceItem] = []
+    contradicting_evidence: List[EvidenceItem] = []
+
+
+class ResearchDisagreement(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    source_a: str
+    source_b: str
+    why: str
+    assessment: str
+
+
+class ResearchUncertainty(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    text: str
+    reason: str
+
+
+class ResearchCompetingInterpretation(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    position: str
+    sources: str
+    analysis: str
+
+
+class ResearchProvenance(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    research_session_id: str
+    question_hash: str
+    timestamp: str
+    agent_actions: List[str] = []
+    source_hashes: List[str] = []
+    claim_evidence_graph: Optional[Dict[str, Any]] = None
+    ver_audit_results: List[str] = []
+    ledger_entry_hash: Optional[str] = None
+
+
+class ResearchResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    session_id: str
+    question: str
+    status: str = "understanding"  # understanding, sources, crosscheck, analysis, review, complete, failed
+    progress: int = 0  # 0-100
+    stage: str = "understanding"
+    short_answer: Optional[str] = None
+    findings: List[Finding] = []
+    evidence_supported: List[EvidenceItem] = []
+    uncertainties: List[ResearchUncertainty] = []
+    competing_interpretations: List[ResearchCompetingInterpretation] = []
+    disagreements: List[ResearchDisagreement] = []
+    sources: List[SourceMetadata] = []
+    metadata: Dict[str, Any] = {}
+    provenance: Optional[ResearchProvenance] = None
+    error: Optional[str] = None
+    timestamps: Dict[str, str] = {}  # stage timestamps
+
+
 def revoke_message_parts(steward_id: str, reason: str) -> Any:
     """(proposal_id, p_hash, tier, decision) that a steward signs to flag a key as compromised."""
     return f"steward:{steward_id}", hashlib.sha256(reason.encode()).hexdigest(), 3, "REVOKE_KEY"
@@ -152,6 +245,10 @@ class UiState:
             self.save_treasury(treasury)
         # Load pending signatures for hybrid sync
         self._pending_signatures: Dict[str, Dict[str, Dict[str, Any]]] = self._load_pending_signatures()
+        
+        # Research session management
+        self._research_sessions: Dict[str, Dict[str, Any]] = self._load_research_sessions()
+        self._research_counter: int = 0
 
     def treasury(self) -> Optional[ThreeTierLedger]:
         d = self.store.get("ui", "treasury")
@@ -191,6 +288,54 @@ class UiState:
         if proposal_id in self._pending_signatures:
             del self._pending_signatures[proposal_id]
             self._save_pending_signatures()
+
+    def _load_research_sessions(self) -> Dict[str, Dict[str, Any]]:
+        saved = self.store.get("ui", "research_sessions")
+        return saved if saved is not None else {}
+
+    def _save_research_sessions(self) -> None:
+        self.store.put("ui", "research_sessions", self._research_sessions)
+
+    def create_research_session(self, question: str, depth: str = "standard") -> str:
+        self._research_counter += 1
+        session_id = f"ly-research-{self._research_counter}-{int(self.clock().timestamp())}"
+        self._research_sessions[session_id] = {
+            "question": question,
+            "depth": depth,
+            "status": "understanding",
+            "progress": 0,
+            "stage": "understanding",
+            "created_at": self.clock().isoformat(),
+            "updated_at": self.clock().isoformat(),
+            "timestamps": {},
+            "error": None
+        }
+        self._save_research_sessions()
+        return session_id
+
+    def update_research_session(self, session_id: str, updates: Dict[str, Any]) -> None:
+        if session_id in self._research_sessions:
+            self._research_sessions[session_id].update(updates)
+            self._research_sessions[session_id]["updated_at"] = self.clock().isoformat()
+            if "stage" in updates:
+                self._research_sessions[session_id]["timestamps"][updates["stage"]] = self.clock().isoformat()
+            self._save_research_sessions()
+
+    def get_research_session(self, session_id: str) -> Optional[Dict[str, Any]]:
+        return self._research_sessions.get(session_id)
+
+    def list_research_sessions(self) -> List[Dict[str, Any]]:
+        return [
+            {"session_id": sid, **data}
+            for sid, data in self._research_sessions.items()
+        ]
+
+    def delete_research_session(self, session_id: str) -> bool:
+        if session_id in self._research_sessions:
+            del self._research_sessions[session_id]
+            self._save_research_sessions()
+            return True
+        return False
 
 
 # Tile layout for the "Realm" canvas view. Coordinates are in 64px tiles; every building points at a real system_map node
@@ -746,6 +891,439 @@ def create_app(state_dir: Path, *, demo: bool = False, treasury: Optional[ThreeT
                                                     sort_keys=True, default=str).encode()).hexdigest()[:16] + f":{len(es)}"
         return out
 
+    # ---- Research API ----
+    @app.post("/api/research")
+    def create_research(body: ResearchRequest) -> ResearchResponse:
+        # Create research session
+        session_id = st.create_research_session(body.question, body.depth)
+        
+        # Update session status
+        st.update_research_session(session_id, {
+            "status": "understanding",
+            "stage": "understanding",
+            "progress": 10
+        })
+        
+        # Start async research process in background
+        # For now, we'll do it synchronously but return immediately with understanding status
+        try:
+            # Parse question for metadata
+            metadata = extract_question_metadata(body.question)
+            st.update_research_session(session_id, {
+                "metadata": metadata,
+                "timestamps": {"understanding": st.clock().isoformat()}
+            })
+            
+            # Update to sources stage
+            st.update_research_session(session_id, {
+                "status": "sources",
+                "stage": "sources", 
+                "progress": 30
+            })
+            
+            # Perform actual research using DeepResearch
+            research_result = run_deep_research(st, body.question, session_id)
+            
+            # Convert to frontend format
+            response = convert_to_research_response(st, session_id, research_result)
+            
+            # Update session with complete data
+            st.update_research_session(session_id, {
+                "status": "complete",
+                "stage": "review",
+                "progress": 100,
+                **response.model_dump(exclude={"session_id", "status", "stage", "progress"})
+            })
+            
+            return response
+            
+        except Exception as e:
+            st.update_research_session(session_id, {
+                "status": "failed", 
+                "stage": "failed",
+                "error": str(e),
+                "progress": 0
+            })
+            return ResearchResponse(
+                session_id=session_id,
+                question=body.question,
+                status="failed",
+                stage="failed",
+                error=str(e)
+            )
+
+    @app.get("/api/research/{session_id}")
+    def get_research_session(session_id: str) -> ResearchResponse:
+        session = st.get_research_session(session_id)
+        if session is None:
+            raise HTTPException(404, f"Research session {session_id} not found")
+        
+        # Convert stored session to ResearchResponse format
+        return ResearchResponse(
+            session_id=session_id,
+            question=session.get("question", ""),
+            status=session.get("status", "unknown"),
+            progress=session.get("progress", 0),
+            stage=session.get("stage", "unknown"),
+            short_answer=session.get("short_answer"),
+            findings=session.get("findings", []),
+            evidence_supported=session.get("evidence_supported", []),
+            uncertainties=session.get("uncertainties", []),
+            competing_interpretations=session.get("competing_interpretations", []),
+            disagreements=session.get("disagreements", []),
+            sources=session.get("sources", []),
+            metadata=session.get("metadata", {}),
+            provenance=session.get("provenance"),
+            error=session.get("error"),
+            timestamps=session.get("timestamps", {})
+        )
+
+    @app.get("/api/research")
+    def list_research_sessions() -> List[Dict[str, Any]]:
+        return st.list_research_sessions()
+
+    @app.delete("/api/research/{session_id}")
+    def delete_research_session(session_id: str) -> Dict[str, bool]:
+        success = st.delete_research_session(session_id)
+        return {"success": success}
+
+    # ---- Research Helper Functions ----
+    logger = logging.getLogger(__name__)
+    
+    def extract_question_metadata(question: str) -> Dict[str, Any]:
+        """Extract metadata from research question"""
+        metadata = {
+            "political": False,
+            "economic": False,
+            "jurisdictions": [],
+            "topics": [],
+            "entities": []
+        }
+        
+        question_lower = question.lower()
+        
+        # Political keywords
+        political_keywords = ['policy', 'government', 'legislation', 'law', 'parliament', 'congress', 'senate', 'constitution', 'vote', 'election', 'governance']
+        if any(kw in question_lower for kw in political_keywords):
+            metadata["political"] = True
+        
+        # Economic keywords
+        economic_keywords = ['economic', 'economy', 'cost', 'budget', 'investment', 'growth', 'job', 'employment', 'infrastructure', 'tax', 'revenue']
+        if any(kw in question_lower for kw in economic_keywords):
+            metadata["economic"] = True
+        
+        # Jurisdiction detection
+        jurisdiction_map = {
+            'Commonwealth': ['commonwealth', 'federal', 'national', 'australia'],
+            'Western Australia': ['western australia', 'wa', 'perth'],
+            'State': ['state', 'states'],
+            'Local Government': ['local government', 'council', 'municipal']
+        }
+        
+        for jurisdiction, keywords in jurisdiction_map.items():
+            if any(kw in question_lower for kw in keywords):
+                metadata["jurisdictions"].append(jurisdiction)
+        
+        # Topic detection
+        topic_map = {
+            'AI': ['ai', 'artificial intelligence', 'machine learning'],
+            'Technology': ['technology', 'tech', 'digital', 'innovation'],
+            'Energy': ['energy', 'power', 'electricity', 'renewable'],
+            'Transport': ['transport', 'infrastructure', 'road', 'rail', 'port'],
+            'Health': ['health', 'medical', 'hospital'],
+            'Education': ['education', 'school', 'university']
+        }
+        
+        for topic, keywords in topic_map.items():
+            if any(kw in question_lower for kw in keywords):
+                metadata["topics"].append(topic)
+        
+        return metadata
+
+    def run_deep_research(st: UiState, question: str, session_id: str) -> ResearchReport:
+        """Run actual deep research using existing infrastructure"""
+        # Configure depth parameters based on research depth
+        depth_configs = {
+            "quick": {"max_rounds": 1, "k": 2, "min_score": 0.1},
+            "standard": {"max_rounds": 2, "k": 3, "min_score": 0.05},
+            "deep": {"max_rounds": 3, "k": 4, "min_score": 0.03},
+            "investigation": {"max_rounds": 4, "k": 5, "min_score": 0.01}
+        }
+        
+        session = st.get_research_session(session_id)
+        depth = session.get("depth", "standard") if session else "standard"
+        config = depth_configs.get(depth, depth_configs["standard"])
+        
+        # Run DeepResearch
+        research = DeepResearch(
+            st.rag, 
+            max_rounds=config["max_rounds"],
+            k=config["k"], 
+            min_score=config["min_score"]
+        )
+        
+        try:
+            # Update to crosscheck stage
+            st.update_research_session(session_id, {
+                "status": "crosscheck",
+                "stage": "crosscheck",
+                "progress": 50
+            })
+            
+            report = research.run(question)
+            
+            # Update to analysis stage
+            st.update_research_session(session_id, {
+                "status": "analysis", 
+                "stage": "analysis",
+                "progress": 75
+            })
+            
+            # Perform Vera audit on the research results
+            ver_audit_results = run_vera_audit(st, report)
+            
+            # Update to review stage
+            st.update_research_session(session_id, {
+                "status": "review",
+                "stage": "review", 
+                "progress": 90
+            })
+            
+            # Record in Red Sink
+            ledger_entry = record_research_provenance(st, question, report, ver_audit_results, session_id)
+            
+            # Update with provenance
+            st.update_research_session(session_id, {
+                "provenance": {
+                    "research_session_id": session_id,
+                    "question_hash": report.report_hash,
+                    "timestamp": st.clock().isoformat(),
+                    "ver_audit_results": ver_audit_results,
+                    "ledger_entry_hash": ledger_entry.hash if ledger_entry else None
+                }
+            })
+            
+            return report
+            
+        except Exception as e:
+            st.update_research_session(session_id, {
+                "status": "failed",
+                "stage": "failed",
+                "error": f"Research failed: {str(e)}",
+                "progress": 0
+            })
+            raise
+
+    def run_vera_audit(st: UiState, report: ResearchReport) -> List[str]:
+        """Run Vera audit on research results"""
+        audit_results = []
+        
+        # Check each evidence row in the matrix
+        for row in report.matrix:
+            if row.status == "UNGROUNDED":
+                audit_results.append(f"UNGROUNDED: {row.sub_question} has no supporting evidence")
+            elif row.status == "SINGLE_SOURCE":
+                audit_results.append(f"SINGLE_SOURCE: {row.sub_question} has only one source (no corroboration)")
+            elif row.flags:
+                for flag in row.flags:
+                    audit_results.append(f"FLAG: {row.sub_question} - {flag}")
+        
+        # Check for ungrounded statements
+        for ungrounded in report.ungrounded:
+            audit_results.append(f"UNGROUNDED_STATEMENT: {ungrounded}")
+        
+        return audit_results
+
+    def record_research_provenance(st: UiState, question: str, report: ResearchReport, ver_audit_results: List[str], session_id: str) -> Optional[Any]:
+        """Record research provenance in Red Sink ledger"""
+        try:
+            # Create provenance record
+            provenance_data = {
+                "research_session_id": session_id,
+                "question": question,
+                "question_hash": report.report_hash,
+                "sub_questions": report.sub_questions,
+                "sources_retrieved": len(report.passages),
+                "evidence_matrix": [row.model_dump() for row in report.matrix],
+                "vera_audit_results": ver_audit_results,
+                "timestamp": st.clock().isoformat()
+            }
+            
+            # Record in ledger via Red Sink
+            entry = st.red_sink.record(
+                agent_id="research_engine",
+                decision="RESEARCH_COMPLETED",
+                reason=f"Research session {session_id}: {question[:100]}...",
+                evidence_hash=report.report_hash,
+                result=json.dumps(provenance_data, default=str)
+            )
+            return entry
+            
+        except Exception as e:
+            # Don't fail the research if ledger recording fails
+            logger.warning(f"Failed to record research provenance: {e}")
+            return None
+
+    def sources_dict_to_metadata(passage: Passage, row: EvidenceRow) -> SourceMetadata:
+        """Convert passage and evidence row to SourceMetadata"""
+        quality = "high" if row.status == "GROUNDED" else "medium" if row.status == "SINGLE_SOURCE" else "low"
+        return SourceMetadata(
+            source_id=passage.source_id,
+            title=passage.source_id,
+            publisher="Unknown",
+            publication_date=None,
+            source_type="primary" if quality == "high" else "secondary",
+            jurisdiction=None,
+            quality=quality,
+            relevance=f"Evidence for: {row.sub_question}",
+            doc_hash=passage.doc_hash,
+            chunk_hash=passage.chunk_hash
+        )
+
+    def classify_evidence_type(text: str) -> str:
+        """Classify text as fact, interpretation, claim, opinion, or unknown"""
+        text_lower = text.lower()
+        
+        # Check for factual indicators
+        if any(indicator in text_lower for indicator in ['states', 'reports', 'shows', 'demonstrates', 'indicates', 'according to']):
+            return "fact"
+        
+        # Check for interpretation indicators  
+        if any(indicator in text_lower for indicator in ['suggests', 'implies', 'likely', 'probably', 'may', 'could']):
+            return "interpretation"
+        
+        # Check for claim indicators
+        if any(indicator in text_lower for indicator in ['claims', 'asserts', 'argues', 'alleges']):
+            return "claim"
+        
+        # Check for opinion indicators
+        if any(indicator in text_lower for indicator in ['believes', 'thinks', 'opinion', 'perspective']):
+            return "opinion"
+        
+        return "unknown"
+
+    def classify_confidence(report: ResearchReport, statement: Statement) -> str:
+        """Classify confidence level based on evidence"""
+        # Check if this statement's sub_question has grounded evidence
+        for row in report.matrix:
+            if row.sub_question == statement.sub_question:
+                if row.status == "GROUNDED":
+                    return "high"
+                elif row.status == "SINGLE_SOURCE":
+                    return "medium"
+                else:
+                    return "low"
+        return "unknown"
+
+    def generate_short_answer(report: ResearchReport) -> str:
+        """Generate a short answer from the research results"""
+        if not report.statements:
+            return "No sufficient evidence found to provide a comprehensive answer."
+        
+        # Combine the best statements
+        statements_text = " ".join(s.text for s in report.statements[:3])  # Top 3 statements
+        return f"Based on the evidence retrieved: {statements_text}"
+
+    def convert_to_research_response(st: UiState, session_id: str, report: ResearchReport) -> ResearchResponse:
+        """Convert DeepResearch report to frontend ResearchResponse format"""
+        # Build source metadata from passages
+        sources_dict = {}
+        for sub_q, passages in report.passages.items():
+            for passage in passages:
+                if passage.source_id not in sources_dict:
+                    sources_dict[passage.source_id] = {
+                        "source_id": passage.source_id,
+                        "title": passage.source_id,  # Use source_id as title for now
+                        "publisher": "Unknown",
+                        "publication_date": None,
+                        "source_type": "unknown",
+                        "jurisdiction": None,
+                        "quality": "medium",
+                        "relevance": f"Relevant to: {sub_q}",
+                        "doc_hash": passage.doc_hash,
+                        "chunk_hash": passage.chunk_hash
+                    }
+        
+        sources = list(sources_dict.values())
+        
+        # Build findings from statements
+        findings = []
+        for statement in report.statements:
+            # Determine evidence type based on content
+            evidence_type = classify_evidence_type(statement.text)
+            confidence = classify_confidence(report, statement)
+            
+            findings.append(Finding(
+                text=statement.text,
+                evidence_type=evidence_type,
+                confidence=confidence,
+                supporting_evidence=[],
+                contradicting_evidence=[]
+            ))
+        
+        # Build evidence supported items
+        evidence_supported = []
+        for row in report.matrix:
+            if row.status == "GROUNDED":
+                # Get the best passage for this sub_question
+                passages = report.passages.get(row.sub_question, [])
+                if passages:
+                    top_passage = passages[0]
+                    evidence_supported.append(EvidenceItem(
+                        text=top_passage.text,
+                        source=sources_dict_to_metadata(top_passage, row),
+                        confidence="high",
+                        evidence_type="fact"
+                    ))
+        
+        # Build uncertainties
+        uncertainties = []
+        for ungrounded in report.ungrounded:
+            uncertainties.append(ResearchUncertainty(
+                text=ungrounded,
+                reason="No supporting evidence found"
+            ))
+        
+        # Add matrix-based uncertainties
+        for row in report.matrix:
+            if row.status == "SINGLE_SOURCE":
+                uncertainties.append(ResearchUncertainty(
+                    text=f"{row.sub_question} has only single source",
+                    reason="Lacks corroboration from multiple sources"
+                ))
+        
+        # Build competing interpretations from conflicting sources
+        competing_interpretations = []
+        # This would require more sophisticated analysis
+        
+        # Build disagreements
+        disagreements = []
+        # This would require identifying conflicting passages
+        
+        return ResearchResponse(
+            session_id=session_id,
+            question=report.question,
+            status="complete",
+            progress=100,
+            stage="review",
+            short_answer=generate_short_answer(report),
+            findings=findings,
+            evidence_supported=evidence_supported,
+            uncertainties=uncertainties,
+            competing_interpretations=competing_interpretations,
+            disagreements=disagreements,
+            sources=sources,
+            metadata={"sub_questions": report.sub_questions, "sources_found": len(sources)},
+            provenance=None,  # Will be added separately
+            error=None,
+            timestamps={
+                "understanding": st.clock().isoformat(),
+                "sources": st.clock().isoformat(), 
+                "crosscheck": st.clock().isoformat(),
+                "analysis": st.clock().isoformat(),
+                "review": st.clock().isoformat()
+            }
+        )
     if demo:
         _seed_demo(st)
         if demo_missions:

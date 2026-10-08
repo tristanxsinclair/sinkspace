@@ -277,6 +277,11 @@ svg .e{stroke:#334155;stroke-width:1;fill:none}svg .e.flow{stroke:#475569;stroke
     <h2>ADVANCED PROVENANCE VIEW</h2>
     <div id="advanced-content"></div>
   </div>
+  
+  <!-- Propose Mission Button -->
+  <div style="text-align: center; margin-top: 16px;" id="propose-mission-container">
+    <button id="propose-mission-btn" class="pri" style="padding: 10px 20px; font-size: 14px; letter-spacing: .08em;">PROPOSE MISSION FROM RESEARCH</button>
+  </div>
 </div>
 </section>
 </main>
@@ -1626,9 +1631,8 @@ function displayAdvancedContent(advancedData) {
   `;
 }
 
-function simulateResearchProcess(question, depth) {
-  // This simulates the research process for demonstration purposes
-  // In production, this would connect to actual backend research endpoints
+async function performRealResearch(question, depth) {
+  // This connects to the actual backend research API
   
   RESEARCH_STATE = {
     inProgress: true,
@@ -1636,6 +1640,7 @@ function simulateResearchProcess(question, depth) {
     question: question,
     depth: depth,
     report: null,
+    sessionId: null,
     metadata: extractMetadataFromQuestion(question),
     sources: [],
     terminology: detectPoliticalTerms(question)
@@ -1645,27 +1650,77 @@ function simulateResearchProcess(question, depth) {
   $('#research-start').disabled = true;
   $('#research-question').disabled = true;
   $('#research-depth').disabled = true;
-  $('#research-short-answer').innerHTML = 'Research in progress... Analyzing your question.';
+  $('#research-short-answer').innerHTML = 'Starting research... Creating session.';
   
   // Display metadata immediately
   displayMetadata(RESEARCH_STATE.metadata);
   displayTermExplanations(RESEARCH_STATE.terminology);
   
-  // Simulate progress through stages
+  try {
+    // Create research session
+    const requestBody = { question, depth };
+    const response = await api('/api/research', requestBody);
+    
+    RESEARCH_STATE.sessionId = response.session_id;
+    RESEARCH_STATE.report = response;
+    
+    // Update UI with real results
+    updateResearchProgress(response.stage, getCompletedStages(response));
+    displayRealResearchResults(response);
+    
+  } catch (error) {
+    console.error('Research API error:', error);
+    $('#research-short-answer').innerHTML = `Research failed: ${esc(error.message || 'Unknown error')}`;
+    
+    // Re-enable controls
+    $('#research-start').disabled = false;
+    $('#research-question').disabled = false;
+    $('#research-depth').disabled = false;
+    RESEARCH_STATE.inProgress = false;
+  }
+}
+
+function getCompletedStages(response) {
   const stages = ['understanding', 'sources', 'crosscheck', 'analysis', 'review'];
-  let currentIndex = 0;
+  const currentIndex = stages.indexOf(response.stage);
+  return stages.slice(0, Math.max(0, currentIndex));
+}
+
+function updateResearchProgressFromAPI(response) {
+  const stages = ['understanding', 'sources', 'crosscheck', 'analysis', 'review'];
+  const currentStage = response.stage || 'understanding';
+  const completedStages = stages.slice(0, Math.max(0, stages.indexOf(currentStage)));
   
-  function advanceStage() {
-    if (currentIndex >= stages.length) {
-      // Research complete
-      completeResearchSimulation();
-      return;
+  stages.forEach(s => {
+    const element = $(`.research-stage[data-stage="${s}"]`);
+    if (element) {
+      element.classList.remove('active', 'complete');
+      if (s === currentStage) {
+        element.classList.add('active');
+      } else if (completedStages.includes(s)) {
+        element.classList.add('complete');
+      }
     }
+  });
+}
+
+function displayRealResearchResults(response) {
+  // Handle error state
+  if (response.error) {
+    $('#research-short-answer').innerHTML = `Research failed: ${esc(response.error)}`;
+    $('#research-results').style.display = 'block';
+    $('#propose-mission-container').style.display = 'none';
     
-    RESEARCH_STATE.currentStage = stages[currentIndex];
-    updateResearchProgress(stages[currentIndex], stages.slice(0, currentIndex));
-    
-    // Update status message
+    // Re-enable controls
+    $('#research-start').disabled = false;
+    $('#research-question').disabled = false;
+    $('#research-depth').disabled = false;
+    RESEARCH_STATE.inProgress = false;
+    return;
+  }
+  
+  // Handle in-progress state
+  if (response.status !== 'complete' && response.status !== 'failed') {
     const statusMessages = {
       'understanding': 'Understanding your question...',
       'sources': 'Searching for relevant sources...', 
@@ -1674,204 +1729,350 @@ function simulateResearchProcess(question, depth) {
       'review': 'Final review and synthesis...'
     };
     
-    $('#research-short-answer').innerHTML = statusMessages[stages[currentIndex]] || 'Processing...';
-    currentIndex++;
+    $('#research-short-answer').innerHTML = statusMessages[response.stage] || 'Processing...';
     
-    // Vary timing based on depth
-    const delays = {
-      'quick': 800,
-      'standard': 1200,
-      'deep': 1800,
-      'investigation': 2500
-    };
-    
-    const delay = delays[depth] || 1200;
-    setTimeout(advanceStage, delay);
-  }
-  
-  // Start the progress
-  setTimeout(advanceStage, 500);
-}
-
-function completeResearchSimulation() {
-  // Generate mock research results
-  const question = RESEARCH_STATE.question;
-  const questionLower = question.toLowerCase();
-  
-  // Generate a short answer
-  let shortAnswer = '';
-  if (questionLower.includes('ai') && questionLower.includes('western australia')) {
-    shortAnswer = 'A major expansion of AI infrastructure in Western Australia would create significant economic opportunities including high-value job creation, technological advancement, and positioning the state as a leader in the Asia-Pacific region. Key risks include high upfront investment costs, potential environmental impacts from increased energy demand, and ensuring equitable access to benefits across regional communities.';
-  } else if (questionLower.includes('policy') || questionLower.includes('government')) {
-    shortAnswer = 'Based on the available evidence, this policy appears to have mixed effects with both supporting and challenging data points. The overall assessment suggests careful consideration of trade-offs and potential unintended consequences.';
-  } else {
-    shortAnswer = 'Lake Yange has completed research on your question. The analysis reveals multiple perspectives and evidence sources that provide insight into the complex factors at play.';
-  }
-  
-  // Generate findings based on question type
-  const findings = [];
-  if (questionLower.includes('ai') || questionLower.includes('artificial intelligence')) {
-    findings.push({ type: 'fact', text: 'AI infrastructure requires significant computational resources and energy', confidence: 'high' });
-    findings.push({ type: 'interpretation', text: 'Western Australia\'s strategic location and resources make it ideal for AI investment', confidence: 'medium' });
-    findings.push({ type: 'claim', text: 'AI expansion will create thousands of high-paying jobs', confidence: 'medium' });
-  }
-  
-  if (questionLower.includes('economic') || questionLower.includes('economy')) {
-    findings.push({ type: 'fact', text: 'Economic impacts typically manifest over 5-10 year timeframes', confidence: 'high' });
-    findings.push({ type: 'interpretation', text: 'Long-term benefits often outweigh short-term costs in infrastructure projects', confidence: 'medium' });
-  }
-  
-  // Generate sources
-  const sources = [];
-  if (questionLower.includes('australia') || questionLower.includes('western australia')) {
-    sources.push({
-      title: 'Western Australia Department of Jobs, Tourism, Science and Innovation',
-      publisher: 'Government of Western Australia',
-      date: '2026',
-      quality: 'high',
-      relevance: 'Official state economic projections and technology strategy',
-      excerpt: 'Western Australia\'s AI and technology sector has grown by 15% annually over the past five years, with significant potential for further expansion.',
-      jurisdiction: 'Western Australia'
-    });
-    sources.push({
-      title: 'Australian Government AI Action Plan',
-      publisher: 'Commonwealth of Australia',
-      date: '2025',
-      quality: 'high',
-      relevance: 'National AI strategy and investment priorities',
-      excerpt: 'The Commonwealth has identified AI infrastructure as a key driver of future economic growth and international competitiveness.',
-      jurisdiction: 'Commonwealth'
-    });
-  }
-  
-  sources.push({
-    title: 'Independent Economic Analysis Report',
-    publisher: 'University of Western Australia',
-    date: '2026',
-    quality: 'medium',
-      relevance: 'Academic research on infrastructure investment impacts',
-    excerpt: 'Large-scale technology infrastructure projects typically generate a 3:1 return on investment over a 15-year period.',
-    jurisdiction: 'Western Australia'
-  });
-  
-  // Generate evidence sections
-  const evidenceSupported = [];
-  const evidenceUncertain = [];
-  
-  if (questionLower.includes('ai') && questionLower.includes('australia')) {
-    evidenceSupported.push({
-      text: 'AI infrastructure can drive significant economic growth and job creation',
-      sources: ['Western Australia Department of Jobs, Tourism, Science and Innovation', 'Australian Government AI Action Plan']
-    });
-    evidenceSupported.push({
-      text: 'Western Australia has competitive advantages in energy and resources for AI development',
-      sources: ['Western Australia Department of Jobs, Tourism, Science and Innovation']
-    });
-    
-    evidenceUncertain.push({
-      text: 'Long-term environmental impact of increased energy demand for AI facilities',
-      reason: 'Lacks comprehensive long-term environmental impact studies specific to Western Australia'
-    });
-    evidenceUncertain.push({
-      text: 'Exact timeline and magnitude of economic benefits',
-      reason: 'Depends on various factors including global economic conditions and technology adoption rates'
-    });
-  }
-  
-  // Competing interpretations
-  const competingInterpretations = [];
-  if (questionLower.includes('ai') || questionLower.includes('infrastructure')) {
-    competingInterpretations.push({
-      position: 'AI infrastructure will transform Western Australia\'s economy within 5 years',
-      sources: 'Government projections and industry analysis',
-      analysis: 'Optimistic scenario based on historical technology adoption patterns'
-    });
-    competingInterpretations.push({
-      position: 'AI infrastructure investments may not deliver promised benefits due to global competition',
-      sources: 'Independent economic analysis',
-      analysis: 'Cautious perspective considering international market dynamics'
-    });
-  }
-  
-  // Disagreements
-  const disagreements = [];
-  if (questionLower.includes('ai') && questionLower.includes('australia')) {
-    disagreements.push({
-      sourceA: 'Government projections show rapid economic growth from AI investment',
-      sourceB: 'Independent analysts suggest more modest and uncertain economic impacts',
-      why: 'Different methodologies and assumptions about technology adoption rates',
-      assessment: 'Both perspectives have merit; actual outcomes likely fall between the two projections'
-    });
-  }
-  
-  // Why content
-  const whyContent = {
-    evidenceCount: sources.length + ' sources analyzed',
-    supportingSources: 'Multiple government and academic sources',
-    challengingSources: 'Some independent analyses question optimistic projections',
-    assumptions: 'Assumes continued technology advancement and stable economic conditions',
-    uncertainty: 'Exact magnitude and timing of impacts remain uncertain',
-    detailedReasoning: 'Lake Yange cross-referenced government data, academic research, and independent analysis. Government sources tend to be more optimistic about economic impacts and timelines, while independent analysts emphasize uncertainties and potential risks. The synthesis suggests that while significant benefits are likely, the exact nature and scale depend on multiple factors including global economic conditions, technology adoption rates, and policy implementation.'
-  };
-  
-  // Advanced content
-  const advancedContent = {
-    researchId: 'ly-research-' + Math.random().toString(36).substring(2, 10),
-    timestamp: new Date().toISOString(),
-    questionHash: 'sha256:' + Math.random().toString(36).substring(2, 16),
-    missionId: null,
-    proposalId: null,
-    agentTraces: 'Prime: Decomposed question into ' + (3 + Math.floor(Math.random() * 3)) + ' sub-questions\nVera: Audited ' + sources.length + ' sources for relevance and quality\nRed Sink: Recorded research provenance with hash ' + Math.random().toString(36).substring(2, 8),
-    sourceHashes: sources.map(s => 'sha256:' + Math.random().toString(36).substring(2, 12)),
-    provenanceGraph: 'Research Question -> Prime Decomposition -> Vector Store Query -> Source Retrieval -> Vera Audit -> Synthesis -> Final Report'
-  };
-  
-  // Display jurisdiction
-  const jurisdictions = RESEARCH_STATE.metadata.jurisdictions;
-  if (jurisdictions.length > 0) {
-    displayJurisdictionChain(jurisdictions);
-  }
-  
-  // Update time context
-  $('#time-context').textContent = 'Current as of: ' + new Date().toLocaleDateString('en-US', { year: 'numeric', month: 'long', day: 'numeric' });
-  
-  // Display all results
-  $('#research-short-answer').innerHTML = shortAnswer;
-  displayFindings(findings);
-  displayEvidenceSupported(evidenceSupported);
-  displayUncertainItems(evidenceUncertain);
-  displayCompetingInterpretations(competingInterpretations);
-  displayDisagreements(disagreements);
-  displaySourceCards(sources);
-  displayWhyContent(whyContent);
-  displayAdvancedContent(advancedContent);
-  
-  // Update state
-  RESEARCH_STATE = {
-    ...RESEARCH_STATE,
-    inProgress: false,
-    report: {
-      question,
-      shortAnswer,
-      findings,
-      evidenceSupported,
-      evidenceUncertain,
-      competingInterpretations,
-      disagreements,
-      sources,
-      whyContent,
-      advancedContent
+    // If still in progress, set up polling
+    if (response.status === 'understanding' || response.status === 'sources' || 
+        response.status === 'crosscheck' || response.status === 'analysis' || 
+        response.status === 'review') {
+      setTimeout(() => pollResearchResults(response.session_id), 2000);
     }
-  };
+    return;
+  }
+  
+  // Research is complete - display full results
+  $('#research-results').style.display = 'block';
+  
+  // Display short answer
+  if (response.short_answer) {
+    $('#research-short-answer').innerHTML = response.short_answer;
+  } else {
+    $('#research-short-answer').innerHTML = 'Research completed. See findings below.';
+  }
+  
+  // Display metadata from response if available
+  if (response.metadata && Object.keys(response.metadata).length > 0) {
+    displayMetadata(response.metadata);
+  }
+  
+  // Display findings
+  if (response.findings && response.findings.length > 0) {
+    displayFindingsFromAPI(response.findings);
+  }
+  
+  // Display evidence supported
+  if (response.evidence_supported && response.evidence_supported.length > 0) {
+    displayEvidenceSupportedFromAPI(response.evidence_supported);
+  }
+  
+  // Display uncertainties
+  if (response.uncertainties && response.uncertainties.length > 0) {
+    displayUncertaintiesFromAPI(response.uncertainties);
+  }
+  
+  // Display competing interpretations
+  if (response.competing_interpretations && response.competing_interpretations.length > 0) {
+    displayCompetingInterpretationsFromAPI(response.competing_interpretations);
+  }
+  
+  // Display disagreements
+  if (response.disagreements && response.disagreements.length > 0) {
+    displayDisagreementsFromAPI(response.disagreements);
+  }
+  
+  // Display sources
+  if (response.sources && response.sources.length > 0) {
+    displaySourceCardsFromAPI(response.sources);
+  }
+  
+  // Display jurisdiction if available in metadata
+  if (response.metadata && response.metadata.jurisdictions) {
+    displayJurisdictionChain(response.metadata.jurisdictions);
+  }
+  
+  // Display time context
+  if (response.timestamps && response.timestamps.complete) {
+    $('#time-context').textContent = 'Current as of: ' + new Date(response.timestamps.complete).toLocaleString();
+  } else {
+    $('#time-context').textContent = 'Current as of: ' + new Date().toLocaleString();
+  }
+  
+  // Setup why panel with real content
+  if (response.provenance) {
+    displayWhyContentFromAPI(response.provenance);
+  }
+  
+  // Setup advanced view
+  if (response.provenance) {
+    displayAdvancedContentFromAPI(response.provenance);
+  }
   
   // Re-enable controls
   $('#research-start').disabled = false;
   $('#research-question').disabled = false;
   $('#research-depth').disabled = false;
+  RESEARCH_STATE.inProgress = false;
+  RESEARCH_STATE.report = response;
   
-  // Show results
-  $('#research-results').style.display = 'block';
+  // Show PROPOSE MISSION button if we have valid results
+  if (response.status === 'complete' && response.short_answer) {
+    $('#propose-mission-container').style.display = 'block';
+  } else {
+    $('#propose-mission-container').style.display = 'none';
+  }
 }
+
+async function pollResearchResults(sessionId) {
+  try {
+    const response = await api(`/api/research/${sessionId}`);
+    updateResearchProgressFromAPI(response);
+    displayRealResearchResults(response);
+  } catch (error) {
+    console.error('Polling error:', error);
+    // If session not found or failed, stop polling
+    if (error.message.includes('404') || error.message.includes('not found')) {
+      $('#research-short-answer').innerHTML = 'Research session not found. Please try again.';
+      $('#research-start').disabled = false;
+      $('#research-question').disabled = false;
+      $('#research-depth').disabled = false;
+      RESEARCH_STATE.inProgress = false;
+    } else {
+      // Retry after delay
+      setTimeout(() => pollResearchResults(sessionId), 3000);
+    }
+  }
+}
+
+function displayFindingsFromAPI(findings) {
+  const container = $('#research-findings');
+  if (!findings || !findings.length) {
+    container.innerHTML = '<div class="mut">No findings found.</div>';
+    return;
+  }
+  
+  container.innerHTML = findings.map(finding => `
+    <div class="research-finding">
+      <span class="fact-tag ${finding.evidence_type}">${esc(finding.evidence_type)}</span>
+      <span style="margin-left: 8px;">${esc(finding.text)}</span>
+      ${finding.confidence ? `<span class="confidence-indicator confidence-${finding.confidence}" title="${esc(finding.confidence)}"></span>` : ''}
+    </div>
+  `).join('');
+}
+
+function displayEvidenceSupportedFromAPI(evidences) {
+  const container = $('#evidence-supported');
+  if (!evidences || !evidences.length) {
+    container.innerHTML = '<div class="mut">No strongly supported evidence found.</div>';
+    return;
+  }
+  
+  container.innerHTML = evidences.map(evidence => `
+    <div class="research-finding">
+      <span class="confidence-indicator confidence-high"></span>
+      <strong>${esc(evidence.text)}</strong>
+      ${evidence.source ? `<div class="mut" style="margin-top: 4px;">Source: ${esc(evidence.source.title || evidence.source.source_id)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function displayUncertaintiesFromAPI(uncertainties) {
+  const container = $('#evidence-uncertain');
+  if (!uncertainties || !uncertainties.length) {
+    container.innerHTML = '<div class="mut">No significant uncertainties identified.</div>';
+    return;
+  }
+  
+  container.innerHTML = uncertainties.map(uncertainty => `
+    <div class="research-finding">
+      <span class="confidence-indicator confidence-unknown"></span>
+      <span>${esc(uncertainty.text)}</span>
+      ${uncertainty.reason ? `<div class="mut" style="margin-top: 4px;">Reason: ${esc(uncertainty.reason)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function displayCompetingInterpretationsFromAPI(interpretations) {
+  const container = $('#competing-interpretations');
+  if (!interpretations || !interpretations.length) {
+    container.innerHTML = '<div class="mut">No competing interpretations found.</div>';
+    return;
+  }
+  
+  container.innerHTML = interpretations.map(interpretation => `
+    <div class="research-finding">
+      <span class="fact-tag interpretation">Interpretation</span>
+      <strong>${esc(interpretation.position)}</strong>
+      ${interpretation.sources ? `<div class="mut" style="margin-top: 4px;">Source: ${esc(interpretation.sources)}</div>` : ''}
+      ${interpretation.analysis ? `<div class="mut" style="margin-top: 4px;">${esc(interpretation.analysis)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function displayDisagreementsFromAPI(disagreements) {
+  const container = $('#disagreements-container');
+  if (!disagreements || !disagreements.length) {
+    container.innerHTML = '';
+    return;
+  }
+  
+  container.innerHTML = disagreements.map(disagreement => `
+    <div class="disagreement-banner">
+      <h4>SOURCES DISAGREE</h4>
+      <strong>Source A:</strong> ${esc(disagreement.source_a)}
+      <div style="margin: 4px 0;"><strong>Source B:</strong> ${esc(disagreement.source_b)}</div>
+      ${disagreement.why ? `<div style="margin-top: 4px;">Why they disagree: ${esc(disagreement.why)}</div>` : ''}
+      ${disagreement.assessment ? `<div style="margin-top: 6px; font-size: 11px;">Lake Yange assessment: ${esc(disagreement.assessment)}</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function displaySourceCardsFromAPI(sources) {
+  const container = $('#sources-container');
+  if (!sources || !sources.length) {
+    container.innerHTML = '<div class="mut">No sources found.</div>';
+    return;
+  }
+  
+  container.innerHTML = sources.map(source => `
+    <div class="source-card">
+      <div class="source-header">
+        <span class="source-title">${esc(source.title || source.source_id || 'Unknown Source')}</span>
+        <span class="source-quality ${source.quality || 'medium'}">${esc(source.quality || 'Medium')}</span>
+      </div>
+      ${source.publisher ? `<div class="source-meta">Published by: ${esc(source.publisher)}</div>` : ''}
+      ${source.publication_date ? `<div class="source-meta">Date: ${esc(source.publication_date)}</div>` : ''}
+      ${source.jurisdiction ? `<div class="source-meta">Jurisdiction: ${esc(source.jurisdiction)}</div>` : ''}
+      ${source.relevance ? `<div class="mut" style="margin-top: 4px;">Why it matters: ${esc(source.relevance)}</div>` : ''}
+      ${source.chunk_hash ? `<div class="source-link" onclick="showSourceEvidence('${source.chunk_hash}')">SHOW EVIDENCE</div>` : ''}
+    </div>
+  `).join('');
+}
+
+function showSourceEvidence(chunkHash) {
+  // For now, show the chunk hash - in future, this would retrieve the actual passage
+  alert('Source evidence for chunk: ' + chunkHash + '\n\nIn the real implementation, this would display the actual retrieved passage text.');
+}
+
+function displayWhyContentFromAPI(provenance) {
+  const container = $('#why-content');
+  if (!provenance) {
+    container.innerHTML = '<div class="mut">No provenance information available.</div>';
+    return;
+  }
+  
+  container.innerHTML = `
+    <div style="margin-bottom: 12px;">
+      <strong>Research Session:</strong> ${esc(provenance.research_session_id || 'Unknown')}<br>
+      <strong>Question Hash:</strong> ${esc(provenance.question_hash || 'Unknown')}<br>
+      <strong>Timestamp:</strong> ${esc(provenance.timestamp || 'Unknown')}
+    </div>
+    ${provenance.ver_audit_results && provenance.ver_audit_results.length > 0 ? `
+    <div style="margin-bottom: 12px;">
+      <strong>Vera Audit Results:</strong>
+      <ul style="margin: 4px 0 0 20px; padding: 0;">
+        ${provenance.ver_audit_results.map(result => `<li class="mut">${esc(result)}</li>`).join('')}
+      </ul>
+    </div>
+    ` : ''}
+    ${provenance.source_hashes && provenance.source_hashes.length > 0 ? `
+    <div style="margin-bottom: 12px;">
+      <strong>Source Hashes:</strong>
+      <div class="mono" style="font-size: 11px;">${provenance.source_hashes.map(hash => esc(hash)).join(', ')}</div>
+    </div>
+    ` : ''}
+    ${provenance.ledger_entry_hash ? `
+    <div style="margin-bottom: 12px;">
+      <strong>Red Sink Ledger Entry:</strong> ${esc(provenance.ledger_entry_hash)}
+    </div>
+    ` : ''}
+  `;
+}
+
+function displayAdvancedContentFromAPI(provenance) {
+  const container = $('#advanced-content');
+  if (!provenance) {
+    container.innerHTML = '<div class="mut">No advanced provenance data available.</div>';
+    return;
+  }
+  
+  container.innerHTML = `
+    <div style="margin-bottom: 12px;">
+      <h4>RESEARCH PROVENANCE</h4>
+      <div class="mono"><strong>Session ID:</strong> ${esc(provenance.research_session_id || '—')}</div>
+      <div class="mono"><strong>Question Hash:</strong> ${esc(provenance.question_hash || '—')}</div>
+      <div class="mono"><strong>Timestamp:</strong> ${esc(provenance.timestamp || '—')}</div>
+    </div>
+    ${provenance.ver_audit_results && provenance.ver_audit_results.length > 0 ? `
+    <div style="margin-bottom: 12px;">
+      <h4>VERA AUDIT RESULTS</h4>
+      <div class="mono">${provenance.ver_audit_results.map(result => esc(result)).join('<br>')}</div>
+    </div>
+    ` : ''}
+    ${provenance.source_hashes && provenance.source_hashes.length > 0 ? `
+    <div style="margin-bottom: 12px;">
+      <h4>SOURCE HASHES</h4>
+      ${provenance.source_hashes.map(hash => `<div class="mono">${esc(hash)}</div>`).join('')}
+    </div>
+    ` : ''}
+    ${provenance.ledger_entry_hash ? `
+    <div style="margin-bottom: 12px;">
+      <h4>RED SINK LEDGER ENTRY</h4>
+      <div class="mono">${esc(provenance.ledger_entry_hash)}</div>
+    </div>
+    ` : ''}
+  `;
+}
+
+// PROPOSE MISSION functionality
+function proposeMissionFromResearch() {
+  if (!RESEARCH_STATE.report || !RESEARCH_STATE.report.short_answer) {
+    alert('No research results available to create a mission from.');
+    return;
+  }
+  
+  const question = RESEARCH_STATE.question;
+  const findings = RESEARCH_STATE.report.findings || [];
+  const evidenceCount = RESEARCH_STATE.report.sources ? RESEARCH_STATE.report.sources.length : 0;
+  
+  // Build mission objective from research
+  const objective = `Research-based mission: ${question}\n\nResearch findings: ${findings.map(f => f.text).join('; ')}\n\nEvidence sources: ${evidenceCount} sources analyzed`;
+  
+  // Build mission tool - use filesystem to write research summary
+  const tool = {
+    action_type: 'write_file',
+    target_system: 'filesystem',
+    path: `research/${RESEARCH_STATE.sessionId || 'summary'}.md`,
+    content: `# Research Mission: ${question}\n\n` +
+            `## Short Answer\n\n${RESEARCH_STATE.report.short_answer || 'No answer available'}\n\n` +
+            `## Key Findings\n\n${findings.map(f => `- ${f.text}`).join('\\n')}\n\n` +
+            `## Evidence Sources\n\n${evidenceCount} sources analyzed\n\n` +
+            `## Research Session\n\n${RESEARCH_STATE.sessionId || 'Unknown'}\n\n` +
+            `---\n*Generated from Lake Yange Research UI*`
+  };
+  
+  // Set default amount (Tier 0 for research-based missions)
+  const amount = '0';
+  
+  // Navigate to missions view and pre-fill with research data
+  setView('missions');
+  
+  // Pre-fill the mission form (this happens after the view switch)
+  setTimeout(() => {
+    const objInput = $('#mobj');
+    const pathInput = $('#mpath');
+    const bodyInput = $('#mbody');
+    const amtInput = $('#mamt');
+    
+    if (objInput) objInput.value = objective.slice(0, 500); // Max length
+    if (pathInput) pathInput.value = tool.path;
+    if (bodyInput) bodyInput.value = tool.content.slice(0, 200); // Truncate for display
+    if (amtInput) amtInput.value = amount;
+    
+    alert('Mission form pre-filled with research data. Review and modify as needed before launching.');
+  }, 100);
+}
+
+
 
 function startResearch() {
   const question = $('#research-question').value.trim();
@@ -1888,8 +2089,8 @@ function startResearch() {
   $('#why-panel').classList.remove('on');
   $('#advanced-view').style.display = 'none';
   
-  // Start the research process
-  simulateResearchProcess(question, depth);
+  // Start the research process with real API
+  performRealResearch(question, depth);
 }
 
 function toggleWhyPanel() {
@@ -1926,6 +2127,7 @@ function initResearchUI() {
   $('#research-start').onclick = startResearch;
   $('#why-button').onclick = toggleWhyPanel;
   $('#advanced-view-toggle').onclick = toggleAdvancedView;
+  $('#propose-mission-btn').onclick = proposeMissionFromResearch;
   
   // Enable/disable start button based on question length
   $('#research-question').oninput = function() {
@@ -1972,12 +2174,14 @@ setView = v => {
     $('#research-metadata').innerHTML = '';
     $('#jurisdiction-display').innerHTML = '';
     $('#time-context').textContent = '';
+    $('#propose-mission-container').style.display = 'none';
     RESEARCH_STATE = {
       inProgress: false,
       currentStage: '',
       question: '',
       depth: 'standard',
       report: null,
+      sessionId: null,
       metadata: {},
       sources: [],
       terminology: {}
