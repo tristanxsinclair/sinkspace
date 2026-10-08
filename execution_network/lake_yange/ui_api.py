@@ -112,6 +112,13 @@ class RevokeBody(BaseModel):
     signature: Sig
 
 
+class PendingSignature(BaseModel):
+    model_config = ConfigDict(extra="forbid")
+    steward_id: str = Field(min_length=1, max_length=64)
+    signature_b64: str = Field(min_length=1, max_length=256)
+    decision: str = Field(min_length=1, max_length=64)
+
+
 def revoke_message_parts(steward_id: str, reason: str) -> Any:
     """(proposal_id, p_hash, tier, decision) that a steward signs to flag a key as compromised."""
     return f"steward:{steward_id}", hashlib.sha256(reason.encode()).hexdigest(), 3, "REVOKE_KEY"
@@ -143,6 +150,8 @@ class UiState:
             self.missions = None  # an agent key was revoked: missions stay disabled (fail closed)
         if treasury is not None:
             self.save_treasury(treasury)
+        # Load pending signatures for hybrid sync
+        self._pending_signatures: Dict[str, Dict[str, Dict[str, Any]]] = self._load_pending_signatures()
 
     def treasury(self) -> Optional[ThreeTierLedger]:
         d = self.store.get("ui", "treasury")
@@ -157,6 +166,31 @@ class UiState:
         self.store.put("ui", "treasury", {"tier1": str(t.tier1), "tier2": str(t.tier2), "tier3": str(t.tier3),
                                           "burn": str(t.monthly_essential_burn),
                                           "projects": list(t.tier3_projects), "demo": demo})
+
+    def _load_pending_signatures(self) -> Dict[str, Dict[str, Dict[str, Any]]]:
+        saved = self.store.get("ui", "pending_signatures")
+        return saved if saved is not None else {}
+
+    def _save_pending_signatures(self) -> None:
+        self.store.put("ui", "pending_signatures", self._pending_signatures)
+
+    def add_pending_signature(self, proposal_id: str, steward_id: str, signature_b64: str, decision: str) -> None:
+        if proposal_id not in self._pending_signatures:
+            self._pending_signatures[proposal_id] = {}
+        self._pending_signatures[proposal_id][steward_id] = {
+            "signature_b64": signature_b64,
+            "decision": decision,
+            "timestamp": self.clock().timestamp()
+        }
+        self._save_pending_signatures()
+
+    def get_pending_signatures(self, proposal_id: str) -> Dict[str, Dict[str, Any]]:
+        return self._pending_signatures.get(proposal_id, {})
+
+    def clear_pending_signatures(self, proposal_id: str) -> None:
+        if proposal_id in self._pending_signatures:
+            del self._pending_signatures[proposal_id]
+            self._save_pending_signatures()
 
 
 # Tile layout for the "Realm" canvas view. Coordinates are in 64px tiles; every building points at a real system_map node
@@ -326,6 +360,24 @@ def create_app(state_dir: Path, *, demo: bool = False, treasury: Optional[ThreeT
     def proposals() -> List[Dict[str, Any]]:
         return [view(pid, r) for pid, r in st.gateway.records.items()]
 
+    @app.get("/api/proposals/grouped")
+    def proposals_grouped() -> Dict[str, Any]:
+        """
+        Returns proposals grouped by tier, then separated by Vera veto status.
+        Structure: {"0": {normal: [proposal, ...], vera_veto: [proposal, ...]}, ...}
+        """
+        grouped: Dict[str, Dict[str, List[Dict[str, Any]]]] = {}
+        for pid, r in st.gateway.records.items():
+            tier = str(r.tier)
+            if tier not in grouped:
+                grouped[tier] = {"normal": [], "vera_veto": []}
+            v = view(pid, r)
+            if r.status == "BLOCKED_BY_VERA":
+                grouped[tier]["vera_veto"].append(v)
+            else:
+                grouped[tier]["normal"].append(v)
+        return grouped
+
     @app.get("/api/proposals/{pid}/signing-message")
     def signing_message(pid: str, decision: str = "APPROVE") -> Dict[str, Any]:
         r = record_or_404(pid)
@@ -347,6 +399,17 @@ def create_app(state_dir: Path, *, demo: bool = False, treasury: Optional[ThreeT
             raise HTTPException(404, "Unknown steward.")
         msg = approval_message(*revoke_message_parts(sid, reason))
         return {"steward_id": sid, "message_utf8": msg.decode(), "message_b64": base64.b64encode(msg).decode()}
+
+    @app.get("/api/agents/{agent_id}/revoked")
+    def agent_revoked(agent_id: str) -> Dict[str, Any]:
+        """
+        Check if an agent's session key has been revoked.
+        Used for displaying revocation status in the UI.
+        """
+        return {
+            "agent_id": agent_id,
+            "revoked": st.breaker.is_revoked(agent_id)
+        }
 
     @app.get("/api/missions")
     def missions_list() -> List[Dict[str, Any]]:
@@ -430,6 +493,8 @@ def create_app(state_dir: Path, *, demo: bool = False, treasury: Optional[ThreeT
             else:
                 token = st.gateway.authorize(pid, [s.to_gate() for s in body.signatures],
                                              [s.to_gate() for s in body.emergency_override] or None)
+            # Clear pending signatures after successful authorization
+            st.clear_pending_signatures(pid)
         except MissionStateError as exc:
             raise HTTPException(409, str(exc)) from exc
         except GateError as exc:
@@ -508,6 +573,8 @@ def create_app(state_dir: Path, *, demo: bool = False, treasury: Optional[ThreeT
         if body.revoke_agent_key:
             st.breaker.revoke(r.proposal.agent_id, f"Revoked by steward {body.signature.steward_id} on rejection",
                               r.p_hash)
+        # Clear pending signatures after rejection
+        st.clear_pending_signatures(pid)
         return view(pid, r)
 
     @app.post("/api/proposals/{pid}/override/cancel")
@@ -517,6 +584,8 @@ def create_app(state_dir: Path, *, demo: bool = False, treasury: Optional[ThreeT
             st.gateway.cancel_override(pid, [s.to_gate() for s in body.signatures])
         except GateError as exc:
             raise fail(exc) from exc
+        # Clear pending signatures after override cancellation
+        st.clear_pending_signatures(pid)
         return view(pid, r)
 
     @app.post("/api/proposals/{pid}/token/verify")
@@ -526,6 +595,70 @@ def create_app(state_dir: Path, *, demo: bool = False, treasury: Optional[ThreeT
             return {"valid": True, **st.gate.inspect_token(body.token, pid, r.p_hash)}
         except TokenError as exc:
             raise HTTPException(403, str(exc)) from exc
+
+    # ---- Pending Signatures for Hybrid Sync ----
+    @app.get("/api/proposals/{pid}/signatures")
+    def get_pending_signatures(pid: str) -> Dict[str, Any]:
+        """
+        Retrieve pending signatures collected from other stewards for this proposal.
+        Used for hybrid sync: local session + server state.
+        """
+        r = record_or_404(pid)
+        pending = st.get_pending_signatures(pid)
+        return {
+            "proposal_id": pid,
+            "signatures": [
+                {"steward_id": sid, **data}
+                for sid, data in pending.items()
+            ],
+            "total": len(pending),
+            "proposal_hash": r.p_hash,
+            "tier": r.tier
+        }
+
+    @app.post("/api/proposals/{pid}/signatures")
+    def add_pending_signature(pid: str, body: PendingSignature) -> Dict[str, Any]:
+        """
+        Store a pending signature for hybrid sync.
+        Does NOT authorize the proposal; only stores for later retrieval by other stewards.
+        """
+        record_or_404(pid)
+        try:
+            tier = st.gateway.records[pid].tier
+            if body.decision in (OVERRIDE_DECISION, CANCEL_DECISION):
+                tier = 3
+            if len(body.signature_b64) > 256:
+                raise HTTPException(400, "Signature too long")
+            st.add_pending_signature(pid, body.steward_id, body.signature_b64, body.decision)
+            return {
+                "status": "stored",
+                "proposal_id": pid,
+                "steward_id": body.steward_id,
+                "decision": body.decision
+            }
+        except Exception as exc:
+            raise HTTPException(400, str(exc))
+
+    @app.delete("/api/proposals/{pid}/signatures")
+    def clear_pending_signatures_endpoint(pid: str) -> Dict[str, Any]:
+        """
+        Clear all pending signatures for a proposal.
+        Typically called after successful authorization or rejection.
+        """
+        record_or_404(pid)
+        st.clear_pending_signatures(pid)
+        return {"status": "cleared", "proposal_id": pid}
+
+    @app.delete("/api/proposals/{pid}/signatures/{steward_id}")
+    def remove_pending_signature(pid: str, steward_id: str) -> Dict[str, Any]:
+        """
+        Remove a specific pending signature.
+        """
+        record_or_404(pid)
+        if pid in st._pending_signatures and steward_id in st._pending_signatures[pid]:
+            del st._pending_signatures[pid][steward_id]
+            st._save_pending_signatures()
+        return {"status": "removed", "proposal_id": pid, "steward_id": steward_id}
 
     @app.post("/api/treasury/scenario-c")
     def scenario_c() -> Dict[str, Any]:

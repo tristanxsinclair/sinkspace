@@ -1,0 +1,6 @@
+#!/Users/tristansinclair/Documents/Codex/2026-09-15/sink-clones-build-the-execution-network/execution_network/venv/bin/python3
+import sys
+from uvicorn.main import main
+if __name__ == '__main__':
+    sys.argv[0] = sys.argv[0].removesuffix('.exe')
+    sys.exit(main())

@@ -47,10 +47,34 @@ svg .e{stroke:#334155;stroke-width:1;fill:none}svg .e.flow{stroke:#475569;stroke
 .term{background:#000;color:#86efac;border:1px solid #14532d;border-radius:6px;padding:8px;font:11px ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto}
 .ms{display:flex;gap:4px;margin:6px 0}.ms i{flex:1;height:6px;border-radius:3px;background:#1e293b}.ms i.d{background:var(--em)}.ms i.h{background:var(--am);box-shadow:0 0 8px #f59e0b}
 .mcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}.mcard{cursor:pointer}.mcard:hover{border-color:var(--bl)}
+/* AUTH DASHBOARD STYLES */
+.auth-tier{margin-bottom:16px}.auth-tier h3{margin:0 0 8px;font-size:12px;letter-spacing:.12em;color:var(--tx);padding:4px 8px;border-radius:6px;display:inline-block}
+.tier-0{color:var(--em);border-color:#065f46;background:#022c22}.tier-1{color:var(--bl);border-color:#3b82f6;background:#072a38}
+.tier-2{color:var(--am);border-color:#d97706;background:#2a1a03}.tier-3{color:var(--ro);border-color:#ef4444;background:#2d0a14}
+.veto-section{border:2px solid var(--ro);background:#1a0710;margin-top:12px;padding:8px;border-radius:8px}
+.veto-section h4{margin:0 0 6px;font-size:11px;color:var(--ro);letter-spacing:.08em}
+.auth-card{background:#0f172a;border:1px solid #334155;border-radius:8px;padding:10px;margin-bottom:8px;position:relative}
+.auth-card.veto{border-color:var(--ro);background:#1a0710}
+.auth-card:hover{border-color:var(--bl)}
+.crypto-verify{background:#020617;border:1px solid #334155;border-radius:6px;padding:8px;margin:6px 0;font-size:11px}
+.crypto-verify .hash{color:var(--em);word-break:break-all}
+.crypto-toggle{cursor:pointer;color:var(--am);font-size:10px;margin-top:4px}
+.advanced-raw{display:none;background:#020617cc;border:1px solid #475569;border-radius:6px;padding:8px;margin-top:6px;max-height:120px;overflow:auto;font-size:10px;white-space:pre-wrap}
+.advanced-raw.on{display:block}
+.countdown{color:var(--am);font-family:ui-monospace,Menlo,monospace;font-size:11px;text-transform:uppercase;letter-spacing:.06em}
+.countdown.active{color:var(--em);animation:glow 1.4s infinite alternate}
+.sig-sync{color:var(--mut);font-size:10px;margin-left:6px}
+.receipt-modal{position:fixed;inset:0;background:#020617cc;z-index:50;display:none;place-items:center}.receipt-modal.on{display:grid}
+.receipt-box{width:min(720px,96vw);max-height:80vh;overflow:auto;background:var(--panel);border:1px solid var(--em);border-radius:10px;padding:16px}
+.override-modal{position:fixed;inset:0;background:#020617cc;z-index:50;display:none;place-items:center}.override-modal.on{display:grid}
+.override-box{width:min(560px,96vw);max-height:70vh;overflow:auto;background:var(--panel);border:2px solid var(--ro);border-radius:10px;padding:16px}
+.confirm-input{background:#000;color:var(--tx);border:2px solid var(--am);border-radius:6px;padding:8px 12px;font:14px ui-monospace,Menlo,monospace;text-align:center;letter-spacing:2px}
+.revocation-checkbox{display:flex;align-items:center;gap:8px;margin:12px 0;font-size:11px;color:var(--mut)}
+.revocation-checkbox input[type=checkbox]{width:14px;height:14px;accent-color:var(--ro)}
 </style></head><body>
 <header><h1>LAKE YANGE UNIFIED HUB</h1><div class="hdr-r"><button id="kvbtn" aria-label="Open key vault">&#128273; KEY VAULT &amp; STEWARDS <span id="kvn"></span></button><span id="top" class="hdr-r"></span></div></header>
 <nav class="nav" id="nav"><span class="mut" style="align-self:center">NAV:</span>
- <button data-v="realm">0. THE REALM</button><button data-v="map">1. SYSTEM MAP</button><button data-v="command">2. COMMAND CENTER</button><button data-v="dash">3. DASHBOARD</button><button data-v="bento">4. BENTO OVERVIEW</button><button data-v="missions">5. MISSIONS</button></nav>
+ <button data-v="realm">0. THE REALM</button><button data-v="map">1. SYSTEM MAP</button><button data-v="command">2. COMMAND CENTER</button><button data-v="dash">3. DASHBOARD</button><button data-v="bento">4. BENTO OVERVIEW</button><button data-v="missions">5. MISSIONS</button><button data-v="auth">6. AUTH DASHBOARD</button></nav>
 <main class="view" id="v-realm"><section class="c12" id="realmbox" style="padding:0;position:relative;overflow:hidden">
  <canvas id="world" aria-label="The Realm of Lake Yange" style="width:100%;height:calc(100vh - 120px);min-height:420px;display:block;cursor:grab;background:#050b16"></canvas>
  <div id="rhud" class="px" style="position:absolute;left:8px;top:8px;right:8px;pointer-events:none"></div>
@@ -98,6 +122,13 @@ svg .e{stroke:#334155;stroke-width:1;fill:none}svg .e.flow{stroke:#475569;stroke
 <section class="c4"><h2>CII</h2><div id="b-cii"></div></section>
 <section class="c4"><h2>VERA VETOES &amp; OVERRIDES</h2><div id="b-veto"></div></section>
 <section class="c12"><div class="mut">Summary only. Signing, rejecting and cancelling happen in view 2 (keys live in that page's memory).</div></section>
+</main>
+<main class="view" id="v-auth">
+<section class="c12"><h2>AUTHORIZATION DASHBOARD · TIERED PROPOSAL REVIEW</h2>
+ <div class="row" style="margin-bottom:8px"><span class="mut">Signer:</span><input type="file" id="auth-keyfile" accept=".json,.txt">
+  <select id="auth-signer"></select><span class="mut" id="auth-keystate">no key loaded</span>
+  <button id="auth-sync" class="mut" style="margin-left:auto">🔄 Sync with Server</button></div>
+ <div id="auth-tiers"></div></section>
 </main>
 <script>
 const SESSION=document.querySelector('meta[name=ly-session]').content;
@@ -522,6 +553,506 @@ function paintMission(m){const ex=m.execution,sc=m.scope_report,au=m.audit_matri
 const bc=window.BroadcastChannel?new BroadcastChannel('ly-hub'):null;
 if(bc)bc.onmessage=()=>refresh();
 const _api=api;api=async function(p,b){const r=await _api(p,b);if(b!==undefined&&bc)bc.postMessage('changed');return r};
-setView(['realm','map','command','dash','bento','missions'].includes(location.hash.slice(1))?location.hash.slice(1):'realm');
+
+/* ===== AUTH DASHBOARD ===== */
+const authCollected={};  // Local signature collection for auth dashboard
+const authPending={};   // Server pending signatures cache
+const authReceipts=[];   // Authorization receipts for display
+let AUTH_LAST=null;      // Last grouped proposals data
+
+// Load keys for auth dashboard
+$('#auth-keyfile').onchange=e=>loadKeyFiles(e.target.files, true);
+async function loadKeyFiles(files, forAuth=false) {
+  try{
+    for(const f of files){
+      const txt=await f.text();let seeds=null,pem=null;
+      try{const j=JSON.parse(txt);seeds=j.seeds_hex||(j.steward_id&&j.seed_hex?{[j.steward_id]:j.seed_hex}:null);if(!seeds)throw new Error('JSON has no seeds_hex or steward_id/seed_hex')}
+      catch(e){if(/BEGIN PRIVATE KEY/.test(txt))pem=txt;else if(/^[0-9a-fA-F]{64}$/.test(txt.trim()))seeds={[prompt('Steward ID for '+f.name+'?')]:txt.trim()};else throw e}
+      if(pem){const id=prompt('Steward ID for '+f.name+'?');if(!id)continue;
+        const der=Uint8Array.from(atob(pem.replace(/-----[^-]+-----|\s/g,'')),c=>c.charCodeAt(0));
+        keys[id]=await crypto.subtle.importKey('pkcs8',der,{name:'Ed25519'},false,['sign'])} 
+      else for(const [id,hex] of Object.entries(seeds)){
+        if(!/^[0-9a-fA-F]{64}$/.test(hex))throw new Error('Seed for '+id+' must be 64 hex chars');
+        keys[id]=await crypto.subtle.importKey('pkcs8',new Uint8Array([...PKCS8,...unhex(hex)]),{name:'Ed25519'},false,['sign'])}}
+    const targetSel = forAuth ? $('#auth-signer') : $('#signer');
+    targetSel.innerHTML=Object.keys(keys).map(k=>`<option>${esc(k)}</option>`).join('');
+    const targetState = forAuth ? $('#auth-keystate') : $('#keystate');
+    targetState.textContent=Object.keys(keys).length+' key(s) in memory only; never sent to the server';
+    if(forAuth && AUTH_LAST) renderAuthTiers(AUTH_LAST);
+  }catch(err){alert('Key load failed (browser may lack WebCrypto Ed25519): '+err.message)}}
+
+// Auth-specific signing and actions
+async function authSignFor(pid, decision) {
+  const m = await api(`/api/proposals/${pid}/signing-message?decision=${decision}`);
+  const id = $('#auth-signer').value; if(!keys[id]) throw new Error('Load a steward key first.');
+  const sig = await crypto.subtle.sign('Ed25519', keys[id], unb64(m.message_b64));
+  return {steward_id: id, signature_b64: b64(new Uint8Array(sig)), decision};
+}
+
+function authAdd(pid, sig) {
+  if(!authCollected[pid]) authCollected[pid] = {};
+  const existing = authCollected[pid][sig.steward_id];
+  if(existing && existing.decision === sig.decision) throw new Error('Duplicate signature from '+sig.steward_id);
+  authCollected[pid][sig.steward_id] = sig;
+}
+
+async function authSyncProposals() {
+  try {
+    const d = await api('/api/proposals/grouped');
+    AUTH_LAST = d;
+    renderAuthTiers(d);
+    
+    // Sync pending signatures from server for each proposal
+    for(const tierKey of Object.keys(d)) {
+      const tier = d[tierKey];
+      for(const groupKey of ['normal', 'vera_veto']) {
+        for(const p of tier[groupKey] || []) {
+          if(!authPending[p.id]) {
+            try {
+              const sigs = await api(`/api/proposals/${p.id}/signatures`);
+              authPending[p.id] = sigs.signatures || [];
+            } catch(e) {
+              authPending[p.id] = [];
+            }
+          }
+        }
+      }
+    }
+  } catch(e) {
+    console.error('Sync failed:', e.message);
+  }
+}
+
+function renderAuthTiers(d) {
+  const tiers = Object.keys(d).sort((a, b) => parseInt(b) - parseInt(a));
+  let html = '';
+  
+  for(const tierKey of tiers) {
+    const tier = d[tierKey];
+    const tierNum = parseInt(tierKey);
+    const tierClass = `tier-${tierNum}`;
+    const tierName = {0:'Tier 0 (Micro)',1:'Tier 1 (Single)',2:'Tier 2 (Dual + 6h Lock)',3:'Tier 3 (Triple + 24h Lock)'}[tierNum] || `Tier ${tierNum}`;
+    
+    // Normal proposals for this tier
+    const normal = tier.normal || [];
+    // Vera veto proposals for this tier
+    const vetoes = tier.vera_veto || [];
+    const total = normal.length + vetoes.length;
+    
+    if(total === 0) continue;
+    
+    html += `<div class="auth-tier">`;
+    html += `<h3 class="${tierClass}">${esc(tierName)} · ${total} proposal(s)</h3>`;
+    
+    // Normal proposals
+    if(normal.length > 0) {
+      html += normal.map(p => renderAuthProposalCard(p, false)).join('');
+    }
+    
+    // Vera veto proposals (visually isolated)
+    if(vetoes.length > 0) {
+      html += `<div class="veto-section">`;
+      html += `<h4>⚠️  VERA VETO · Immediate Attention Required</h4>`;
+      html += vetoes.map(p => renderAuthProposalCard(p, true)).join('');
+      html += `</div>`;
+    }
+    
+    html += `</div>`;
+  }
+  
+  if(!html) html = '<div class="mut">No proposals awaiting authorization.</div>';
+  $('#auth-tiers').innerHTML = html;
+}
+
+function renderAuthProposalCard(p, isVeto) {
+  const localSigs = authCollected[p.id] || {};
+  const serverSigs = authPending[p.id] || [];
+  const localCount = Object.keys(localSigs).length;
+  const serverCount = serverSigs.length;
+  const totalSigs = localCount + serverCount;
+  
+  const isBlocked = p.status === 'BLOCKED_BY_VERA';
+  const isTimeLocked = p.time_lock_active;
+  const tierClass = `tier-${p.tier}`;
+  
+  // Compute SHA-256 checksum for verification
+  const hashDisplay = p.proposal_hash ? p.proposal_hash.slice(0, 24) + '…' : '—';
+  
+  let card = `<div class="auth-card ${isVeto ? 'veto' : ''}">`;
+  card += `<div class="row" style="margin-bottom:4px">`;
+  card += `<b class="mono">#${esc(p.id.slice(0, 8))}</b>`;
+  card += `<span class="badge ${tierClass}">${esc(p.tier_label)}</span>`;
+  card += `<span class="badge ${p.rejected?'bad':p.awaiting_human?'warn':'ok'}">${p.rejected?'REJECTED':p.awaiting_human?'AWAITING':'STAGED'}</span>`;
+  card += `<span class="mut">$${esc(p.amount_usd)}</span>`;
+  card += `</div>`;
+  card += `<div>${esc(p.action_type)} → <span class="mono">${esc(p.target_system)}</span></div>`;
+  card += `<div class="mut">${esc(p.justification.slice(0, 120))}${p.justification.length > 120 ? '…' : ''}</div>`;
+  card += `<div class="mono mut">hash ${esc(hashDisplay)}</div>`;
+  
+  // Time-lock info
+  if(isTimeLocked && p.time_lock_until) {
+    card += `<div class="countdown">⏰ Time-lock until ${esc(p.time_lock_until.slice(0, 16))}</div>`;
+  }
+  
+  // Vera veto reason
+  if(isBlocked) {
+    card += `<div class="banner">BLOCKED BY VERA: ${esc(p.veto_reason)}</div>`;
+  }
+  
+  // Override timelock status
+  if(p.override_timelock) {
+    const tl = p.override_timelock;
+    const hoursLeft = tl.state === 'PENDING_TIME_LOCK' ? Math.floor(tl.seconds_left / 3600) : 0;
+    const minsLeft = tl.state === 'PENDING_TIME_LOCK' ? Math.floor((tl.seconds_left % 3600) / 60) : 0;
+    card += `<div class="banner">EMERGENCY OVERRIDE ${esc(tl.state)}`;
+    if(tl.state === 'PENDING_TIME_LOCK') {
+      card += `: ${hoursLeft}h ${minsLeft}m of 24h cooling left`;
+      card += ` (filed by ${esc(tl.signers.join(', '))})`;
+    }
+    card += `</div>`;
+  }
+  
+  // Cryptographic verification section
+  card += `<div class="crypto-verify">`;
+  card += `<div><b>CRYPTOGRAPHIC VERIFICATION</b></div>`;
+  card += `<div>Hash: <span class="hash">${esc(hashDisplay)}</span></div>`;
+  card += `<div>Tier: ${p.tier} | Signatures: ${totalSigs}/${p.signatures_required} <span class="sig-sync">(local: ${localCount}, server: ${serverCount})</span></div>`;
+  card += `<div class="crypto-toggle" onclick="toggleRaw('${p.id}')">▼ Advanced: View Raw Bytes</div>`;
+  card += `<div id="raw-${p.id}" class="advanced-raw"></div>`;
+  card += `</div>`;
+  
+  // Action buttons
+  card += `<div class="row" style="margin-top:8px">`;
+  
+  // Determine if this is an override situation
+  const needsOverride = p.status === 'BLOCKED_BY_VERA';
+  const canApprove = p.awaiting_human && !isTimeLocked && !needsOverride;
+  const canOverride = needsOverride && !isTimeLocked;
+  const canCancelOverride = p.override_timelock && p.override_timelock.state === 'PENDING_TIME_LOCK';
+  
+  // Sign button
+  const signBtnDecision = needsOverride ? 'TIER_3_EMERGENCY_OVERRIDE' : 'APPROVE';
+  const signBtnLabel = needsOverride ? 'Sign Override' : 'Sign Approve';
+  card += `<button onclick="authDoSign('${p.id}', '${signBtnDecision}')" ${canApprove || canOverride ? '' : 'disabled'}>${esc(signBtnLabel)}</button>`;
+  
+  // HSM Sign button
+  card += `<button onclick="authDoSign('${p.id}', '${signBtnDecision}', true)" ${canApprove || canOverride ? '' : 'disabled'}>HSM Sign</button>`;
+  
+  // Sync button
+  card += `<button onclick="authSyncProposal('${p.id}')" class="mut">🔄 Sync</button>`;
+  
+  // Submit button (only if we have enough signatures)
+  if(!needsOverride && totalSigs >= p.signatures_required) {
+    card += `<button class="pri" onclick="authDoSubmit('${p.id}')">Submit Authorization</button>`;
+  }
+  
+  // Override-specific buttons
+  if(needsOverride) {
+    card += `<button class="dng" onclick="showOverrideModal('${p.id}')">Override Flow</button>`;
+  }
+  
+  // Cancel override button
+  if(canCancelOverride) {
+    const cancelSigs = (authCollected[p.id] || {}).CANCEL_OVERRIDE || [];
+    card += `<button class="dng" onclick="authDoCancel('${p.id}')">Cancel Override (${cancelSigs.length}/2)</button>`;
+  }
+  
+  // Reject button
+  card += `<button class="dng" onclick="showRejectModal('${p.id}')">Reject</button>`;
+  card += `</div>`;
+  
+  // Agent revocation status
+  card += `<div class="row" style="margin-top:4px">`;
+  card += `<span class="mut">Agent key: </span>`;
+  card += `<span class="badge ${p.revoked_agent ? 'bad' : 'ok'}">${p.revoked_agent ? 'REVOKED' : 'Active'}</span>`;
+  card += `</div>`;
+  
+  card += `</div>`;
+  return card;
+}
+
+function toggleRaw(pid) {
+  const el = $('#raw-' + pid);
+  if(el.classList.contains('on')) {
+    el.classList.remove('on');
+    return;
+  }
+  el.classList.add('on');
+  // Fetch the raw signing message
+  api(`/api/proposals/${pid}/signing-message`).then(m => {
+    el.innerHTML = `<div><b>UTF-8:</b> <span class="mono">${esc(m.message_utf8)}</span></div>`;
+    el.innerHTML += `<div><b>Base64:</b> <span class="mono">${esc(m.message_b64)}</span></div>`;
+    el.innerHTML += `<div><b>SHA-256 Checksum:</b> <span class="mono">${esc(m.proposal_hash)}</span> ✓</div>`;
+  }).catch(() => {
+    el.innerHTML = '<div class="mut">Failed to load raw bytes</div>';
+  });
+}
+
+function authSyncProposal(pid) {
+  api(`/api/proposals/${pid}/signatures`).then(sigs => {
+    authPending[pid] = sigs.signatures || [];
+    renderAuthTiers(AUTH_LAST);
+  }).catch(e => {
+    console.error('Sync failed for', pid, e.message);
+  });
+}
+
+window.authDoSign = (pid, decision, ext) => {
+  act(async () => {
+    const sig = await (ext ? externalSig : authSignFor)(pid, decision);
+    authAdd(pid, sig);
+    renderAuthTiers(AUTH_LAST);
+    
+    // For override decisions, also store on server for other stewards
+    if(decision === 'TIER_3_EMERGENCY_OVERRIDE' || decision === 'CANCEL_OVERRIDE') {
+      await api(`/api/proposals/${pid}/signatures`, sig);
+    }
+  });
+};
+
+window.authDoSubmit = pid => {
+  act(async () => {
+    const c = authCollected[pid] || {};
+    const sigs = (c.APPROVE || []).concat(c.TIER_3_EMERGENCY_OVERRIDE || []);
+    
+    // Build the request body
+    const body = {
+      signatures: sigs.filter(s => s.decision === 'APPROVE'),
+      emergency_override: sigs.filter(s => s.decision === 'TIER_3_EMERGENCY_OVERRIDE')
+    };
+    
+    const r = await api(`/api/proposals/${pid}/authorize`, body);
+    tokens[pid] = {token: r.token, expires_at: r.expires_at};
+    delete authCollected[pid];
+    
+    // Show receipt
+    showReceipt(r, 'APPROVE');
+    
+    // Clear from UI
+    renderAuthTiers(AUTH_LAST);
+  });
+};
+
+window.authDoCancel = pid => {
+  act(async () => {
+    const c = authCollected[pid] || {};
+    const sigs = (c.CANCEL_OVERRIDE || []).map(s => ({steward_id: s.steward_id, signature_b64: s.signature_b64}));
+    
+    if(sigs.length < 2) {
+      throw new Error('Collect 2 steward CANCEL_OVERRIDE signatures first (' + sigs.length + '/2).');
+    }
+    
+    await api(`/api/proposals/${pid}/override/cancel`, {signatures: sigs});
+    delete authCollected[pid];
+    renderAuthTiers(AUTH_LAST);
+  });
+};
+
+function showRejectModal(pid) {
+  const p = AUTH_LAST ? Object.values(AUTH_LAST).flatMap(t => [].concat(t.normal || [], t.vera_veto || [])).find(x => x.id === pid) : null;
+  if(!p) return;
+  
+  const modal = $('#mmb');
+  modal.innerHTML = `
+    <div class="row" style="justify-content:space-between">
+      <b>REJECT PROPOSAL ${esc(pid.slice(0, 8))}</b>
+      <button onclick="$('#mm').classList.remove('on')">CLOSE</button>
+    </div>
+    <div style="margin:12px 0">
+      <div><b>Action:</b> ${esc(p.action_type)} → ${esc(p.target_system)}</div>
+      <div><b>Justification:</b> ${esc(p.justification)}</div>
+      <div><b>Amount:</b> $${esc(p.amount_usd)}</div>
+      <div><b>Tier:</b> ${esc(p.tier_label)}</div>
+    </div>
+    <div><b>Reason for Rejection:</b></div>
+    <input type="text" id="reject-reason" size="60" placeholder="Enter rejection reason (required)" style="margin:6px 0">
+    <div class="revocation-checkbox">
+      <input type="checkbox" id="reject-revoke">
+      <label for="reject-revoke"><b>Permanently revoke agent's session key</b> (use only for malicious behavior)</label>
+    </div>
+    <div style="margin-top:12px">
+      <button class="dng" onclick="doRejectConfirm('${pid}')">Reject &amp; Sign</button>
+      <button onclick="$('#mm').classList.remove('on')">Cancel</button>
+    </div>
+  `;
+  $('#mm').classList.add('on');
+}
+
+window.doRejectConfirm = pid => {
+  const reason = $('#reject-reason').value;
+  if(!reason || reason.length < 1) {
+    alert('Please enter a rejection reason.');
+    return;
+  }
+  const revoke = $('#reject-revoke').checked;
+  
+  act(async () => {
+    const sig = await authSignFor(pid, 'REJECT');
+    await api(`/api/proposals/${pid}/reject`, {
+      signature: {steward_id: sig.steward_id, signature_b64: sig.signature_b64},
+      reason: reason,
+      revoke_agent_key: revoke
+    });
+    delete authCollected[pid];
+    $('#mm').classList.remove('on');
+    renderAuthTiers(AUTH_LAST);
+  });
+};
+
+function showOverrideModal(pid) {
+  const p = AUTH_LAST ? Object.values(AUTH_LAST).flatMap(t => [].concat(t.normal || [], t.vera_veto || [])).find(x => x.id === pid) : null;
+  if(!p) return;
+  
+  const modal = $('#mmb');
+  const tl = p.override_timelock;
+  const isCooling = tl && tl.state === 'PENDING_TIME_LOCK';
+  const hoursLeft = isCooling ? Math.floor(tl.seconds_left / 3600) : 0;
+  const minsLeft = isCooling ? Math.floor((tl.seconds_left % 3600) / 60) : 0;
+  const secsLeft = isCooling ? Math.floor(tl.seconds_left % 60) : 0;
+  
+  // Check if normal time-lock is still active
+  const normalLockActive = p.time_lock_active && !isCooling;
+  
+  modal.innerHTML = `
+    <div class="row" style="justify-content:space-between">
+      <b>⚠️ EMERGENCY OVERRIDE · ${esc(pid.slice(0, 8))}</b>
+      <button onclick="$('#mm').classList.remove('on')">CLOSE</button>
+    </div>
+    <div style="margin:12px 0">
+      <div class="banner">BLOCKED BY VERA: ${esc(p.veto_reason)}</div>
+      <div><b>Action:</b> ${esc(p.action_type)} → ${esc(p.target_system)}</div>
+      <div><b>Amount:</b> $${esc(p.amount_usd)}</div>
+      <div><b>Tier:</b> ${esc(p.tier_label)}</div>
+    </div>
+    <div class="banner">
+      <b>REQUIREMENTS:</b>
+      <ul style="margin:6px 0;padding-left:20px">
+        <li>3 distinct steward signatures (TIER_3_EMERGENCY_OVERRIDE)</li>
+        <li>24-hour cooling period after submission</li>
+        <li>Explicit confirmation string from each steward</li>
+      </ul>
+    </div>
+    ${isCooling ? `
+      <div><b>Cooling Timer:</b> <span class="countdown active">⏰ ${hoursLeft}h ${minsLeft}m ${secsLeft}s remaining</span></div>
+    ` : ''}
+    ${normalLockActive ? `
+      <div class="banner">❌ CANNOT OVERRIDE: Normal time-lock still active on this proposal</div>
+    ` : ''}
+    <div><b>Collected Signatures:</b> ${Object.keys(authCollected[pid] || {}).filter(k => (authCollected[pid][k].decision === 'TIER_3_EMERGENCY_OVERRIDE')).length}/3</div>
+    ${!normalLockActive && !isCooling ? `
+      <div style="margin:12px 0">
+        <input type="text" id="override-confirm" size="40" placeholder="Type: Confirm Override N/3 where N is your sequence number">
+      </div>
+      <div>
+        <button class="dng" onclick="authDoOverrideConfirm('${pid}')" ${Object.keys(authCollected[pid] || {}).length < 3 ? 'disabled' : ''}>Submit Override</button>
+        <button onclick="$('#mm').classList.remove('on')">Cancel</button>
+      </div>
+    ` : `
+      <div style="margin:12px 0">
+        <button onclick="$('#mm').classList.remove('on')">Close</button>
+      </div>
+    `}
+  `;
+  $('#mm').classList.add('on');
+}
+
+window.authDoOverrideConfirm = pid => {
+  const confirmText = $('#override-confirm').value;
+  const c = authCollected[pid] || {};
+  const overrideSigs = Object.values(c).filter(s => s.decision === 'TIER_3_EMERGENCY_OVERRIDE');
+  const nextN = overrideSigs.length + 1;
+  const expectedText = `Confirm Override ${nextN}/3`;
+  
+  if(confirmText !== expectedText) {
+    alert(`Must type exactly: "${expectedText}"`);
+    return;
+  }
+  
+  act(async () => {
+    // All 3 signatures should be collected locally
+    const sigs = overrideSigs.map(s => ({steward_id: s.steward_id, signature_b64: s.signature_b64}));
+    const r = await api(`/api/proposals/${pid}/authorize`, {
+      signatures: [],
+      emergency_override: sigs
+    });
+    tokens[pid] = {token: r.token, expires_at: r.expires_at};
+    delete authCollected[pid];
+    $('#mm').classList.remove('on');
+    showReceipt(r, 'OVERRIDE');
+    renderAuthTiers(AUTH_LAST);
+  });
+};
+
+function showReceipt(data, action) {
+  const modal = $('#mmb');
+  const proposal = data.proposal || {};
+  const ledger = data.ledger || {};
+  
+  modal.innerHTML = `
+    <div class="row" style="justify-content:space-between">
+      <b>✓ AUTHORIZATION RECEIPT</b>
+      <button onclick="$('#mm').classList.remove('on')">CLOSE</button>
+    </div>
+    <div style="margin:12px 0">
+      <div><b>Action:</b> ${esc(action)}</div>
+      <div><b>Proposal:</b> ${esc(proposal.id ? proposal.id.slice(0, 8) : '—')}</div>
+      <div><b>Decision:</b> ${esc(proposal.stage || '—')}</div>
+      <div><b>Tier:</b> ${esc(proposal.tier_label || '—')}</div>
+    </div>
+    <h3 class="mut">LEDGER ENTRY</h3>
+    <div class="term" style="max-height:200px">
+Index: ${data.ledger_index || '—'}\n
+Hash: ${data.ledger_hash ? esc(data.ledger_hash) : '—'}\n  
+Previous: ${data.previous_hash ? esc(data.previous_hash) : '—'}\n
+Timestamp: ${data.timestamp || '—'}
+    </div>
+    <div style="margin-top:12px">
+      <b>Verification Hash:</b> <span class="mono">${data.verification_hash || esc(proposal.proposal_hash || '—')}</span>
+    </div>
+    <div style="margin-top:12px">
+      <button onclick="copyReceiptText()">Copy Receipt</button>
+      <button onclick="verifyInLedger()">Verify in Ledger</button>
+      <button onclick="$('#mm').classList.remove('on')">Close</button>
+    </div>
+  `;
+  $('#mm').classList.add('on');
+  
+  // Store for copy
+  window.LAST_RECEIPT = data;
+}
+
+function copyReceiptText() {
+  if(!window.LAST_RECEIPT) return;
+  const text = JSON.stringify(window.LAST_RECEIPT, null, 2);
+  if(navigator.clipboard) {
+    navigator.clipboard.writeText(text).then(() => {
+      alert('Receipt copied to clipboard');
+    });
+  }
+}
+
+function verifyInLedger() {
+  // Switch to command center and scroll to the proposal
+  setView('command');
+  $('#mm').classList.remove('on');
+}
+
+// Initialize auth dashboard
+$('#auth-sync').onclick = authSyncProposals;
+
+// Update setView to include auth
+const originalSetView = setView;
+setView = v => {
+  originalSetView(v);
+  if(v === 'auth') {
+    // Populate key dropdown from existing keys
+    $('#auth-signer').innerHTML = Object.keys(keys).map(k => `<option>${esc(k)}</option>`).join('');
+    $('#auth-keystate').textContent = Object.keys(keys).length + ' key(s) in memory';
+    if(AUTH_LAST) renderAuthTiers(AUTH_LAST);
+    else authSyncProposals();
+  }
+};
+
+setView(['realm','map','command','dash','bento','missions','auth'].includes(location.hash.slice(1))?location.hash.slice(1):'realm');
 refresh();setInterval(refresh,5000);
 </script></body></html>
