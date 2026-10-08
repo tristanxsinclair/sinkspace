@@ -1,6 +1,7 @@
-import { mkdir, readFile, readdir, rename, writeFile, lstat } from 'node:fs/promises';
+import { mkdir, readFile, readdir, rename, writeFile, lstat, rm } from 'node:fs/promises';
 import { join } from 'node:path';
-import { Id, RunSchema, ReceiptSchema, type Run, type Receipt } from './contracts.js';
+import { randomUUID } from 'node:crypto';
+import { Id, RunSchema, ReceiptSchema, type Run, type Task, type Receipt } from './contracts.js';
 import { canonical, ControlError, hash } from './security.js';
 export interface RunStore { save(run: Run): Promise<void>; get(id: string): Promise<Run>; list(): Promise<Run[]>; seal(receipt: Receipt): Promise<void> }
 export function receiptDigest(receipt: Receipt): string { const {hash: _digest, ...payload} = receipt; void _digest; return hash(payload); }
@@ -14,6 +15,66 @@ export function verifyReceipt(receipt: Receipt): void {
   for (const e of evidence.values()) {
     const a = artifacts.get(e.artifact_id);
     if (!a || a.agent_id !== e.agent_id || a.task_id !== e.task_id || e.commit_sha !== receipt.commit_sha) throw new ControlError('EVIDENCE_MISMATCH');
+  }
+  const memories = receipt.memories ?? [];
+  const memoryById = new Map(memories.map(item => [item.id, item]));
+  if (memoryById.size !== memories.length) throw new ControlError('DUPLICATE_MEMORY_ID');
+  const agents = new Set(receipt.agent_configs.map(agent => agent.id));
+  for (const item of memories) {
+    const sourceAgent = item.source.startsWith('agent:') ? item.source.slice('agent:'.length) : '';
+    if (!agents.has(sourceAgent)) throw new ControlError('MEMORY_AGENT_MISMATCH');
+    if (item.scope !== `run:${receipt.run_id}` && item.scope !== `agent:${sourceAgent}:run:${receipt.run_id}`) {
+      throw new ControlError('MEMORY_SCOPE_MISMATCH');
+    }
+    if (item.provenance.some(id => !evidence.has(id))) throw new ControlError('MEMORY_PROVENANCE_MISMATCH');
+    if (item.supersedes !== null) {
+      const prior = memoryById.get(item.supersedes);
+      if (!prior || prior.id === item.id || prior.kind !== item.kind || prior.scope !== item.scope) {
+        throw new ControlError('MEMORY_SUPERSESSION_MISMATCH');
+      }
+    }
+  }
+  const capabilityIds = new Set(receipt.agent_configs.flatMap(agent => agent.capabilities));
+  const tasks = new Map((receipt.tasks ?? []).map(task => [task.task_id, task]));
+  if (tasks.size !== (receipt.tasks ?? []).length) throw new ControlError('DUPLICATE_TASK_ID');
+  for (const task of tasks.values()) {
+    if (task.run_id !== receipt.run_id || !agents.has(task.assigned_agent)) throw new ControlError('RECEIPT_TASK_MISMATCH');
+  }
+  for (const event of receipt.actions_taken) {
+    let task: Task | undefined;
+    if (event.task_id !== null && tasks.size) {
+      task = tasks.get(event.task_id);
+      if (!task) throw new ControlError('EVENT_TASK_MISMATCH');
+    }
+    if (event.type === 'CAPABILITY_EXECUTED' || event.type === 'CAPABILITY_FAILED') {
+      const eventAgent = receipt.agent_configs.find(agent => agent.id === event.agent_id);
+      if (
+        !event.capability_id ||
+        !capabilityIds.has(event.capability_id) ||
+        !eventAgent?.capabilities.includes(event.capability_id) ||
+        task && (
+          task.assigned_agent !== event.agent_id ||
+          task.capability_requirements && !task.capability_requirements.includes(event.capability_id)
+        )
+      ) {
+        throw new ControlError('CAPABILITY_AUDIT_MISMATCH');
+      }
+    }
+    if ((event.evidence_ids ?? []).some(id => {
+      const item = evidence.get(id);
+      return !item || item.agent_id !== event.agent_id || item.task_id !== event.task_id;
+    })) throw new ControlError('EVENT_EVIDENCE_MISMATCH');
+    if (event.type === 'MEMORY_UPDATED') {
+      const memory = event.memory_id ? memoryById.get(event.memory_id) : undefined;
+      if (
+        !memory ||
+        memory.source !== `agent:${event.agent_id}` ||
+        task && task.assigned_agent !== event.agent_id ||
+        (event.evidence_ids ?? []).some(id => !memory.provenance.includes(id))
+      ) {
+        throw new ControlError('MEMORY_AUDIT_MISMATCH');
+      }
+    }
   }
   const miningReceipt =
     receipt.mission !== undefined &&
@@ -223,16 +284,33 @@ export function verifyReceipt(receipt: Receipt): void {
   }
 }
 export class FileRunStore implements RunStore {
+  private readonly writes = new Map<string, Promise<void>>();
   constructor(private readonly directory: string) {}
   private async init(): Promise<void> {
     await mkdir(this.directory, {recursive:true,mode:0o700});
     if ((await lstat(this.directory)).isSymbolicLink()) throw new ControlError('STORE_SYMLINK');
   }
   async save(run: Run): Promise<void> {
-    RunSchema.parse(run); await this.init();
-    const path = join(this.directory,`${Id.parse(run.run_id)}.json`);
-    // Single-writer development adapter. Atomic snapshots; final receipts use exclusive create.
-    await writeFile(`${path}.tmp`,canonical(run),{mode:0o600}); await rename(`${path}.tmp`,path);
+    const snapshot = RunSchema.parse(structuredClone(run));
+    const id = Id.parse(snapshot.run_id);
+    const previous = this.writes.get(id) ?? Promise.resolve();
+    const write = previous.catch(() => undefined).then(async () => {
+      await this.init();
+      const path = join(this.directory,`${id}.json`);
+      const temporaryPath = `${path}.${randomUUID()}.tmp`;
+      try {
+        await writeFile(temporaryPath,canonical(snapshot),{flag:'wx',mode:0o600});
+        await rename(temporaryPath,path);
+      } finally {
+        await rm(temporaryPath,{force:true});
+      }
+    });
+    this.writes.set(id,write);
+    try {
+      await write;
+    } finally {
+      if (this.writes.get(id) === write) this.writes.delete(id);
+    }
   }
   async get(id: string): Promise<Run> {
     const run = RunSchema.parse(JSON.parse(await readFile(join(this.directory,`${Id.parse(id)}.json`),'utf8')));

@@ -49,6 +49,7 @@ export interface LakeYangeEconomyOpportunity {
     | 'WON'
     | 'LOST';
   evidence_count: number;
+  evidence_ids: string[];
 }
 
 export interface LakeYangeEconomyProjection {
@@ -159,7 +160,8 @@ function opportunityProjection(
     priority_score: opportunity.priority_score,
     confidence: opportunity.confidence,
     status: opportunity.status,
-    evidence_count: opportunity.evidence_ids.length
+    evidence_count: opportunity.evidence_ids.length,
+    evidence_ids: opportunity.evidence_ids
   }));
 }
 
@@ -179,6 +181,7 @@ interface EconomyCache {
   root: string;
   signature: string;
   projection: LakeYangeEconomyProjection;
+  opportunities: Map<string, LakeYangeEconomyOpportunity>;
 }
 
 let economyCache: EconomyCache | null = null;
@@ -378,10 +381,23 @@ export async function projectLakeYangeEconomy(
   economyCache = {
     root: runsDirectory,
     signature,
-    projection
+    projection,
+    opportunities: opportunityById
   };
 
   return projection;
+}
+
+/** Read-only lookup of every persisted opportunity (not just the top ranked). */
+export async function lookupLakeYangeOpportunity(
+  repositoryRoot: string,
+  opportunityId: string
+): Promise<LakeYangeEconomyOpportunity | null> {
+  await projectLakeYangeEconomy(repositoryRoot);
+
+  return (
+    economyCache?.opportunities.get(opportunityId) ?? null
+  );
 }
 
 /** Test helper: clears the cached economy projection. */

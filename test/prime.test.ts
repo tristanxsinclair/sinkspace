@@ -87,6 +87,40 @@ test(
 );
 
 test(
+  'Prime recognizes flexible repository and capability-inventory requests',
+  () => {
+    for (const request of [
+      'Please inspect this project and tell me what capabilities it has.',
+      'Review our codebase and map the current system capabilities.'
+    ]) {
+      const result = interpretPrimeCommand(request);
+      assert.equal(result.status, 'READY');
+      assert.equal(result.mission?.workflow, 'capability-inventory');
+    }
+  }
+);
+
+test(
+  'Prime accepts a detailed request within its documented message limit',
+  () => {
+    const result = interpretPrimeCommand(
+      `Please inspect the repository and inventory capabilities. ${'Context for this request. '.repeat(180)}`
+    );
+    assert.equal(result.status, 'READY');
+    assert.equal(result.mission?.workflow, 'capability-inventory');
+  }
+);
+
+test(
+  'Prime gives a clear response when a request exceeds its input limit',
+  () => {
+    const result = interpretPrimeCommand('x'.repeat(18_001));
+    assert.equal(result.status, 'UNSUPPORTED');
+    assert.match(result.reply, /18,000-character limit/);
+  }
+);
+
+test(
   'Prime routes Gold Rush',
   () => {
     const result =

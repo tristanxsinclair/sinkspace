@@ -506,7 +506,7 @@ export const UsageSchema = z.strictObject({tool_calls: z.number().int().nonnegat
 export const TaskSchema = z.strictObject({
   task_id: Id, parent_task_id: Id.nullable(), run_id: Id, objective: Text, success_criteria: z.array(Text).min(1),
   assigned_agent: Id, agent_version: Text, status: StatusSchema, priority: z.number().int(), dependencies: z.array(Id),
-  inputs: z.array(Text), constraints: z.array(Text), permissions: z.array(Id), budget: BudgetSchema,
+  inputs: z.array(Text), constraints: z.array(Text), permissions: z.array(Id), capability_requirements: z.array(Id).optional(), budget: BudgetSchema,
   created_at: Timestamp, started_at: Timestamp.nullable(), completed_at: Timestamp.nullable(),
   artifacts: z.array(Id), evidence: z.array(Id), uncertainty: z.array(Text), errors: z.array(Text),
   verification_status: VerdictSchema, auditor: Id.nullable(), next_action: Text, attempts: z.number().int().nonnegative(),
@@ -529,7 +529,23 @@ export const VerificationSchema = z.strictObject({agent_id: Id, agent_version: T
 export type Verification = z.infer<typeof VerificationSchema>;
 export const ApprovalSchema = z.strictObject({approval_id: Id, run_id: Id, task_id: Id, agent_id: Id, tool: Id, arguments_hash: z.string(), status: z.enum(['PENDING', 'GRANTED', 'DENIED']), requested_at: Timestamp, expires_at: Timestamp, decided_by: z.string().nullable(), decided_at: Timestamp.nullable(), consumed: z.boolean()});
 export type Approval = z.infer<typeof ApprovalSchema>;
-export const EventSchema = z.strictObject({event_id: Id, type: z.enum(['RUN_CREATED','PLAN_CREATED','TASK_CREATED','AGENT_ASSIGNED','TOOL_REQUESTED','TOOL_COMPLETED','ARTIFACT_CREATED','CLAIM_CREATED','EVIDENCE_ATTACHED','BLACKBOARD_ENTRY_CREATED','APPROVAL_REQUESTED','APPROVAL_GRANTED','APPROVAL_DENIED','AUDIT_STARTED','AUDIT_FAILED','AUDIT_PASSED','RED_SINK_COMPLETED','RUN_COMPLETED','RUN_FAILED','RUN_CANCELLED','STATE_CHANGED','RETRY']), timestamp: Timestamp, agent_id: Id, task_id: Id.nullable(), summary: Text});
+export const MemorySchema = z.strictObject({id: Id, kind: z.enum(['RUN','WORKING','PROJECT','OPERATOR','EVIDENCE','PERFORMANCE']), scope: Text, content: Text, source: Text, timestamp: Timestamp, confidence: z.number().min(0).max(1), provenance: z.array(Text).min(1), expires_at: Timestamp.nullable(), supersedes: Id.nullable()});
+export type Memory = z.infer<typeof MemorySchema>;
+export function memoryFreshness(item: Memory, now: Date): 'FRESH' | 'STALE' | 'UNKNOWN' {
+  MemorySchema.parse(item);
+  return item.expires_at === null ? 'UNKNOWN' : Date.parse(item.expires_at) <= now.getTime() ? 'STALE' : 'FRESH';
+}
+export const EventSchema = z.strictObject({
+  event_id: Id,
+  type: z.enum(['RUN_CREATED','PLAN_CREATED','TASK_CREATED','AGENT_ASSIGNED','TOOL_REQUESTED','TOOL_COMPLETED','ARTIFACT_CREATED','CLAIM_CREATED','EVIDENCE_ATTACHED','BLACKBOARD_ENTRY_CREATED','CAPABILITY_EXECUTED','CAPABILITY_FAILED','MEMORY_UPDATED','APPROVAL_REQUESTED','APPROVAL_GRANTED','APPROVAL_DENIED','AUDIT_STARTED','AUDIT_FAILED','AUDIT_PASSED','RED_SINK_COMPLETED','RUN_COMPLETED','RUN_FAILED','RUN_CANCELLED','STATE_CHANGED','RETRY']),
+  timestamp: Timestamp,
+  agent_id: Id,
+  task_id: Id.nullable(),
+  summary: Text,
+  capability_id: Id.optional(),
+  memory_id: Id.optional(),
+  evidence_ids: z.array(Id).optional()
+});
 export type Event = z.infer<typeof EventSchema>;
 export const ReceiptSchema = z.strictObject({
   schema_version: z.literal('1.0.0'), receipt_id: Id, run_id: Id, objective: Text, agent: Id,
@@ -539,7 +555,7 @@ export const ReceiptSchema = z.strictObject({
   started_at: Timestamp,
   completed_at: Timestamp,
   actions_taken: z.array(EventSchema), artifacts_created: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema),
-  verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).optional(), revenue_ledger: RevenueLedgerSchema.nullable().optional(), tests: z.array(Text), unresolved_items: z.array(Text), red_sink_findings: z.array(Text),
+  verification: z.array(VerificationSchema), tasks: z.array(TaskSchema).optional(), blackboard_entries: z.array(BlackboardEntrySchema).optional(), memories: z.array(MemorySchema).optional(), revenue_ledger: RevenueLedgerSchema.nullable().optional(), tests: z.array(Text), unresolved_items: z.array(Text), red_sink_findings: z.array(Text),
   confidence: z.enum(['BOUNDED', 'UNVERIFIED']), cost: UsageSchema, human_approvals: z.array(ApprovalSchema), final_status: StatusSchema,
   agent_configs: z.array(AgentDefinitionSchema), hash: z.string().regex(/^[a-f0-9]{64}$/),
 });
@@ -552,7 +568,7 @@ export const RunSchema = z.strictObject({
   mission: MissionSchema.nullable().default(null),
   adapter: Text,
   status: StatusSchema, commit_sha: z.string(), repository: Text, created_at: Timestamp, started_at: Timestamp.nullable(), completed_at: Timestamp.nullable(),
-  tasks: z.array(TaskSchema), artifacts: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema), verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).default([]), revenue_ledger: RevenueLedgerSchema.nullable().default(null),
+  tasks: z.array(TaskSchema), artifacts: z.array(ArtifactSchema), evidence: z.array(EvidenceSchema), claims: z.array(ClaimSchema),   verification: z.array(VerificationSchema), blackboard_entries: z.array(BlackboardEntrySchema).default([]), memories: z.array(MemorySchema).optional(), revenue_ledger: RevenueLedgerSchema.nullable().default(null),
   approvals: z.array(ApprovalSchema), events: z.array(EventSchema), errors: z.array(Text), uncertainty: z.array(Text), red_sink_findings: z.array(Text),
   usage: UsageSchema, budget: BudgetSchema, agent_configs: z.array(AgentDefinitionSchema), receipt: ReceiptSchema.nullable(),
 });
@@ -608,9 +624,3 @@ export const MissionIntakeSchema = z.union([
 
 export type MissionIntake =
   z.infer<typeof MissionIntakeSchema>;
-
-export const MemorySchema = z.strictObject({id: Id, kind: z.enum(['RUN','WORKING','PROJECT','OPERATOR','EVIDENCE','PERFORMANCE']), scope: Text, content: Text, source: Text, timestamp: Timestamp, confidence: z.number().min(0).max(1), provenance: z.array(Text).min(1), expires_at: Timestamp.nullable(), supersedes: Id.nullable()});
-export function memoryFreshness(item: z.infer<typeof MemorySchema>, now: Date): 'FRESH' | 'STALE' | 'UNKNOWN' {
-  MemorySchema.parse(item);
-  return item.expires_at === null ? 'UNKNOWN' : Date.parse(item.expires_at) <= now.getTime() ? 'STALE' : 'FRESH';
-}

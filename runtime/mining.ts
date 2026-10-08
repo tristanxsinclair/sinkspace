@@ -8,6 +8,7 @@ import {
 import type {
   ExecutionContext
 } from './context.js';
+import { systemProbeThroughCapability } from './capabilities.js';
 
 import {
   ControlError,
@@ -123,14 +124,8 @@ export async function miningAssessment(
     );
   }
 
-  if (!ctx.systemProbe) {
-    throw new ControlError(
-      'TOOL_NOT_IMPLEMENTED'
-    );
-  }
-
   const observation =
-    await ctx.systemProbe();
+    await systemProbeThroughCapability(ctx);
 
   const probe =
     SystemProbeSchema.parse(
@@ -181,7 +176,7 @@ export async function auditMining(
   const failures: string[] = [];
 
   const fresh =
-    await ctx.systemProbe();
+    await systemProbeThroughCapability(ctx);
 
   const freshProbe =
     SystemProbeSchema.parse(
@@ -344,7 +339,7 @@ export async function redSinkMining(
   }
 
   const fresh =
-    await ctx.systemProbe();
+    await systemProbeThroughCapability(ctx);
 
   const freshProbe =
     SystemProbeSchema.parse(

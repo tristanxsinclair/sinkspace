@@ -45,8 +45,7 @@ export function looksLikePrimeRunQuestion(
 
   return (
     explicitQuestion ||
-    explicitReadbackVerb ||
-    historicalReference &&
-      agentReference
+    explicitReadbackVerb &&
+      (historicalReference || agentReference)
   );
 }

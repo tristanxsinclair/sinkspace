@@ -1,3 +1,17 @@
+import { z } from 'zod';
+import { computeWealthCommand } from './lake-yange-wealth.js';
+import {
+  ActionScopeSchema,
+  EconomicLoopStore,
+  GovernanceError,
+  CorruptEconomicLogError,
+  OUTCOME_RESULTS
+} from './economic-loop.js';
+import {
+  OPERATOR_ID_PATTERN,
+  createOperatorSigner,
+  loadOperatorSigner
+} from './operator-identity.js';
 import http from 'node:http';
 import { spawn } from 'node:child_process';
 import {
@@ -56,7 +70,8 @@ import {
 } from './lake-yange-world.js';
 
 import {
-  projectLakeYangeEconomy
+  projectLakeYangeEconomy,
+  lookupLakeYangeOpportunity
 } from './lake-yange-economy.js';
 
 import {
@@ -66,6 +81,14 @@ import {
 import {
   loadAcademyState
 } from './academy-store.js';
+import {
+  listAutonomousCycles,
+  readAutonomousCycle,
+  runAutonomousCycle
+} from './autonomous-engine.js';
+import {
+  executePrimeAgentCommand
+} from './prime-agent-command.js';
 
 const HERE = path.dirname(
   fileURLToPath(import.meta.url)
@@ -1289,6 +1312,193 @@ async function serveStatic(
   );
 }
 
+function economicStore(): EconomicLoopStore {
+  return new EconomicLoopStore(ROOT, {
+    resolveOpportunity: async id => {
+      const found = await lookupLakeYangeOpportunity(ROOT, id);
+      return found
+        ? { status: found.status, evidence_count: found.evidence_count }
+        : null;
+    }
+  });
+}
+
+const DEFAULT_OPERATOR_ID = 'local-operator';
+
+function isLoopbackRequest(req: http.IncomingMessage): boolean {
+  const address = req.socket.remoteAddress ?? '';
+  const hostname = (req.headers.host ?? '').replace(/:\d+$/, '');
+  return (
+    ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(address) &&
+    ['localhost', '127.0.0.1', '[::1]'].includes(hostname) &&
+    req.headers['x-lake-yange-operator'] === 'console'
+  );
+}
+
+const strings = (value: unknown): string[] =>
+  Array.isArray(value) ? value.map(String) : [];
+
+/** Absent means 0; anything non-numeric becomes NaN and is refused by the domain schema. */
+function money(value: unknown): number {
+  if (value === undefined || value === null || value === '') return 0;
+  if (typeof value === 'number') return value;
+  if (typeof value === 'string' && value.trim() !== '') return Number(value);
+  return Number.NaN;
+}
+
+function operatorIdOf(body: Record<string, unknown>): string {
+  return typeof body.operator_id === 'string' && body.operator_id
+    ? body.operator_id
+    : DEFAULT_OPERATOR_ID;
+}
+
+async function requireOperator(body: Record<string, unknown>) {
+  const operatorId = operatorIdOf(body);
+
+  if (!OPERATOR_ID_PATTERN.test(operatorId)) {
+    throw new GovernanceError('Invalid operator id.');
+  }
+
+  const signer = await loadOperatorSigner(ROOT, operatorId);
+
+  if (!signer) {
+    throw new GovernanceError(
+      'No local operator key exists. Enroll an operator first.'
+    );
+  }
+
+  return signer;
+}
+
+async function operatorStatus() {
+  const signer = await loadOperatorSigner(ROOT, DEFAULT_OPERATOR_ID);
+  let enrolled: { fingerprint: string; revoked: boolean } | null = null;
+  let loopError: string | null = null;
+
+  try {
+    const record = (await economicStore().load()).operators.get(DEFAULT_OPERATOR_ID);
+
+    if (record) {
+      enrolled = {
+        fingerprint: record.fingerprint,
+        revoked: record.revoked_seq !== null
+      };
+    }
+  } catch (error) {
+    loopError = error instanceof Error ? error.message : 'Unavailable.';
+  }
+
+  return {
+    operator_id: DEFAULT_OPERATOR_ID,
+    key_present: signer !== null,
+    key_fingerprint: signer?.fingerprint ?? null,
+    enrolled,
+    loop_error: loopError,
+    guarantee:
+      'Development-grade local Ed25519 key file (0600). Not hardware or OS-keychain backed.'
+  };
+}
+
+async function handleEconomicAction(
+  body: Record<string, unknown>
+): Promise<unknown> {
+  const store = economicStore();
+  const agent = store.asAgent('console-agent');
+  const id = String(body.action_id ?? '');
+  const reason = String(body.reason ?? '');
+  const scopeHash = String(body.scope_hash ?? '');
+
+  const human = async () => {
+    if (!scopeHash) {
+      throw new GovernanceError(
+        'Human decisions must include the scope_hash that was reviewed.'
+      );
+    }
+
+    return store.asHuman(await requireOperator(body));
+  };
+
+  switch (body.op) {
+    case 'enroll_operator': {
+      const operatorId = operatorIdOf(body);
+
+      if (!OPERATOR_ID_PATTERN.test(operatorId)) {
+        throw new GovernanceError('Invalid operator id.');
+      }
+
+      const existing = await loadOperatorSigner(ROOT, operatorId);
+      const signer = existing ?? (await createOperatorSigner(ROOT, operatorId));
+
+      await store.enrollOperator(signer, `Local operator ${operatorId}`);
+
+      return operatorStatus();
+    }
+    case 'propose': {
+      const opportunity = await lookupLakeYangeOpportunity(
+        ROOT,
+        String(body.opportunity_id ?? '')
+      );
+
+      return {
+        action_id: await agent.propose({
+          opportunity_id: String(body.opportunity_id ?? ''),
+          evidence_ids: opportunity?.evidence_ids ?? [],
+          rationale: String(body.rationale ?? ''),
+          scope: ActionScopeSchema.parse(body.scope)
+        })
+      };
+    }
+    case 'revise':
+      return agent.revise(id, ActionScopeSchema.parse(body.scope), reason || 'Revised via console.');
+    case 'approve':
+      return (await human()).approveReviewed(id, scopeHash, {
+        expires_at: String(body.expires_at ?? ''),
+        spend_cap_aud: money(body.spend_cap_aud),
+        real_execution_permitted: body.real_execution_permitted === true
+      });
+    case 'reject':
+      return (await human()).reject(id, reason || 'Rejected by operator.', { scope_hash: scopeHash });
+    case 'cancel':
+      return (await human()).cancel(id, reason || 'Cancelled by operator.', { scope_hash: scopeHash });
+    case 'return_outcome':
+      return (await human()).returnOutcome(id, reason || 'Returned for correction.', { scope_hash: scopeHash });
+    case 'execute_simulated':
+      return store.execute(id);
+    case 'claim_outcome':
+      return agent.claimOutcome({
+        action_id: id,
+        claimed_result: z.enum(OUTCOME_RESULTS).parse(body.claimed_result),
+        claimed_revenue_aud: money(body.claimed_revenue_aud),
+        claimed_cost_aud: money(body.claimed_cost_aud),
+        evidence_ids: strings(body.evidence_ids),
+        receipt_id: typeof body.receipt_id === 'string' && body.receipt_id ? body.receipt_id : null,
+        notes: String(body.notes ?? '')
+      });
+    case 'verify_outcome':
+      return (await human()).verifyOutcome(
+        {
+          action_id: id,
+          verified_result: z.enum(OUTCOME_RESULTS).parse(body.verified_result),
+          verified_revenue_aud: money(body.verified_revenue_aud),
+          verified_cost_aud: money(body.verified_cost_aud),
+          customer_id: typeof body.customer_id === 'string' && body.customer_id ? body.customer_id : null,
+          evidence_ids: strings(body.evidence_ids),
+          notes: String(body.notes ?? '')
+        },
+        { scope_hash: scopeHash }
+      );
+    case 'revoke_operator':
+      return store.revokeOperator(
+        await requireOperator(body),
+        String(body.target_operator_id ?? ''),
+        reason || 'Revoked by operator.'
+      );
+    default:
+      throw new GovernanceError('Unknown economic operation.');
+  }
+}
+
+
 async function readJsonBody(
   req: http.IncomingMessage
 ): Promise<unknown> {
@@ -1366,6 +1576,67 @@ const server =
 
         if (
           url.pathname ===
+            '/api/lake-yange/autonomous/cycles' &&
+          req.method === 'GET'
+        ) {
+          json(
+            res,
+            200,
+            await listAutonomousCycles(ROOT)
+          );
+
+          return;
+        }
+
+        if (
+          url.pathname ===
+            '/api/lake-yange/autonomous/cycle' &&
+          req.method === 'POST'
+        ) {
+          const body = await readJsonBody(req);
+          const cycle = await runAutonomousCycle(
+            ROOT,
+            {
+              dryRun:
+                typeof body === 'object' &&
+                body !== null &&
+                'dry_run' in body &&
+                body.dry_run === true
+            }
+          );
+
+          json(
+            res,
+            200,
+            cycle
+          );
+
+          return;
+        }
+
+        const autonomousCycleMatch =
+          url.pathname.match(
+            /^\/api\/lake-yange\/autonomous\/cycles\/([^/]+)$/
+          );
+
+        if (
+          autonomousCycleMatch &&
+          req.method === 'GET'
+        ) {
+          json(
+            res,
+            200,
+            await readAutonomousCycle(
+              ROOT,
+              safeId(autonomousCycleMatch[1]!)
+            )
+          );
+
+          return;
+        }
+
+        if (
+          url.pathname ===
             '/api/lake-yange/world' &&
           req.method === 'GET'
         ) {
@@ -1394,10 +1665,114 @@ const server =
           const projection =
             await projectLakeYangeEconomy(ROOT);
 
+          let loopState;
+          let loopError: string | null = null;
+
+          try {
+            loopState = await economicStore().load();
+          } catch (error) {
+            loopError =
+              error instanceof CorruptEconomicLogError
+                ? error.message
+                : 'Economic loop unavailable.';
+          }
+
           json(
             res,
             200,
-            projection
+            {
+              ...projection,
+              wealth: computeWealthCommand(
+                projection,
+                undefined,
+                loopState
+              ),
+              loop_error: loopError
+            }
+          );
+
+          return;
+        }
+
+        if (
+          url.pathname ===
+            '/api/lake-yange/economy/operator' &&
+          req.method === 'GET'
+        ) {
+          json(res, 200, await operatorStatus());
+
+          return;
+        }
+
+        if (
+          url.pathname ===
+            '/api/lake-yange/economy/actions' &&
+          req.method === 'POST'
+        ) {
+          if (!isLoopbackRequest(req)) {
+            json(res, 403, {
+              error:
+                'Economic actions are accepted only from the local console (loopback, local Host, console header).'
+            });
+
+            return;
+          }
+
+          const body = await readJsonBody(req);
+
+          if (!body || typeof body !== 'object') {
+            json(res, 400, { error: 'Object body required.' });
+
+            return;
+          }
+
+          try {
+            json(
+              res,
+              200,
+              await handleEconomicAction(
+                body as Record<string, unknown>
+              )
+            );
+          } catch (error) {
+            json(
+              res,
+              error instanceof GovernanceError ? 409 : 400,
+              {
+                error:
+                  error instanceof Error
+                    ? error.message
+                    : 'Rejected.'
+              }
+            );
+          }
+
+          return;
+        }
+
+        if (
+          url.pathname ===
+            '/api/prime/agent-command' &&
+          req.method === 'POST'
+        ) {
+          const body = await readJsonBody(req);
+          const command =
+            typeof body === 'object' &&
+            body !== null &&
+            'command' in body &&
+            typeof body.command === 'string'
+              ? body.command
+              : '';
+
+          if (!command.trim()) {
+            json(res, 400, { error: 'Prime requires a natural-language command.' });
+            return;
+          }
+
+          json(
+            res,
+            200,
+            await executePrimeAgentCommand(ROOT, command)
           );
 
           return;

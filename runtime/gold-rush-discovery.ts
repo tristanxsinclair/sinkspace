@@ -1,6 +1,7 @@
 import type {
   ExecutionContext
 } from './context.js';
+import { publicResearchThroughCapability } from './capabilities.js';
 
 import {
   PublicResearchResultSchema
@@ -547,7 +548,7 @@ export async function discoverGoldRush(
 
       try {
         searchObservation =
-          await ctx.publicResearch({
+          await publicResearchThroughCapability(ctx,{
             mode: 'search',
             query
           });
@@ -609,7 +610,7 @@ export async function discoverGoldRush(
 
         try {
           directObservation =
-            await ctx.publicResearch({
+            await publicResearchThroughCapability(ctx,{
               mode: 'fetch',
               url: candidate.url
             });
@@ -1099,7 +1100,7 @@ export async function auditGoldRush(
 
     try {
       observation =
-        await ctx.publicResearch({
+        await publicResearchThroughCapability(ctx,{
           mode: 'fetch',
           url: canonical
         });

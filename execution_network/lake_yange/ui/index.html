@@ -1,0 +1,527 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="ly-session" content="__SESSION_TOKEN__">
+<title>Lake Yange Unified Hub v0.1</title>
+<style>
+:root{--bg:#020617;--panel:#0b1220;--line:#1e293b;--tx:#e2e8f0;--mut:#64748b;--em:#34d399;--am:#fbbf24;--ro:#fb7185;--bl:#60a5fa}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tx);font:13px/1.45 ui-sans-serif,system-ui,sans-serif}
+header{display:flex;justify-content:space-between;align-items:center;padding:10px 16px;border-bottom:1px solid var(--line)}
+h1{font-size:14px;letter-spacing:.12em;margin:0}.badge{display:inline-block;padding:2px 8px;border-radius:999px;border:1px solid;font-size:11px;margin-left:6px}
+.ok{color:var(--em);border-color:#065f46;background:#022c22}.warn{color:var(--am);border-color:#78350f;background:#2a1a03}.bad{color:var(--ro);border-color:#881337;background:#2d0a14}
+main{display:grid;grid-template-columns:repeat(12,1fr);gap:12px;padding:12px}
+section{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:12px;min-width:0}
+section h2{margin:0 0 8px;font-size:11px;letter-spacing:.14em;color:var(--mut)}
+.c12{grid-column:span 12}.c8{grid-column:span 8}.c7{grid-column:span 7}.c5{grid-column:span 5}.c4{grid-column:span 4}
+@media(max-width:1000px){.c8,.c7,.c5,.c4{grid-column:span 12}}
+.pipe{display:flex;gap:6px;flex-wrap:wrap}.stage{flex:1;min-width:90px;border:1px solid var(--line);border-radius:8px;padding:8px;text-align:center}
+.stage b{display:block;font-size:18px}.stage.gate{border-color:#78350f}.stage.gate.hot{background:#2a1a03;border-color:var(--am);box-shadow:0 0 14px #fbbf2455;animation:glow 1.4s infinite alternate}
+@keyframes glow{to{box-shadow:0 0 22px #fbbf24aa}}
+.card{border:1px solid var(--line);border-radius:8px;padding:8px;margin-bottom:8px}.card.veto{border-color:var(--ro);background:#1a0710}
+.row{display:flex;gap:6px;flex-wrap:wrap;align-items:center}.mut{color:var(--mut)}.mono{font-family:ui-monospace,Menlo,monospace;font-size:11px;word-break:break-all}
+button,select,input{background:#0f172a;color:var(--tx);border:1px solid #334155;border-radius:6px;padding:4px 9px;font:inherit}button{cursor:pointer}button:hover{border-color:var(--bl)}
+button.pri{border-color:#065f46;color:var(--em)}button.dng{border-color:#881337;color:var(--ro)}button:disabled{opacity:.4;cursor:not-allowed}
+main{max-width:100vw}.bar{height:10px;background:#0f172a;border-radius:6px;overflow:hidden;margin:4px 0}.bar i{display:block;height:100%}
+.log{max-height:300px;overflow:auto}.log div{padding:3px 0;border-bottom:1px solid #111a2c}
+.banner{background:#3b0a18;border:1px solid var(--ro);color:#fecdd3;padding:6px 8px;border-radius:6px;margin:6px 0}
+.gauge{width:130px;height:130px;border-radius:50%;display:grid;place-items:center;margin:auto}.gauge span{background:var(--panel);width:100px;height:100px;border-radius:50%;display:grid;place-items:center;font-size:22px}
+.nav{display:flex;flex-wrap:wrap;gap:6px;padding:8px 16px;border-bottom:1px solid var(--line)}.nav button{letter-spacing:.08em;font-size:11px}.nav button.on{border-color:var(--em);color:var(--em);box-shadow:0 0 10px #10b98133}
+.view{display:none}.view.on{display:grid}.hdr-r{display:flex;gap:4px;align-items:center;flex-wrap:wrap}
+#mapwrap{display:grid;grid-template-columns:1fr 320px;gap:12px;grid-column:span 12}@media(max-width:1000px){#mapwrap{grid-template-columns:1fr}}
+svg text{fill:var(--tx);font-size:11px;text-anchor:middle;pointer-events:none}svg .n rect{fill:#0b1220;stroke:#334155;stroke-width:1.2;cursor:pointer}
+svg .n:hover rect,svg .n.sel rect{stroke:var(--bl);filter:drop-shadow(0 0 6px #60a5fa88)}svg .n.warn rect{stroke:var(--am)}svg .n.bad rect{stroke:var(--ro)}svg .n.ok rect{stroke:#065f46}
+svg .e{stroke:#334155;stroke-width:1;fill:none}svg .e.flow{stroke:#475569;stroke-width:2}svg .lbl{fill:var(--mut);font-size:10px;letter-spacing:.14em;text-anchor:start}
+#drawer pre{white-space:pre-wrap;word-break:break-all;margin:4px 0}
+.flash{animation:fl 1s infinite}@keyframes fl{50%{opacity:.35}}
+.px{font:11px ui-monospace,Menlo,monospace;letter-spacing:.06em;text-transform:uppercase}
+.pxb{display:inline-block;border:2px solid;padding:1px 6px;margin-right:4px;background:#020617cc}.pxb.ok{color:var(--em);border-color:#10b981}.pxb.warn{color:var(--am);border-color:#f59e0b}.pxb.bad{color:var(--ro);border-color:#f43f5e}
+.pxs{flex:1;border:2px solid #334155;background:#020617cc;padding:1px 4px;text-align:center;font-size:10px}.pxs.hot{border-color:#f59e0b;color:#fbbf24;box-shadow:0 0 12px #f59e0baa;animation:glow 1.4s infinite alternate}
+#dw{position:absolute;right:0;top:0;bottom:0;width:min(480px,92%);background:#0b1220f2;border-left:2px solid #334155;padding:10px;overflow:auto;transform:translateX(105%);transition:transform .25s;z-index:5}#dw.on{transform:none}
+#dw section{margin:8px 0}#dw .c12,#dw .c7,#dw .c5{grid-column:auto}
+#kvbtn{border-color:#f59e0b;color:#fbbf24;letter-spacing:.06em;font-weight:600;animation:glow 1.6s infinite alternate;box-shadow:0 0 10px #f59e0b66}
+#kv{position:fixed;right:0;top:0;bottom:0;width:min(520px,100%);background:#0b1220fa;border-left:2px solid #f59e0b;padding:12px;overflow:auto;transform:translateX(105%);transition:transform .25s;z-index:30}#kv.on{transform:none}
+#kv h3{font-size:11px;letter-spacing:.14em;color:var(--mut);margin:14px 0 6px}
+#kdrop{border:2px dashed #334155;border-radius:8px;padding:12px;text-align:center;color:var(--mut)}#kdrop.over{border-color:var(--em);color:var(--em)}
+.sigbar{font:12px ui-monospace,Menlo,monospace;letter-spacing:1px;color:var(--em)}
+#mm{position:fixed;inset:0;background:#020617cc;z-index:40;display:none;place-items:center}#mm.on{display:grid}
+#mmb{width:min(820px,96vw);max-height:92vh;overflow:auto;background:var(--panel);border:1px solid #334155;border-radius:10px;padding:14px}
+.term{background:#000;color:#86efac;border:1px solid #14532d;border-radius:6px;padding:8px;font:11px ui-monospace,Menlo,monospace;white-space:pre-wrap;word-break:break-all;max-height:200px;overflow:auto}
+.ms{display:flex;gap:4px;margin:6px 0}.ms i{flex:1;height:6px;border-radius:3px;background:#1e293b}.ms i.d{background:var(--em)}.ms i.h{background:var(--am);box-shadow:0 0 8px #f59e0b}
+.mcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:10px}.mcard{cursor:pointer}.mcard:hover{border-color:var(--bl)}
+</style></head><body>
+<header><h1>LAKE YANGE UNIFIED HUB</h1><div class="hdr-r"><button id="kvbtn" aria-label="Open key vault">&#128273; KEY VAULT &amp; STEWARDS <span id="kvn"></span></button><span id="top" class="hdr-r"></span></div></header>
+<nav class="nav" id="nav"><span class="mut" style="align-self:center">NAV:</span>
+ <button data-v="realm">0. THE REALM</button><button data-v="map">1. SYSTEM MAP</button><button data-v="command">2. COMMAND CENTER</button><button data-v="dash">3. DASHBOARD</button><button data-v="bento">4. BENTO OVERVIEW</button><button data-v="missions">5. MISSIONS</button></nav>
+<main class="view" id="v-realm"><section class="c12" id="realmbox" style="padding:0;position:relative;overflow:hidden">
+ <canvas id="world" aria-label="The Realm of Lake Yange" style="width:100%;height:calc(100vh - 120px);min-height:420px;display:block;cursor:grab;background:#050b16"></canvas>
+ <div id="rhud" class="px" style="position:absolute;left:8px;top:8px;right:8px;pointer-events:none"></div>
+ <div id="rbtn" class="px" style="position:absolute;left:8px;bottom:44px;display:flex;gap:6px;flex-wrap:wrap;align-items:flex-end">
+  <div id="stew" title="Steward HUD: signing beams originate here" style="width:34px;height:34px;border:2px solid #60a5fa;background:#0b1220;display:grid;place-items:center;font-size:18px;box-shadow:0 0 10px #60a5fa66">&#9818;</div>
+  <button id="rb-sign" class="pri">SIGN PROPOSAL</button><button id="rb-sc" class="dng">SIMULATE SCENARIO C</button><button id="rb-reset">RESET CAMERA</button><button id="rb-ms">MISSIONS</button></div>
+ <div id="rstages" class="px" style="position:absolute;left:8px;right:8px;bottom:6px;display:flex;gap:4px;pointer-events:none"></div>
+ <div id="rtip" class="px" style="position:absolute;display:none;pointer-events:none;background:#020617ee;border:1px solid #334155;padding:4px 6px;max-width:260px"></div>
+ <aside id="dw"><div class="row" style="justify-content:space-between"><b id="dwt"></b><button id="dwx">CLOSE</button></div><div id="dwinfo"></div><div id="dwhost"></div></aside>
+</section></main>
+<main class="view" id="v-map"><section class="c12"><h2>RIGHT SYSTEM NAVIGATION MAP · hover or click a node for live state and its source</h2>
+ <div id="mapwrap"><svg id="svg" viewBox="0 0 1000 470" width="100%" role="img" aria-label="RIGHT system map"></svg>
+ <div id="drawer" class="card"><div class="mut">Select a node.</div></div></div></section></main>
+<main class="view" id="v-command">
+<section class="c12"><h2>1 · 7-STAGE BOUNDED AGENT LIFECYCLE</h2><div class="pipe" id="pipe"></div></section>
+<section class="c12"><h2>AUTHGATE MULTI-SIG QUEUE &amp; VERA VETO / 24h TIME-LOCK OVERRIDE</h2>
+ <div class="row" style="margin-bottom:8px"><span class="mut">Signer:</span><input type="file" id="keyfile" accept=".json,.txt">
+  <select id="signer"></select><span class="mut" id="keystate">no key loaded (keys stay in this page's memory)</span></div>
+ <div id="queue"></div></section>
+<section class="c12"><h2>LIVE RED SINK AUDIT STREAM</h2><div id="chain" style="margin-bottom:6px"></div><div class="log mono" id="log"></div></section>
+</main>
+<main class="view" id="v-dash">
+<section class="c7"><h2>THREE-TIER TREASURY</h2><div id="treasury"></div></section>
+<section class="c5"><h2>CII MONITOR (PHASE III)</h2><div id="cii"></div></section>
+</main>
+<main class="view" id="v-missions">
+<section class="c12"><h2>NEW MISSION · SCOPING 0% → AUDIT 25% → HUMAN GATE 50% → SANDBOX 75% → VERIFIED &amp; SEALED 100%</h2>
+ <div class="row"><input id="mobj" size="46" placeholder="Objective (used to query the local RAG store)" value="Summarize the runway policy and Tier 3 cap into notes/runway.txt">
+  <select id="mkind"><option value="fs">write file</option><option value="py">python sandbox</option></select>
+  <input id="mpath" size="16" value="notes/runway.txt" title="path (file) "><input id="mbody" size="30" value="Runway: 24 months Tier 1. Tier 3 cap 20%.\n" title="file content / python code">
+  <input id="mamt" size="6" value="0" title="amount USD (sets the spending tier)"><button class="pri" id="mgo">LAUNCH &amp; PLAN TO 50%</button></div>
+ <div class="mut" style="margin-top:6px">Planning (scoping + Vera audit) never crosses the human gate. Add RAG evidence first: <input id="ragid" size="12" placeholder="source id"><input id="ragtx" size="30" placeholder="document text"><button id="ragb">ingest</button></div></section>
+<section class="c12"><h2>MISSIONS · click a card for telemetry</h2><div class="mcards" id="mcards"></div></section>
+</main>
+<aside id="kv" aria-label="Steward key vault"><div class="row" style="justify-content:space-between"><b>&#128273; STEWARD KEY VAULT</b><button id="kvx">CLOSE</button></div>
+ <div class="mut">Keys are imported into this page's memory as non-extractable WebCrypto keys. They are never sent to the server; only signatures are.</div>
+ <h3>SOFTWARE KEY LOADER</h3><div id="kdrop">Drop <span class="mono">demo_stewards.json</span>, a <span class="mono">.json</span> seed file or an Ed25519 <span class="mono">.pem</span> here<br><input type="file" id="kfile2" multiple accept=".json,.pem,.txt"></div>
+ <div id="kvbody"></div></aside>
+<div id="mm"><div id="mmb"></div></div>
+<main class="view" id="v-bento">
+<section class="c4"><h2>SYSTEM MAP · LIVE NODES</h2><div id="b-map"></div></section>
+<section class="c4"><h2>LIFECYCLE &amp; GATE</h2><div id="b-gate"></div></section>
+<section class="c4"><h2>RED SINK / ANCHOR</h2><div id="b-audit"></div></section>
+<section class="c4"><h2>TREASURY</h2><div id="b-treasury"></div></section>
+<section class="c4"><h2>CII</h2><div id="b-cii"></div></section>
+<section class="c4"><h2>VERA VETOES &amp; OVERRIDES</h2><div id="b-veto"></div></section>
+<section class="c12"><div class="mut">Summary only. Signing, rejecting and cancelling happen in view 2 (keys live in that page's memory).</div></section>
+</main>
+<script>
+const SESSION=document.querySelector('meta[name=ly-session]').content;
+const $=s=>document.querySelector(s);
+const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+let api=async function(path,body){
+  const opt=body===undefined?{}:{method:'POST',headers:{'Content-Type':'application/json','X-LY-Session':SESSION},body:JSON.stringify(body)};
+  const r=await fetch(path,opt);const j=await r.json().catch(()=>({}));
+  if(!r.ok)throw new Error(j.detail||r.statusText);return j;
+};
+let SC_HTML='';
+const keys={};            // steward_id -> CryptoKey (memory only)
+const collected={};       // proposalId -> {APPROVE:[], TIER_3_EMERGENCY_OVERRIDE:[]}
+const tokens={};          // proposalId -> {token, expires_at}
+const b64=u8=>btoa(String.fromCharCode(...u8)),unb64=s=>Uint8Array.from(atob(s),c=>c.charCodeAt(0));
+const unhex=h=>Uint8Array.from(h.match(/../g).map(x=>parseInt(x,16)));
+const PKCS8=unhex('302e020100300506032b657004220420');
+
+async function loadKeyFiles(files){
+  try{
+    for(const f of files){
+      const txt=await f.text();let seeds=null,pem=null;
+      try{const j=JSON.parse(txt);seeds=j.seeds_hex||(j.steward_id&&j.seed_hex?{[j.steward_id]:j.seed_hex}:null);if(!seeds)throw new Error('JSON has no seeds_hex or steward_id/seed_hex')}
+      catch(e){if(/BEGIN PRIVATE KEY/.test(txt))pem=txt;else if(/^[0-9a-fA-F]{64}$/.test(txt.trim()))seeds={[prompt('Steward ID for '+f.name+'?')]:txt.trim()};else throw e}
+      if(pem){const id=prompt('Steward ID for '+f.name+'?');if(!id)continue;
+        const der=Uint8Array.from(atob(pem.replace(/-----[^-]+-----|\s/g,'')),c=>c.charCodeAt(0));
+        keys[id]=await crypto.subtle.importKey('pkcs8',der,{name:'Ed25519'},false,['sign'])}
+      else for(const [id,hex] of Object.entries(seeds)){
+        if(!/^[0-9a-fA-F]{64}$/.test(hex))throw new Error('Seed for '+id+' must be 64 hex chars');
+        keys[id]=await crypto.subtle.importKey('pkcs8',new Uint8Array([...PKCS8,...unhex(hex)]),{name:'Ed25519'},false,['sign'])}}
+    $('#signer').innerHTML=Object.keys(keys).map(k=>`<option>${esc(k)}</option>`).join('');
+    $('#keystate').textContent=Object.keys(keys).length+' key(s) in memory only; never sent to the server';
+    if(LAST)renderVault(LAST)
+  }catch(err){alert('Key load failed (browser may lack WebCrypto Ed25519): '+err.message)}
+}
+$('#keyfile').onchange=e=>loadKeyFiles(e.target.files);
+async function signFor(pid,decision){
+  const m=await api(`/api/proposals/${pid}/signing-message?decision=${decision}`);
+  const id=$('#signer').value;if(!keys[id])throw new Error('Load a steward key first.');
+  const sig=await crypto.subtle.sign('Ed25519',keys[id],unb64(m.message_b64));
+  return {steward_id:id,signature_b64:b64(new Uint8Array(sig))};
+}
+async function externalSig(pid,decision){
+  const m=await api(`/api/proposals/${pid}/signing-message?decision=${decision}`);
+  const id=prompt('Steward ID:');if(!id)throw new Error('cancelled');
+  const sig=prompt('Sign these exact bytes with your HSM / external Ed25519 signer, then paste base64 signature:\n\n'+m.message_utf8);
+  if(!sig)throw new Error('cancelled');return {steward_id:id,signature_b64:sig.trim()};
+}
+function add(pid,dec,s){const c=collected[pid]=collected[pid]||{APPROVE:[],TIER_3_EMERGENCY_OVERRIDE:[]};
+  c[dec]=c[dec]||[];if(c[dec].some(x=>x.steward_id===s.steward_id))throw new Error('Duplicate steward '+s.steward_id);c[dec].push(s)}
+async function act(fn){try{await fn()}catch(e){if(e.message!=='cancelled')alert(e.message)}await refresh()}
+window.doSign=(pid,dec,ext)=>act(async()=>add(pid,dec,await(ext?externalSig:signFor)(pid,dec)));
+window.doSubmit=pid=>act(async()=>{const c=collected[pid]||{APPROVE:[],TIER_3_EMERGENCY_OVERRIDE:[]};
+  const r=await api(`/api/proposals/${pid}/authorize`,{signatures:c.APPROVE,emergency_override:c.TIER_3_EMERGENCY_OVERRIDE});
+  tokens[pid]={token:r.token,expires_at:r.expires_at};delete collected[pid]});
+window.doReject=(pid)=>act(async()=>{const reason=prompt('Rejection reason:');if(!reason)throw new Error('cancelled');
+  const s=await signFor(pid,'REJECT');await api(`/api/proposals/${pid}/reject`,{signature:s,reason,revoke_agent_key:confirm('Also revoke the proposing agent\'s session key?')})});
+window.doCancel=pid=>act(async()=>{const c=collected[pid];const sigs=(c&&c.CANCEL_OVERRIDE)||[];
+  if(sigs.length<2)throw new Error('Collect 2 steward CANCEL_OVERRIDE signatures first ('+sigs.length+'/2).');
+  await api(`/api/proposals/${pid}/override/cancel`,{signatures:sigs});delete collected[pid]});
+window.doClear=pid=>{delete collected[pid];refresh()};
+window.copyTok=pid=>navigator.clipboard&&navigator.clipboard.writeText(tokens[pid].token);
+window.scenarioC=()=>act(async()=>{const r=await api('/api/treasury/scenario-c',{});
+  SC_HTML=`<div class="banner" style="background:#07261c;border-color:#065f46;color:#a7f3d0">SIMULATION (no real state changed): Tier 1 funded ${r.after.tier1_funded_pct}% · Tier 2 $${r.after.tier2} · Tier 3 $${r.after.tier3} · Tier 3 projects paused: ${r.result.tier3_projects_paused?'YES':'NO'} · pass: ${r.result.passed}</div>`});
+
+function renderPipe(ps,stages){
+  const names={OBSERVE:'Observe',ANALYZE:'Analyze',PROPOSE:'Propose',HUMAN_AUTHORIZATION:'Authorize (GATE)',EXECUTE:'Execute',RECORD:'Record',REVIEW:'Review'};
+  const cnt={};stages.forEach(s=>cnt[s]=0);ps.filter(p=>!p.rejected&&p.completed.length<7).forEach(p=>cnt[p.stage]++);
+  $('#pipe').innerHTML=stages.map((s,i)=>{const gate=s==='HUMAN_AUTHORIZATION';
+    return `<div class="stage ${gate?'gate':''} ${gate&&cnt[s]?'hot':''}"><div class="mut">${i+1}</div>${names[s]}<b>${cnt[s]}</b>${gate&&cnt[s]?'<span class="badge warn">awaiting human</span>':''}</div>`}).join('');
+}
+function renderQueue(ps){
+  $('#queue').innerHTML=ps.length?ps.slice().reverse().map(p=>{
+    const c=collected[p.id]||{APPROVE:[],TIER_3_EMERGENCY_OVERRIDE:[]};const veto=p.status==='BLOCKED_BY_VERA';const tl=p.override_timelock;
+    const open=p.awaiting_human;const tk=tokens[p.id];const left=tk?Math.max(0,tk.expires_at-Math.floor(Date.now()/1000)):0;
+    return `<div class="card ${veto?'veto':''}"><div class="row"><b class="mono">#${esc(p.id.slice(0,8))}</b><span class="badge">${esc(p.agent_id)}</span>
+      <span class="badge ${p.tier>=2?'warn':'ok'}">${esc(p.tier_label)}</span><span class="badge ${p.rejected?'bad':open?'warn':'ok'}">${p.rejected?'REJECTED':esc(p.stage)}</span>
+      <span class="mut">$${esc(p.amount_usd)}</span></div>
+      <div>${esc(p.action_type)} → <span class="mono">${esc(p.target_system)}</span></div><div class="mut">${esc(p.justification)}</div>
+      <div class="mono mut">hash ${esc(p.proposal_hash.slice(0,24))}…</div>
+      ${p.time_lock_until?`<div class="mut">Time-lock until ${esc(p.time_lock_until)} ${p.time_lock_active?'<span class="badge warn">LOCKED</span>':''}</div>`:''}
+      ${veto?`<div class="banner">BLOCKED BY VERA: ${esc(p.veto_reason)}. Requires ${p.override_required}-steward TIER_3_EMERGENCY_OVERRIDE (distinct stewards, in addition to normal quorum).</div>`:''}
+      ${tl?`<div class="banner">EMERGENCY OVERRIDE ${esc(tl.state)}${tl.state==='PENDING_TIME_LOCK'?': '+Math.floor(tl.seconds_left/3600)+'h '+Math.floor(tl.seconds_left%3600/60)+'m of 24h cooling left (filed by '+esc(tl.signers.join(', '))+'). Veto stays in force until it elapses.':''}</div>
+        ${tl.state==='PENDING_TIME_LOCK'?`<div class="row"><button onclick="doSign('${p.id}','CANCEL_OVERRIDE')">Sign CANCEL (${((collected[p.id]||{}).CANCEL_OVERRIDE||[]).length}/2)</button><button onclick="doSign('${p.id}','CANCEL_OVERRIDE',1)">Cancel via HSM</button><button class="dng" onclick="doCancel('${p.id}')">Cancel override</button></div>`:''}`:''}
+      ${open?`<div class="row" style="margin-top:6px">
+        <button class="pri" onclick="doSign('${p.id}','APPROVE')">Sign with Ed25519 Key (${c.APPROVE.length}/${p.signatures_required})</button>
+        <button onclick="doSign('${p.id}','APPROVE',1)">HSM / External Signer</button>
+        ${veto?`<button class="dng" onclick="doSign('${p.id}','TIER_3_EMERGENCY_OVERRIDE')">Sign OVERRIDE (${c.TIER_3_EMERGENCY_OVERRIDE.length}/3)</button><button class="dng" onclick="doSign('${p.id}','TIER_3_EMERGENCY_OVERRIDE',1)">Override via HSM</button>`:''}
+        <button onclick="doSubmit('${p.id}')">Submit authorization</button><button onclick="doClear('${p.id}')">Clear</button>
+        <button class="dng" onclick="doReject('${p.id}')">Reject &amp; Revoke Key</button></div>
+        <div class="mono mut">collected: ${c.APPROVE.map(s=>esc(s.steward_id)).join(', ')||'—'}${veto?' | override: '+(c.TIER_3_EMERGENCY_OVERRIDE.map(s=>esc(s.steward_id)).join(', ')||'—'):''}</div>`:''}
+      ${tk?`<div class="row"><span class="badge ${left?'ok':'bad'}">single-use token ${left?left+'s left':'EXPIRED'}</span><button onclick="copyTok('${p.id}')">Copy token for Forge</button></div>`:''}
+      ${p.result?`<div class="mono">result: ${esc(p.result.slice(0,200))}</div>`:''}</div>`}).join(''):'<div class="mut">No proposals.</div>';
+}
+function renderTreasury(t){
+  if(!t.configured){$('#treasury').innerHTML='<div class="mut">Treasury not configured.</div>';return}
+  const pct=(v,col)=>`<div class="bar"><i style="width:${Math.min(100,v)}%;background:${col}"></i></div>`;
+  $('#treasury').innerHTML=`${t.demo?'<span class="badge warn">DEMO FIGURES</span>':''}
+   <div>Tier 1 · Core Human Reserve <b>$${esc(t.tier1)}</b></div>${pct(t.tier1_funded_pct,'var(--em)')}<div class="mut">${esc(t.tier1_runway_months)} months runway (req 24) · ${esc(t.tier1_funded_pct)}% funded</div>
+   <div>Tier 2 · Productive Infrastructure <b>$${esc(t.tier2)}</b></div>${pct(t.tier2/t.total*100,'var(--bl)')}
+   <div>Tier 3 · Growth/Volatile <b>$${esc(t.tier3)}</b> <span class="badge ${t.tier3_over_cap?'bad':'ok'}">${esc(t.tier3_pct)}% / cap ${esc(t.tier3_cap_pct)}%</span></div>${pct(t.tier3_pct,'var(--am)')}
+   <div class="mut">Projects: ${Object.entries(t.projects).map(([k,v])=>esc(k)+(v?' (PAUSED)':' (active)')).join(', ')||'none'}</div>
+   <button class="dng" onclick="scenarioC()">Run Scenario C · 50% market shock (simulation)</button><div id="sc">${SC_HTML}</div>`;
+}
+function renderCII(c){
+  if(c.mean===null){$('#cii').innerHTML='<div class="mut">No CII data.</div>';return}
+  const col=c.mean<c.threshold?'var(--ro)':'var(--em)';
+  $('#cii').innerHTML=`<div class="gauge" style="background:conic-gradient(${col} ${Math.min(100,c.mean)*3.6}deg,#0f172a 0)"><span>${c.mean}%</span></div>
+   <div class="mut" style="text-align:center">Mean CII (threshold ${c.threshold}%)</div>
+   ${c.alerts.map(a=>`<div class="banner flash">ALERT ${esc(a.subject)} CII ${a.cii}% &lt; ${c.threshold}% — ${esc(a.recommendation)}</div>`).join('')}
+   <div class="mono">${c.subjects.map(s=>`${esc(s.subject)}: ${s.cii}%`).join('<br>')}</div><div class="mut">${esc(c.note)}</div>`;
+}
+function renderAudit(a,v){
+  $('#chain').innerHTML=v.valid?`<span class="badge ok">✔ Ledger Chain Valid (SHA-256 Sealed) · ${v.entries} blocks</span> <span class="mono mut">head ${esc((v.head||'').slice(0,16))}</span>`:`<span class="badge bad">✖ CHAIN INVALID: ${esc(v.reason)}</span>`;
+  $('#log').innerHTML=a.entries.slice().reverse().map(e=>`<div>#${e.index} ${esc(e.timestamp)} <b>${esc(e.decision)}</b> ${esc(e.agent_id)} — ${esc(e.reason.slice(0,140))}<br><span class="mut">ev ${esc(e.evidence_hash.slice(0,16))} · ${esc(e.result.slice(0,120))} · hash ${esc(e.hash.slice(0,16))}</span></div>`).join('');
+}
+let LAST=null,VIEW='command';
+const KIND_ROW={pillar:0,control:1,agent:1,domain:3};
+function layoutMap(m){
+  const pos={},rows={0:[],1:[],3:[]};
+  m.nodes.forEach(n=>rows[KIND_ROW[n.kind]].push(n.id));
+  const place=(ids,y,w=1000)=>ids.forEach((id,i)=>pos[id]={x:(i+.5)*w/ids.length,y});
+  place(rows[0],55);
+  const mid=rows[1],half=Math.ceil(mid.length/2);place(mid.slice(0,half),160);place(mid.slice(half),235);
+  place(m.stages,330);place(rows[3],430);return pos;
+}
+function nodeClass(n){const x=n.state||{};
+  if(x.chain_valid===false||x.valid===false||x.key_revoked||x.kill_switch)return'bad';
+  if(x.awaiting_human>0||x.blocked_proposals>0||x.vetoes_in_force>0||x.pending_overrides>0||x.alerts>0||x.mode==='SOFTWARE_SIMULATION'||x.configured===false)return'warn';
+  return'ok'}
+let SEL=null;
+function showNode(id){SEL=id;if(!LAST)return;const n=LAST.map.nodes.find(x=>x.id===id);if(!n)return;
+  $('#drawer').innerHTML=`<div class="row"><b>${esc(n.label)}</b><span class="badge ${nodeClass(n)}">${esc(n.kind)}</span></div><div class="mut">${esc(n.summary)}</div>
+   <div class="mono" style="margin-top:6px">source: ${esc(n.source)}</div><div class="mut" style="margin-top:6px">LIVE STATE</div><pre class="mono">${esc(JSON.stringify(n.state,null,2))}</pre>`;
+  document.querySelectorAll('svg .n').forEach(g=>g.classList.toggle('sel',g.dataset.id===id))}
+function renderMap(m,ps){
+  const pos=layoutMap(m),stageName={OBSERVE:'Observe',ANALYZE:'Analyze',PROPOSE:'Propose',HUMAN_AUTHORIZATION:'Authorize (GATE)',EXECUTE:'Execute',RECORD:'Record',REVIEW:'Review'};
+  const cnt={};m.stages.forEach(x=>cnt[x]=0);ps.filter(p=>!p.rejected&&p.completed.length<7).forEach(p=>cnt[p.stage]++);
+  let o=`<text class="lbl" x="6" y="22">PILLARS</text><text class="lbl" x="6" y="130">SOFTWARE PHYSICS (agents &amp; controls)</text><text class="lbl" x="6" y="300">7-STAGE LIFECYCLE</text><text class="lbl" x="6" y="402">DOMAIN ENGINES</text>`;
+  m.edges.forEach(e=>{const a=pos[e.from],b=pos[e.to];if(a&&b)o+=`<line class="e ${e.kind}" x1="${a.x}" y1="${a.y}" x2="${b.x}" y2="${b.y}"/>`});
+  m.nodes.forEach(n=>{const p=pos[n.id];o+=`<g class="n ${nodeClass(n)}${SEL===n.id?' sel':''}" data-id="${esc(n.id)}"><rect x="${p.x-58}" y="${p.y-18}" width="116" height="36" rx="8"/><text x="${p.x}" y="${p.y+4}">${esc(n.label)}</text></g>`});
+  m.stages.forEach((st,i)=>{const p=pos[st],g=st==='HUMAN_AUTHORIZATION';
+    o+=`<g class="n ${g&&cnt[st]?'warn':'ok'}" data-id="stage:${st}"><rect x="${p.x-60}" y="${p.y-20}" width="120" height="40" rx="8"/><text x="${p.x}" y="${p.y-3}">${i+1}. ${stageName[st]}</text><text x="${p.x}" y="${p.y+12}" style="fill:${cnt[st]?'#fbbf24':'#64748b'}">${cnt[st]} in stage</text></g>`});
+  $('#svg').innerHTML=o;
+  document.querySelectorAll('svg .n').forEach(g=>{const id=g.dataset.id;
+    const h=()=>{if(id.startsWith('stage:')){const st=id.slice(6),list=ps.filter(p=>p.stage===st&&!p.rejected);
+        $('#drawer').innerHTML=`<b>${esc(stageName[st])}</b><div class="mut">lifecycle stage (Art. 10.2)</div><div class="mono">source: lake_yange/middleware/lifecycle.py</div><div class="mut" style="margin-top:6px">PROPOSALS HERE</div><div class="mono">${list.map(p=>esc(p.id.slice(0,8)+' '+p.action_type)).join('<br>')||'none'}</div>`}else showNode(id)};
+    g.onmouseenter=h;g.onclick=h});
+  if(SEL)showNode(SEL)}
+function renderBento(d){
+  const ps=d.proposals,m=d.map,aw=ps.filter(p=>p.awaiting_human).length,bl=ps.filter(p=>p.status==='BLOCKED_BY_VERA'),pend=ps.filter(p=>p.override_timelock&&p.override_timelock.state==='PENDING_TIME_LOCK');
+  $('#b-map').innerHTML=m.nodes.filter(n=>n.kind!=='pillar').map(n=>`<span class="badge ${nodeClass(n)}">${esc(n.label)}</span>`).join(' ');
+  $('#b-gate').innerHTML=`<div class="row">${d.status.stages.map(x=>`<span class="badge ${x==='HUMAN_AUTHORIZATION'&&aw?'warn':''}">${esc(x)} ${ps.filter(p=>p.stage===x&&!p.rejected&&p.completed.length<7).length}</span>`).join('')}</div><div class="mut">${aw} proposal(s) awaiting human authorization</div>`;
+  const v=d.audit_verify,an=d.anchor;
+  $('#b-audit').innerHTML=`<span class="badge ${v.valid?'ok':'bad'}">${v.valid?'✔ chain valid · '+v.entries+' blocks':'✖ CHAIN INVALID'}</span><div class="mono mut">head ${esc((v.head||'').slice(0,24))}</div><span class="badge ${!an.configured?'warn':an.valid?'ok':'bad'}">${!an.configured?'anchor not configured':an.valid?'anchor verified':'anchor DIVERGENT'}</span>`;
+  const t=d.treasury;$('#b-treasury').innerHTML=t.configured?`<div>Tier 1 $${esc(t.tier1)} · ${esc(t.tier1_funded_pct)}% funded</div><div>Tier 2 $${esc(t.tier2)}</div><div>Tier 3 $${esc(t.tier3)} <span class="badge ${t.tier3_over_cap?'bad':'ok'}">${esc(t.tier3_pct)}%/${esc(t.tier3_cap_pct)}%</span></div>${t.demo?'<span class="badge warn">DEMO FIGURES</span>':''}`:'<div class="mut">not configured</div>';
+  const c=d.cii;$('#b-cii').innerHTML=c.mean===null?'<div class="mut">no data</div>':`<div style="font-size:22px">${c.mean}%</div><div class="mut">mean CII</div>${c.alerts.length?`<span class="badge bad flash">${c.alerts.length} subject(s) &lt; ${c.threshold}%</span>`:'<span class="badge ok">none below threshold</span>'}`;
+  $('#b-veto').innerHTML=bl.length||pend.length?bl.map(p=>`<div class="banner">${esc(p.action_type)}: BLOCKED BY VERA${p.override_timelock?' · override '+esc(p.override_timelock.state)+(p.override_timelock.state==='PENDING_TIME_LOCK'?' ('+Math.floor(p.override_timelock.seconds_left/3600)+'h left)':''):''}</div>`).join(''):'<span class="badge ok">no vetoes in force</span>';
+}
+function renderTop(d){const s=d.status,hw=d.hardware,an=d.anchor;
+  $('#top').innerHTML=`<span class="badge ok">AIR-GAPPED (100% Offline)</span><span class="badge ${hw.mode==='LIVE_HARDWARE'?'ok':'warn'}" title="${esc(hw.pkcs11.reason+' | '+hw.container_engine.reason)}">${hw.mode}</span>
+   <span class="badge ${!an.configured?'warn':an.valid?'ok':'bad'}" title="${esc((an.problems||[]).join('; ')||an.note||'')}">${!an.configured?'ANCHOR NOT CONFIGURED':an.valid?'ANCHOR SEALED':'DIVERGENT'}</span>
+   <span class="badge ${s.system==='NOMINAL'?'ok':'bad'}">SYSTEM: ${s.system}</span>${s.demo?'<span class="badge warn">DEMO DATA</span>':''}
+   <span class="badge" id="clk"></span><span class="badge">127.0.0.1 · session ${esc(SESSION.slice(0,6))}…</span>`;tick()}
+function tick(){const e=$('#clk');if(e)e.textContent=new Date().toLocaleTimeString();const r=$('#rclk');if(r)r.textContent=new Date().toLocaleTimeString()}
+setInterval(tick,1000);
+function setView(v){if(v!=='realm'&&typeof WE!=='undefined')WE.close();VIEW=v;document.querySelectorAll('.view').forEach(x=>x.classList.toggle('on',x.id==='v-'+v));
+  document.querySelectorAll('#nav button').forEach(b=>b.classList.toggle('on',b.dataset.v===v));location.hash=v}
+document.querySelectorAll('#nav button').forEach(b=>b.onclick=()=>setView(b.dataset.v));
+async function refresh(){
+  try{
+    const d=await api('/api/state/full');LAST=d;
+    renderTop(d);renderPipe(d.proposals,d.status.stages);renderQueue(d.proposals);renderTreasury(d.treasury);renderCII(d.cii);renderAudit(d.audit,d.audit_verify);
+    renderMap(d.map,d.proposals);renderBento(d);renderRealm(d);renderVault(d);renderMissions(d);
+  }catch(e){$('#top').innerHTML=`<span class="badge bad">BACKEND ERROR: ${esc(e.message)}</span>`}
+}
+/* ===== THE REALM: WorldEngine + SpriteEngine + FXEngine (canvas 2D, no dependencies) ===== */
+const WE=(()=>{
+const cv=$('#world'),cx=cv.getContext('2d'),T=64;
+const SC={ok:'#10b981',warn:'#f59e0b',bad:'#f43f5e'};
+let cam={x:0,y:0,z:1},fitted=false,hover=null,sel=null,drag=null,tPrev=performance.now(),t=0;
+let storm=0,bridge=0,beams=[],parts=[],bolts=[],rings=[],vetoSeen=new Set(),carav=new Map(),agents=[],lastSpawn=0,lastBolt=0,lastSmoke=0;
+const rnd=(a,b)=>a+Math.random()*(b-a),hsh=(x,y)=>{let h=(x*374761393+y*668265263)>>>0;h=((h^(h>>>13))*1274126177)>>>0;return(h&255)/255};
+const W=()=>LAST&&LAST.map&&LAST.map.world,nodeOf=b=>LAST.map.nodes.find(n=>n.id===b.node);
+const bld=id=>W().buildings.find(b=>b.id===id);
+const ctr=b=>({x:(b.tile.x+b.tile.w/2)*T,y:(b.tile.y+b.tile.h/2)*T});
+const front=(b,dx=0,dy=0)=>({x:(b.tile.x+b.tile.w/2)*T+dx,y:(b.tile.y+b.tile.h)*T+10+dy});
+function route(a,b){if(Math.abs(a.y-b.y)<8)return[b];const cy=(a.y+b.y)/2<6*T?4.5*T:8.5*T;return[{x:a.x,y:cy},{x:b.x,y:cy},b]}
+function size(){const r=cv.getBoundingClientRect(),d=window.devicePixelRatio||1;
+  if(cv.width!==Math.round(r.width*d)||cv.height!==Math.round(r.height*d)){cv.width=Math.round(r.width*d);cv.height=Math.round(r.height*d);fitted=false}
+  if(!fitted&&W()&&r.width>0)fit(r)}
+function fit(r){r=r||cv.getBoundingClientRect();const w=W();cam.z=Math.min(r.width/(w.cols*T),r.height/(w.rows*T))*.97;
+  cam.x=(r.width-w.cols*T*cam.z)/2;cam.y=(r.height-w.rows*T*cam.z)/2-8;fitted=true}
+const toW=(sx,sy)=>({x:(sx-cam.x)/cam.z,y:(sy-cam.y)/cam.z}),toS=(x,y)=>({x:x*cam.z+cam.x,y:y*cam.z+cam.y});
+function emit(x,y,c,n,sp=40,life=1,sz=2.5){for(let i=0;i<n;i++){const a=Math.random()*6.283,v=rnd(.2,1)*sp;parts.push({x,y,vx:Math.cos(a)*v,vy:Math.sin(a)*v,l:rnd(.5,1)*life,m:life,c,s:sz})}}
+function ring(x,y,c,r=180){rings.push({x,y,c,r,l:.9,m:.9})}
+function bolt(x0,y0,x1,y1){const pts=[{x:x0,y:y0}],n=9;for(let i=1;i<n;i++)pts.push({x:x0+(x1-x0)*i/n+rnd(-22,22),y:y0+(y1-y0)*i/n});pts.push({x:x1,y:y1});bolts.push({pts,l:.25})}
+/* ---- state sync ---- */
+function sync(d){const w=d.map.world;if(!w)return;
+  agents=w.agents.map(a=>{const o=agents.find(x=>x.id===a.id);return o?Object.assign(o,{patrol:a.patrol,color:a.color}):{id:a.id,color:a.color,patrol:a.patrol,i:0,dir:1,p:{x:a.patrol[0].x*T,y:a.patrol[0].y*T}}});
+  const live=d.proposals.filter(p=>!p.rejected&&p.completed.length<7),ids=new Set(live.map(p=>p.id)),slot={};
+  live.forEach(p=>{const veto=p.status==='BLOCKED_BY_VERA',bid=veto?'citadel':w.stage_building[p.stage],b=bld(bid),k=slot[bid]=(slot[bid]||0)+1,
+      tgt=front(b,(k-1)%4*26-30,Math.floor((k-1)/4)*22);let c=carav.get(p.id);
+    if(!c){const pr=front(bld('prime'));c={id:p.id,x:pr.x,y:pr.y,route:[],bid:null,veto:false,ph:Math.random()*6};carav.set(p.id,c);emit(c.x,c.y,'#60a5fa',14,50,.8)}
+    if(c.bid!==bid||Math.abs((c.tx||0)-tgt.x)+Math.abs((c.ty||0)-tgt.y)>1){c.bid=bid;c.tx=tgt.x;c.ty=tgt.y;c.route=route(c,tgt)}
+    c.p=p;c.veto=veto;
+    if(veto&&!vetoSeen.has(p.id)){vetoSeen.add(p.id);const ci=front(bld('citadel'));ring(ci.x,ci.y,'#f43f5e',230);emit(ci.x,ci.y,'#f43f5e',60,120,1.2,3.2)}
+    if(!veto)vetoSeen.delete(p.id)});
+  carav.forEach((c,id)=>{if(!ids.has(id)){emit(c.x,c.y,'#94a3b8',16,50,.9);carav.delete(id)}});
+  const au=d.map.nodes.find(n=>n.id==='authgate').state;
+  const live60=Object.values(tokens).some(k=>k.expires_at>Date.now()/1000);
+  const sigs=Object.values(collected).some(c=>(c.APPROVE||[]).length>0);
+  bridge_t=(live60||sigs||au.active_tokens>0)?1:0}
+let bridge_t=0;
+/* ---- drawing ---- */
+function rr(x,y,w,h,r=4){cx.beginPath();cx.moveTo(x+r,y);cx.arcTo(x+w,y,x+w,y+h,r);cx.arcTo(x+w,y+h,x,y+h,r);cx.arcTo(x,y+h,x,y,r);cx.arcTo(x,y,x+w,y,r);cx.closePath()}
+function ground(w){for(let i=0;i<w.cols;i++)for(let j=0;j<w.rows;j++){const h=hsh(i,j);cx.fillStyle=(i+j)&1?'#0b1a14':'#0d1f18';cx.fillRect(i*T,j*T,T,T);
+    cx.fillStyle=h>.7?'#14532d55':'#06402b33';cx.fillRect(i*T+h*40,j*T+(1-h)*44,6,3);cx.strokeStyle='#ffffff08';cx.strokeRect(i*T,j*T,T,T)}}
+function roads(w){cx.save();cx.lineCap='round';cx.lineJoin='round';
+  w.roads.forEach(r=>{const a=ctr(bld(r.from)),b=ctr(bld(r.to)),pts=[a,...route(a,b)];
+    cx.beginPath();pts.forEach((p,i)=>i?cx.lineTo(p.x,p.y):cx.moveTo(p.x,p.y));cx.strokeStyle='#1c2638';cx.lineWidth=22;cx.stroke();
+    cx.strokeStyle='#38bdf866';cx.lineWidth=3;cx.setLineDash([10,14]);cx.lineDashOffset=-t*40;cx.stroke();cx.setLineDash([])});cx.restore()}
+const BASE={library:['#4c3b78','#2d2350'],prime:['#2d5aa8','#1b3a72'],citadel:['#6b7280','#3f4654'],spire:['#4b5a8f','#2a3358'],arena:['#7c3d2a','#4a2217'],vera:['#8a6a1c','#53400f'],
+  breaker:['#7f1d3a','#4a0f22'],anchor:['#2f6f7a','#1a434b'],redsink:['#4b4f58','#2b2e35'],forge:['#157a55','#0b4a33'],keep:['#a67c10','#6b4f08'],mill:['#6b7f8f','#3e4c58'],crystal:['#5b3f9a','#33215f']};
+function body(b,x,y,w,h,froz){const c=BASE[b.id];cx.fillStyle='#00000066';cx.fillRect(x+8,y+10,w,h);
+  cx.fillStyle=froz?'#8fb8d8':c[0];cx.fillRect(x,y,w,h*.42);cx.fillStyle=froz?'#6d93b3':c[1];cx.fillRect(x,y+h*.42,w,h*.58);
+  cx.fillStyle='#ffffff14';for(let i=0;i<w/18;i++)cx.fillRect(x+6+i*18,y+h*.55,7,9);
+  if(!froz){cx.fillStyle='#fde68a88';for(let i=0;i<w/18;i++)if(hsh(i,b.tile.x)>.35)cx.fillRect(x+6+i*18,y+h*.55,7,9)}}
+function drawB(b){const w=b.tile.w*T-12,h=b.tile.h*T,x=b.tile.x*T+6,y=b.tile.y*T,n=nodeOf(b),st=b.status,pulse=.5+.5*Math.sin(t*(st==='bad'?7:3));
+  const froz=b.id==='crystal'&&(storm>0||b.frozen);let by=y;if(b.id==='crystal'&&!froz)by+=Math.sin(t*2)*3;
+  body(b,x,by,w,h,froz);cx.save();cx.strokeStyle=SC[st];cx.lineWidth=st==='ok'?1.5:3;cx.shadowColor=SC[st];cx.shadowBlur=st==='ok'?4:10+10*pulse;cx.strokeRect(x,by,w,h);cx.restore();
+  const mx=x+w/2,S=n.state||{};
+  switch(b.id){
+  case 'citadel':{cx.fillStyle='#4b5563';for(let i=0;i<w/16;i++)cx.fillRect(x+i*16+2,y-8,10,8);
+    const gx=mx,gy=y+h;cx.fillStyle='#020617';cx.beginPath();cx.moveTo(gx-18,gy);cx.lineTo(gx-18,gy-34);cx.arc(gx,gy-34,18,Math.PI,0);cx.lineTo(gx+18,gy);cx.fill();
+    cx.save();cx.translate(gx,gy);cx.rotate(-Math.PI/2*(1-bridge));cx.fillStyle='#92400e';cx.fillRect(-16,0,32,46);cx.strokeStyle='#451a03';cx.strokeRect(-16,0,32,46);cx.restore();
+    const tk=Object.values(tokens).map(k=>k.expires_at-Date.now()/1000).filter(v=>v>0).sort((a,b)=>b-a)[0];
+    if(tk){cx.strokeStyle='#38bdf8';cx.lineWidth=5;cx.shadowColor='#38bdf8';cx.shadowBlur=14;cx.beginPath();cx.arc(gx,y-34,22,-Math.PI/2,-Math.PI/2+6.283*Math.min(1,tk/60));cx.stroke();cx.shadowBlur=0;
+      cx.fillStyle='#e0f2fe';cx.font='bold 14px monospace';cx.textAlign='center';cx.fillText(Math.ceil(tk)+'s',gx,y-29)}
+    break}
+  case 'keep':{cx.fillStyle='#fbbf24';cx.fillRect(x+6,y-10,w-12,10);cx.fillStyle='#fde047';for(let i=0;i<3;i++)cx.fillRect(mx-24+i*18,y+h*.7,12,8);break}
+  case 'mill':{cx.fillStyle='#374151';cx.fillRect(x+w-34,y-34,16,34);cx.save();cx.translate(mx-20,y+h*.72);cx.rotate(t*1.2);cx.fillStyle='#cbd5e1';
+      for(let i=0;i<6;i++){cx.rotate(1.047);cx.fillRect(-3,-14,6,28)}cx.restore();break}
+  case 'crystal':{cx.save();cx.translate(mx,by-14);cx.scale(.7,.7);cx.fillStyle=froz?'#bae6fd':'#c084fc';cx.shadowColor=froz?'#7dd3fc':'#c084fc';cx.shadowBlur=18;
+      cx.beginPath();cx.moveTo(0,-34);cx.lineTo(18,0);cx.lineTo(0,34);cx.lineTo(-18,0);cx.fill();cx.restore();
+      if(froz){cx.fillStyle='#e0f2fe66';cx.fillRect(x,by,w,h);cx.fillStyle='#e0f2fe';cx.font='11px monospace';cx.textAlign='center';cx.fillText('FROZEN',mx,y+h*.7)}break}
+  case 'redsink':{const nb=Math.min(S.blocks||0,9);cx.fillStyle='#020617';cx.fillRect(x+w-52,y+h*.2,36,h*.78);
+      for(let i=0;i<nb;i++){cx.fillStyle=S.chain_valid===false?'#be123c':'#64748b';cx.fillRect(x+w-50,y+h-10-i*9,32,7)}
+      cx.fillStyle='#e2e8f0';cx.font='9px monospace';cx.textAlign='left';cx.fillText((S.head||'').slice(0,8),x+w-50,y+h*.2+9);
+      if(S.chain_valid===false){cx.strokeStyle='#f43f5e';cx.lineWidth=2;cx.beginPath();cx.moveTo(x+w-50,y+8);cx.lineTo(x+w-30,y+h*.5);cx.lineTo(x+w-44,y+h);cx.stroke()}break}
+  case 'vera':{cx.save();const k=1+.12*Math.sin(t*3);cx.translate(mx,y-12);cx.scale(k*.7,k*.7);cx.fillStyle=S.blocked_proposals?'#f43f5e':'#fbbf24';cx.shadowColor=cx.fillStyle;cx.shadowBlur=20;
+      cx.beginPath();cx.moveTo(0,-22);cx.lineTo(14,0);cx.lineTo(0,22);cx.lineTo(-14,0);cx.fill();cx.restore();break}
+  case 'spire':{cx.save();cx.translate(mx,y+h*.38);cx.strokeStyle='#a5b4fc';cx.lineWidth=2;cx.setLineDash([6,6]);cx.rotate(t*.6);cx.beginPath();cx.arc(0,0,30,0,6.283);cx.stroke();cx.setLineDash([]);cx.restore();
+      cx.fillStyle='#020617';cx.beginPath();cx.arc(mx,y+h*.38,20,0,6.283);cx.fill();const d0=new Date(),a=(d0.getSeconds()+d0.getMilliseconds()/1000)/60*6.283-1.5708;
+      cx.strokeStyle='#e0e7ff';cx.lineWidth=2;cx.beginPath();cx.moveTo(mx,y+h*.38);cx.lineTo(mx+Math.cos(a)*16,y+h*.38+Math.sin(a)*16);cx.stroke();
+      const ov=(LAST.proposals.find(p=>p.override_timelock&&p.override_timelock.state==='PENDING_TIME_LOCK')||{}).override_timelock;
+      if(ov){cx.strokeStyle='#f59e0b';cx.lineWidth=5;cx.shadowColor='#f59e0b';cx.shadowBlur=12;cx.beginPath();cx.arc(mx,y+h*.38,26,-1.5708,-1.5708+6.283*(1-ov.seconds_left/86400));cx.stroke();cx.shadowBlur=0;
+        ov.signers.forEach((s,i)=>person(mx-28+i*28,y+h+14,'#fbbf24',s.slice(0,5)))}break}
+  case 'library':{cx.fillStyle='#a78bfa';for(let i=0;i<4;i++)cx.fillRect(x+10+i*24,y+h*.62,16,20);break}
+  case 'arena':{cx.strokeStyle=S.alerts?'#f43f5e':'#fb923c';cx.lineWidth=3;cx.beginPath();cx.ellipse(mx,y+h*.62,w*.32,h*.2,0,0,6.283);cx.stroke();
+      cx.fillStyle='#fff';cx.font='bold 13px monospace';cx.textAlign='center';cx.fillText(S.mean==null?'—':S.mean+'%',mx,y+h*.66);
+      if(S.alerts&&Math.sin(t*8)>0){cx.fillStyle='#f43f5e';cx.fillText('!',x+w-12,y+16)}break}
+  case 'breaker':{cx.fillStyle=S.kill_switch?'#f43f5e':'#94a3b8';cx.fillRect(mx-4,y-18,8,22);cx.beginPath();cx.arc(mx,y-20,8,0,6.283);cx.fill();break}
+  case 'anchor':{cx.fillStyle=SC[st];cx.shadowColor=SC[st];cx.shadowBlur=14;cx.beginPath();cx.moveTo(mx,y-24);cx.lineTo(mx+12,y);cx.lineTo(mx-12,y);cx.fill();cx.shadowBlur=0;break}
+  case 'forge':{const f=.5+.5*Math.sin(t*9);cx.fillStyle='rgb('+(180+70*f|0)+','+(80+40*f|0)+',20)';cx.fillRect(x+10,y+h*.62,26,18);break}
+  }
+  const ms=missAt(b.id);if(ms.length){ringAt(x+16,y+h-16,13,ms[0].percent,MCOL(ms[0]));if(ms.length>1){cx.fillStyle='#e2e8f0';cx.font='bold 10px monospace';cx.textAlign='left';cx.fillText('+'+(ms.length-1),x+32,y+h-12)}}
+  cx.fillStyle='#e2e8f0';cx.font='bold 11px monospace';cx.textAlign='center';cx.fillText(b.label.toUpperCase(),mx,y+h+(b.id==='citadel'?66:b.tile.y+b.tile.h>=12?10:16));
+  if(hover===b.id||sel===b.id){cx.strokeStyle='#fff';cx.lineWidth=2;cx.setLineDash([6,4]);cx.strokeRect(x-4,y-4,w+8,h+8);cx.setLineDash([])}}
+function ringAt(x,y,r,pct,col){cx.save();cx.lineWidth=4;cx.strokeStyle='#0f172a';cx.fillStyle='#020617dd';cx.beginPath();cx.arc(x,y,r,0,6.283);cx.fill();cx.stroke();
+  cx.strokeStyle=col;cx.shadowColor=col;cx.shadowBlur=8;cx.beginPath();cx.arc(x,y,r,-1.5708,-1.5708+6.283*pct/100);cx.stroke();cx.shadowBlur=0;
+  cx.fillStyle='#e2e8f0';cx.font='bold 9px monospace';cx.textAlign='center';cx.fillText(pct+'%',x,y+3);cx.restore()}
+const MCOL=m=>m.state==='SEALED'?'#10b981':/VETO|FAILED|REJECTED/.test(m.state)?'#f43f5e':m.state==='GATE'?'#f59e0b':'#38bdf8';
+function missAt(bid){const w=W();if(!w||!LAST.missions)return[];return LAST.missions.filter(m=>{if(m.state==='SEALED')return bid==='redsink';
+  const p=LAST.proposals.find(q=>q.id===m.proposal_id);if(!p)return bid==='prime';return bid===(p.status==='BLOCKED_BY_VERA'?'citadel':w.stage_building[p.stage])})}
+function person(x,y,c,lbl){cx.fillStyle='#00000066';cx.beginPath();cx.ellipse(x,y+12,9,3,0,0,6.283);cx.fill();cx.fillStyle=c;cx.beginPath();cx.moveTo(x,y-6);cx.lineTo(x+8,y+12);cx.lineTo(x-8,y+12);cx.fill();
+  cx.fillStyle='#fde68a';cx.beginPath();cx.arc(x,y-10,5,0,6.283);cx.fill();if(lbl){cx.fillStyle='#e2e8f0';cx.font='9px monospace';cx.textAlign='center';cx.fillText(lbl,x,y+24)}}
+function drawCaravans(dt){carav.forEach(c=>{let step=150*dt;while(c.route.length&&step>0){const q=c.route[0],dx=q.x-c.x,dy=q.y-c.y,d=Math.hypot(dx,dy);if(d<=step){c.x=q.x;c.y=q.y;step-=d;c.route.shift()}else{c.x+=dx/d*step;c.y+=dy/d*step;step=0;if(Math.random()<.5)emit(c.x,c.y+8,'#fde68a',1,12,.5,2)}}
+    const moving=c.route.length>0,y=c.y+(c.veto?0:Math.sin(t*3+c.ph)*3),col=c.veto?'#f43f5e':'#fde68a';
+    cx.save();cx.shadowColor=col;cx.shadowBlur=16;cx.fillStyle=col;rr(c.x-9,y-12,18,22,3);cx.fill();cx.shadowBlur=0;cx.fillStyle='#78350f';for(let i=0;i<3;i++)cx.fillRect(c.x-6,y-8+i*6,12,2);cx.restore();
+    cx.fillStyle='#e2e8f0';cx.font='9px monospace';cx.textAlign='center';cx.fillText((c.p.id||'').slice(0,6),c.x,y+22);const mm=(LAST.missions||[]).find(q=>q.proposal_id===c.p.id);if(mm)ringAt(c.x,y-30,12,mm.percent,MCOL(mm));
+    if(c.veto){cx.strokeStyle='#f43f5e';cx.lineWidth=2.5;cx.globalAlpha=.55+.3*Math.sin(t*6);cx.beginPath();cx.ellipse(c.x,y,26,30,0,0,6.283);cx.stroke();cx.globalAlpha=1;
+      cx.fillStyle='#fecdd3';cx.font='bold 9px monospace';cx.fillText('STASIS',c.x,y-34)}})}
+function drawAgents(dt){agents.forEach(a=>{const pt=a.patrol[a.i]&&{x:a.patrol[a.i].x*T,y:a.patrol[a.i].y*T};
+    if(pt){const dx=pt.x-a.p.x,dy=pt.y-a.p.y,d=Math.hypot(dx,dy),s=(a.id==='forge'?45:75)*dt;
+      if(d<=s){a.i+=a.dir;if(a.i>=a.patrol.length||a.i<0){a.dir*=-1;a.i+=2*a.dir}}else{a.p.x+=dx/d*s;a.p.y+=dy/d*s}}
+    person(a.p.x,a.p.y,a.color,a.id.toUpperCase());
+    if(a.id==='vera'&&Math.random()<dt*1.2)emit(a.p.x,a.p.y-18,LAST.proposals.some(p=>p.status==='BLOCKED_BY_VERA')?'#f43f5e':'#fbbf24',3,25,1,2);
+    if(a.id==='prime'&&Math.random()<dt*.8)emit(a.p.x,a.p.y-18,'#60a5fa',2,25,1,2)})}
+function fx(dt){
+  if(storm>0){const k=bld('crystal'),c=ctr(k);if(t-lastBolt>.22){lastBolt=t;bolt(c.x+rnd(-70,70),-80,c.x+rnd(-14,14),k.tile.y*T);emit(c.x,k.tile.y*T,'#f43f5e',12,90,.6)}
+    const kp=ctr(bld('keep'));cx.save();const g=cx.createRadialGradient(kp.x,kp.y,10,kp.x,kp.y,150);g.addColorStop(0,'#fbbf2400');g.addColorStop(.8,'#fbbf2433');g.addColorStop(1,'#fbbf2488');
+    cx.fillStyle=g;cx.beginPath();cx.arc(kp.x,kp.y,150,0,6.283);cx.fill();cx.strokeStyle='#fde047';cx.lineWidth=2;cx.globalAlpha=.6+.3*Math.sin(t*5);cx.stroke();cx.restore();
+    cx.fillStyle='#450a0a'+Math.min(99,Math.floor(storm*8)).toString(16).padStart(2,'0');cx.fillRect(0,0,24*T,13*T);storm-=dt}
+  const w=W();if(w){const lb=ctr(bld('library')),pr=front(bld('prime'));if(t-lastSpawn>1.4){lastSpawn=t;parts.push({x:lb.x+rnd(-30,30),y:lb.y,vx:(pr.x-lb.x)/3,vy:(pr.y-lb.y)/3-10,l:3,m:3,c:'#c4b5fd',s:3})}
+    const mi=ctr(bld('mill'));if(t-lastSmoke>.3){lastSmoke=t;parts.push({x:mi.x+30,y:mi.y-60,vx:rnd(-6,6),vy:-22,l:2,m:2,c:'#94a3b8',s:5})}}
+  bolts=bolts.filter(b=>(b.l-=dt)>0);bolts.forEach(b=>{cx.save();cx.strokeStyle='#fecdd3';cx.shadowColor='#f43f5e';cx.shadowBlur=18;cx.lineWidth=3;cx.beginPath();b.pts.forEach((p,i)=>i?cx.lineTo(p.x,p.y):cx.moveTo(p.x,p.y));cx.stroke();cx.restore()});
+  rings=rings.filter(r=>(r.l-=dt)>0);rings.forEach(r=>{const k=1-r.l/r.m;cx.save();cx.globalAlpha=1-k;cx.strokeStyle=r.c;cx.lineWidth=5;cx.beginPath();cx.arc(r.x,r.y,r.r*k,0,6.283);cx.stroke();cx.restore()});
+  parts=parts.filter(p=>(p.l-=dt)>0);parts.forEach(p=>{p.x+=p.vx*dt;p.y+=p.vy*dt;cx.globalAlpha=Math.max(0,p.l/p.m);cx.fillStyle=p.c;cx.fillRect(p.x,p.y,p.s,p.s)});cx.globalAlpha=1}
+function frame(now){requestAnimationFrame(frame);if(VIEW!=='realm'||document.hidden){tPrev=now;return}
+  const dt=Math.min(.05,(now-tPrev)/1000);tPrev=now;t+=dt;size();if(!W()||!fitted)return;const w=W(),d=window.devicePixelRatio||1;
+  bridge+=(bridge_t-bridge)*Math.min(1,dt*3);
+  cx.setTransform(1,0,0,1,0,0);cx.fillStyle='#050b16';cx.fillRect(0,0,cv.width,cv.height);cx.setTransform(d*cam.z,0,0,d*cam.z,d*cam.x,d*cam.y);
+  ground(w);roads(w);w.buildings.slice().sort((a,b)=>a.tile.y-b.tile.y).forEach(drawB);drawCaravans(dt);drawAgents(dt);fx(dt);
+  cx.setTransform(d,0,0,d,0,0);beams=beams.filter(b=>(b.l-=dt)>0);beams.forEach(b=>{const a=b.from,c=toS(b.to.x,b.to.y);cx.save();cx.globalAlpha=Math.min(1,b.l*3);cx.strokeStyle='#7dd3fc';cx.shadowColor='#38bdf8';cx.shadowBlur=22;cx.lineWidth=4+2*Math.sin(t*40);
+    cx.beginPath();cx.moveTo(a.x,a.y);cx.lineTo(c.x,c.y);cx.stroke();cx.restore()})}
+requestAnimationFrame(frame);
+/* ---- input ---- */
+const mp=e=>{const r=cv.getBoundingClientRect();return{x:e.clientX-r.left,y:e.clientY-r.top}};
+function hit(sx,sy){const w=W();if(!w)return null;const p=toW(sx,sy);const b=w.buildings.find(b=>p.x>=b.tile.x*T&&p.x<=(b.tile.x+b.tile.w)*T&&p.y>=b.tile.y*T-30&&p.y<=(b.tile.y+b.tile.h)*T);return b?b.id:null}
+cv.addEventListener('pointerdown',e=>{cv.setPointerCapture(e.pointerId);const m=mp(e);drag={x:m.x,y:m.y,cx:cam.x,cy:cam.y,moved:false};cv.style.cursor='grabbing'});
+cv.addEventListener('pointermove',e=>{const m=mp(e);if(drag){if(Math.abs(m.x-drag.x)+Math.abs(m.y-drag.y)>4)drag.moved=true;if(drag.moved){cam.x=drag.cx+m.x-drag.x;cam.y=drag.cy+m.y-drag.y}}
+  hover=hit(m.x,m.y);const tip=$('#rtip');
+  if(hover&&!drag){const b=bld(hover),n=nodeOf(b);tip.style.display='block';tip.style.left=Math.min(m.x+14,cv.clientWidth-270)+'px';tip.style.top=(m.y+14)+'px';tip.innerHTML=`<b>${esc(b.label)}</b> <span class="pxb ${b.status}">${b.status}</span><br>${esc(n.summary)}`}else tip.style.display='none'});
+cv.addEventListener('pointerup',e=>{const m=mp(e),moved=drag&&drag.moved;drag=null;cv.style.cursor='grab';if(!moved){const h=hit(m.x,m.y);if(h)open(h);else close()}});
+cv.addEventListener('wheel',e=>{e.preventDefault();const m=mp(e),w0=toW(m.x,m.y),z=Math.max(.35,Math.min(2.6,cam.z*(e.deltaY<0?1.12:1/1.12)));cam.z=z;cam.x=m.x-w0.x*z;cam.y=m.y-w0.y*z},{passive:false});
+/* ---- drawer ---- */
+let moved=[];
+const HOST={citadel:['#queue'],vera:['#queue'],spire:['#queue'],keep:['#treasury'],mill:['#treasury'],crystal:['#treasury'],redsink:['#log'],arena:['#cii']};
+function open(id){close(true);sel=id;const b=bld(id);$('#dw').classList.add('on');
+  (HOST[id]||[]).forEach(q=>{const el=$(q).closest('section');moved.push({el,parent:el.parentNode,next:el.nextSibling});$('#dwhost').appendChild(el)});info()}
+function info(){if(!sel||!W())return;const b=bld(sel),n=nodeOf(b);$('#dwt').textContent=b.label.toUpperCase();
+  $('#dwinfo').innerHTML=`<div class="row"><span class="badge ${b.status}">${b.status}</span><span class="mut">${esc(n.kind)}</span></div><div class="mut">${esc(n.summary)}</div><div class="mono">source: ${esc(n.source)}</div><pre class="mono">${esc(JSON.stringify(n.state,null,1))}</pre>`}
+function close(keep){moved.reverse().forEach(m=>m.parent.insertBefore(m.el,m.next));moved=[];if(!keep){$('#dw').classList.remove('on');sel=null}}
+$('#dwx').onclick=()=>close();
+return{sync,open,close,info,fit:()=>{fitted=false},storm:()=>{storm=9;ring(ctr(bld('crystal')).x,ctr(bld('crystal')).y,'#f43f5e',260)},
+  beam:(lower)=>{const w=W();if(!w)return;const r=$('#stew').getBoundingClientRect(),c=cv.getBoundingClientRect(),ci=front(bld('citadel'));
+    beams.push({from:{x:r.left+r.width/2-c.left,y:r.top+r.height/2-c.top},to:ci,l:.9});emit(ci.x,ci.y,'#38bdf8',30,90,.9);if(lower)bridge_t=1},
+  info:info,hud:(d)=>{const hw=d.hardware,an=d.anchor,ps=d.proposals,aw=ps.filter(p=>p.awaiting_human).length,act=ps.filter(p=>!p.rejected&&p.completed.length<7).length;
+    $('#rhud').innerHTML=`<span class="pxb ok">AIR-GAPPED</span><span class="pxb ${hw.mode==='LIVE_HARDWARE'?'ok':'warn'}">HW: ${hw.mode==='LIVE_HARDWARE'?'LIVE':'SIMULATION'}</span><span class="pxb ${!an.configured?'warn':an.valid?'ok':'bad'}">ANCHOR: ${!an.configured?'NOT SET':an.valid?'SEALED':'DIVERGENT'}</span><span class="pxb" id="rclk"></span><span class="pxb ${aw?'warn':'ok'}">PROPOSALS ${act} · AWAITING ${aw}</span>`;
+    const names={OBSERVE:'Observe',ANALYZE:'Analyze',PROPOSE:'Propose',HUMAN_AUTHORIZATION:'Authorize',EXECUTE:'Execute',RECORD:'Record',REVIEW:'Review'};
+    $('#rstages').innerHTML=d.status.stages.map((s,i)=>{const n=ps.filter(p=>p.stage===s&&!p.rejected&&p.completed.length<7).length;return`<div class="pxs ${s==='HUMAN_AUTHORIZATION'&&n?'hot':''}">${i+1} ${names[s]} ${n}</div>`}).join('');tick()}}
+})();
+function renderRealm(d){WE.sync(d);WE.hud(d);WE.info()}
+$('#rb-reset').onclick=()=>WE.fit();
+$('#rb-ms').onclick=()=>setView('missions');
+$('#rb-sc').onclick=async()=>{WE.storm();await window.scenarioC();WE.open('crystal')};
+$('#rb-sign').onclick=()=>{WE.open('citadel')};
+['doSign','doSubmit'].forEach(n=>{const f=window[n];window[n]=async(...a)=>{const nSig=()=>Object.values(collected).reduce((s,c)=>s+(c.APPROVE||[]).length+(c.TIER_3_EMERGENCY_OVERRIDE||[]).length,0),
+  s0=nSig(),t0=Object.keys(tokens).length;const r=await f(...a);if(n==='doSign'?nSig()>s0:Object.keys(tokens).length>t0)WE.beam(true);return r}});
+
+/* ===== KEY VAULT & MISSIONS ===== */
+const MS=[['SCOPING',0],['AUDIT & PROPOSAL',25],['HUMAN GATE',50],['SANDBOX RUN',75],['VERIFIED & SEALED',100]];
+const short=h=>h?esc(String(h).slice(0,16))+'…':'—';
+function hwState(d){const p=d.hardware.pkcs11,tok=(p.tokens||[])[0],enr=d.stewards.some(s=>s.origin==='HSM'&&!s.revoked);
+  return{mode:p.attested&&tok&&enr?'HARDWARE_ENROLLED':'SIMULATION_STUB',tok,detected:!!(p.attested&&tok),enr,reason:p.reason}}
+function renderVault(d){
+  const st=d.stewards,act=st.filter(s=>!s.revoked),loaded=Object.keys(keys),la=loaded.filter(k=>act.some(s=>s.steward_id===k));
+  const open=d.proposals.filter(p=>p.awaiting_human&&p.status!=='BLOCKED_BY_VERA'),need=Math.max(0,...open.map(p=>p.signatures_required),0);
+  const hw=hwState(d),aw=d.proposals.filter(p=>p.awaiting_human).length;
+  $('#kvn').textContent=aw?`(${aw} awaiting)`:'';
+  const cur=$('#signer').value;
+  $('#kvbody').innerHTML=`
+  <h3>ACTIVE QUORUM</h3><div class="card"><b style="font-size:18px">${la.length} / ${act.length}</b> steward keys loaded &amp; active
+   ${need?`<div class="${la.length>=need?'sigbar':'mut'}" style="${la.length<need?'color:var(--ro)':''}">Pending proposals need up to ${need} signature(s): ${la.length>=need?'quorum available':'NOT enough keys loaded'}</div>`:'<div class="mut">No proposal awaiting signatures.</div>'}
+   <div class="mut">A loaded key only counts if its steward id is registered and not revoked; the server verifies the actual signature.</div></div>
+  <h3>STEWARDS · pick the signing key</h3>${st.map(s=>`<div class="card row" style="justify-content:space-between">
+   <label><input type="radio" name="kvsel" value="${esc(s.steward_id)}" ${keys[s.steward_id]&&cur===s.steward_id?'checked':''} ${keys[s.steward_id]&&!s.revoked?'':'disabled'} onchange="$('#signer').value=this.value"> <b>${esc(s.steward_id)}</b></label>
+   <span><span class="badge ${s.revoked?'bad':'ok'}">${s.revoked?'REVOKED':'ACTIVE'}</span><span class="badge ${s.origin==='HSM'?'ok':'warn'}">${esc(s.origin)}</span><span class="badge ${keys[s.steward_id]?'ok':''}">${keys[s.steward_id]?'LOADED':'not loaded'}</span>
+   ${s.revoked?'':`<button class="dng" onclick="vaultRevoke('${esc(s.steward_id)}')">Revoke</button>`}</span></div>
+   <div class="mono mut">pub ${esc(s.public_hex.slice(0,32))}…</div>`).join('')||'<div class="mut">No stewards registered.</div>'}
+  <h3>HARDWARE TOKEN (PKCS#11 / YubiKey)</h3><div class="card"><span class="badge ${hw.mode==='HARDWARE_ENROLLED'?'ok':'warn'}">${hw.mode}</span>
+   ${hw.tok?`<div class="mono">slot ${esc(hw.tok.slot)} · serial ${esc(hw.tok.serial)} · ${esc(hw.tok.label||hw.tok.model)}</div>`:`<div class="mut">No attested token: ${esc(hw.reason||'')}</div>`}
+   ${hw.detected&&!hw.enr?'<div class="mut">Token detected but no steward is enrolled with an HSM key.</div>':''}
+   <div class="row" style="margin-top:6px"><button ${hw.mode==='HARDWARE_ENROLLED'?'':'disabled'} onclick="vaultSign(vaultTarget(),1)" title="Sign the shown bytes on the device and paste the signature">Hardware signature…</button></div>
+   <div class="mut">The browser cannot talk to PKCS#11; this flow shows the exact bytes, you sign on the device and paste the base64 result. Untested on real hardware.</div></div>
+  <h3>APPROVAL QUEUE</h3>${d.proposals.filter(p=>p.awaiting_human).map(p=>{const c=(collected[p.id]||{}).APPROVE||[],req=Math.max(1,p.signatures_required),veto=p.status==='BLOCKED_BY_VERA';
+   return `<div class="card ${veto?'veto':''}"><div class="row"><b class="mono">#${esc(p.id.slice(0,8))}</b><span class="badge">${esc(p.tier_label)}</span><span class="mut">${esc(p.action_type)}</span></div>
+   <div class="mut">${esc(p.justification)}</div><div class="mono mut">sha256 ${esc(p.proposal_hash.slice(0,32))}…</div>
+   <div class="sigbar">[${'█'.repeat(Math.min(c.length,req))}${'░'.repeat(Math.max(0,req-c.length))}] ${c.length}/${req} signatures collected${c.length?' ('+c.map(s=>esc(s.steward_id)).join(', ')+')':''}</div>
+   ${veto?'<div class="banner">Blocked by Vera: use the Command Center override flow.</div>':p.time_lock_active?'<div class="badge warn">Time-locked until '+esc(p.time_lock_until)+'</div>':
+   `<div class="row"><button class="pri" onclick="vaultSign('${p.id}')">One-click sign${c.length+1>=req?' &amp; submit':''}</button><button onclick="doClear('${p.id}')">clear</button></div>`}</div>`}).join('')||'<div class="mut">Nothing awaiting signatures.</div>'}`;
+}
+function vaultTarget(){const p=(LAST.proposals||[]).find(p=>p.awaiting_human&&p.status!=='BLOCKED_BY_VERA');return p&&p.id}
+window.vaultSign=(pid,ext)=>act(async()=>{if(!pid)throw new Error('No proposal awaiting signatures.');
+  const p=LAST.proposals.find(x=>x.id===pid),req=Math.max(1,p.signatures_required);
+  await window.doSign(pid,'APPROVE',ext);const c=(collected[pid]||{}).APPROVE||[];
+  if(c.length>=req)await window.doSubmit(pid)});
+window.vaultRevoke=sid=>act(async()=>{const id=$('#signer').value;if(!keys[id])throw new Error('Load and select an ACTIVE steward key to sign the revocation.');
+  const reason=prompt('Why is the key of '+sid+' compromised? (logged to Red Sink as REVOCATION_EVENT)');if(!reason||reason.length<3)throw new Error('cancelled');
+  if(!confirm('Revoke '+sid+' irreversibly? Signed by '+id+'.'))throw new Error('cancelled');
+  const m=await api(`/api/stewards/${encodeURIComponent(sid)}/revoke-message?reason=${encodeURIComponent(reason)}`);
+  const sig=await crypto.subtle.sign('Ed25519',keys[id],unb64(m.message_b64));
+  await api(`/api/stewards/${encodeURIComponent(sid)}/revoke`,{reason,signature:{steward_id:id,signature_b64:b64(new Uint8Array(sig))}});
+  if(sid===id)delete keys[id]});
+$('#kvbtn').onclick=()=>$('#kv').classList.toggle('on');$('#kvx').onclick=()=>$('#kv').classList.remove('on');
+$('#kfile2').onchange=e=>loadKeyFiles(e.target.files);
+const kd=$('#kdrop');['dragenter','dragover'].forEach(n=>kd.addEventListener(n,e=>{e.preventDefault();kd.classList.add('over')}));
+['dragleave','drop'].forEach(n=>kd.addEventListener(n,e=>{e.preventDefault();kd.classList.remove('over')}));
+kd.addEventListener('drop',e=>loadKeyFiles(e.dataTransfer.files));
+function ringSvg(pct,col,sz=54){const r=sz/2-5,c=2*Math.PI*r;return `<svg width="${sz}" height="${sz}"><circle cx="${sz/2}" cy="${sz/2}" r="${r}" stroke="#1e293b" stroke-width="5" fill="none"/><circle cx="${sz/2}" cy="${sz/2}" r="${r}" stroke="${col}" stroke-width="5" fill="none" stroke-dasharray="${c*pct/100} ${c}" transform="rotate(-90 ${sz/2} ${sz/2})"/><text x="50%" y="55%" text-anchor="middle" style="font-size:12px;font-weight:bold">${pct}%</text></svg>`}
+const mcol=m=>m.state==='SEALED'?'#10b981':/VETO|FAILED|REJECTED/.test(m.state)?'#f43f5e':m.state==='GATE'?'#f59e0b':'#38bdf8';
+function strip(m){return `<div class="ms">${MS.map(([n,p])=>`<i class="${m.percent>=p&&!(m.percent===p&&m.state!=='SEALED'&&p===50)?'d':''}${m.percent===p&&(m.state==='GATE'||m.state==='SANDBOX')?' h':''}" title="${p}% ${n}"></i>`).join('')}</div>`}
+let MOPEN=null;
+function renderMissions(d){const ms=d.missions||[];
+  $('#mcards').innerHTML=ms.slice().reverse().map(m=>`<div class="card mcard" onclick="openMission('${m.id}')"><div class="row" style="justify-content:space-between">${ringSvg(m.percent,mcol(m))}
+   <div style="flex:1"><b>${esc(m.objective.slice(0,70))}</b><div class="mono mut">${esc(m.id)} · ${esc(m.tool.tool)}${m.tier!=null?' · tier '+m.tier:''}</div><span class="badge ${m.state==='SEALED'?'ok':/VETO|FAILED|REJECTED/.test(m.state)?'bad':'warn'}">${esc(m.state)}</span>
+   ${m.state==='SANDBOX'&&m.token_seconds_left!=null?`<span class="badge warn">token ${m.token_seconds_left}s</span>`:''}</div></div>${strip(m)}
+   <div class="row" onclick="event.stopPropagation()">
+   ${m.state==='GATE'?`<button class="pri" onclick="vaultSign('${m.proposal_id}')">Sign at 50% gate</button><button onclick="$('#kv').classList.add('on')">Key vault</button>`:''}
+   ${m.state==='SANDBOX'?`<button class="pri" onclick="missionRun('${m.id}')">Run in sandbox</button>`:''}</div></div>`).join('')||'<div class="mut">No missions yet.</div>';
+  if(MOPEN){const m=ms.find(x=>x.id===MOPEN);if(m)paintMission(m)}}
+window.missionRun=mid=>act(async()=>{await api(`/api/missions/${mid}/run`,{})});
+$('#mgo').onclick=()=>act(async()=>{const k=$('#mkind').value,tool=k==='fs'?{tool:'filesystem',op:'write',path:$('#mpath').value,content:$('#mbody').value.replace(/\\n/g,'\n')}:{tool:'python_sandbox',code:$('#mbody').value};
+  await api('/api/missions',{objective:$('#mobj').value,tool,amount_usd:$('#mamt').value||'0'})});
+$('#ragb').onclick=()=>act(async()=>{await api('/api/rag/ingest',{source_id:$('#ragid').value,text:$('#ragtx').value});$('#ragtx').value=''});
+window.openMission=id=>{MOPEN=id;const m=(LAST.missions||[]).find(x=>x.id===id);if(m){paintMission(m);$('#mm').classList.add('on')}};
+$('#mm').onclick=e=>{if(e.target.id==='mm'){$('#mm').classList.remove('on');MOPEN=null}};
+function paintMission(m){const ex=m.execution,sc=m.scope_report,au=m.audit_matrix,g=m.gate;
+  $('#mmb').innerHTML=`<div class="row" style="justify-content:space-between"><div class="row">${ringSvg(m.percent,mcol(m),64)}<div><b>${esc(m.objective)}</b><div class="mono mut">${esc(m.id)} · proposal ${esc((m.proposal_id||'—').slice(0,8))} · ${esc(m.state)}</div></div></div><button onclick="$('#mm').classList.remove('on');MOPEN=null">CLOSE</button></div>${strip(m)}
+  <h3 class="mut">PHASE CHECKLIST</h3>${MS.map(([n,p])=>{const done=m.percent>=p&&!(p===50&&m.state==='GATE'),ph=m.phases.find(x=>x.percent===p&&x.evidence_hash);
+    return `<div class="row"><span class="badge ${done?'ok':m.percent===p?'warn':''}">${done?'✔':m.percent===p?'⏸':'·'}</span><b>${p}% ${n}</b><span class="mono mut">${ph?esc(ph.at)+' · '+short(ph.evidence_hash):''}</span></div>`}).join('')}
+  ${m.veto_reason?`<div class="banner">VERA VETO: ${esc(m.veto_reason)}</div>`:''}
+  ${sc?`<h3 class="mut">MISSION SCOPE REPORT</h3><div class="mono">sub-questions: ${sc.sub_questions.map(esc).join(' | ')}</div>${sc.sources.map(s=>`<div class="mono mut">${esc(s.source_id)} · chunk ${short(s.chunk_hash)} · doc ${short(s.doc_hash)} · score ${s.score}</div>`).join('')||'<div class="mut">no grounded sources</div>'}<div class="term">${esc(sc.diff_preview)||'(no diff)'}</div>`:''}
+  ${au?`<h3 class="mut">VERA AUDIT MATRIX · ${esc(au.status)}</h3>${au.checks.map(c=>`<div class="row"><span class="badge ${c.ok?'ok':'bad'}">${c.ok?'PASS':'FAIL'}</span><span class="mono">${esc(c.check)}</span><span class="mut">${esc(c.detail)}</span></div>`).join('')}<div class="mono mut">CII impact: ${au.cii_impact.mean_cii_pct==null?'n/a':au.cii_impact.mean_cii_pct+'% mean, '+au.cii_impact.below_60+' below 60%'} (${esc(au.cii_impact.note)})</div>`:''}
+  ${g?`<h3 class="mut">50% GATE · SIGNATURE PROOFS (over ${short(g.p_hash)})</h3>${g.signatures.map(s=>`<div class="mono">${esc(s.steward_id)} · ${esc(s.signature_b64.slice(0,40))}…</div>`).join('')}`:''}
+  ${ex?`<h3 class="mut">SANDBOX TERMINAL · isolation: ${esc(ex.isolation)}</h3><div class="term">$ ${esc(m.tool.tool)}\n${esc(ex.stdout)}${ex.stderr?'\n[stderr]\n'+esc(ex.stderr):''}${ex.failed?'\n[FAILED] '+esc(ex.result):''}</div><div class="mut">workspace diff</div><div class="term">${esc(ex.diff)||'(no file changes)'}</div>`:''}
+  ${m.seal?`<h3 class="mut">RED SINK SEAL</h3><div class="mono">block #${m.seal.block_index} · ${esc(m.seal.block_hash)}</div>`:''}
+  <h3 class="mut">TIMELINE</h3>${m.phases.map(p=>`<div class="mono mut">${esc(p.at)} · ${p.percent}% · ${esc(p.phase)} · ${esc(p.note)} ${p.evidence_hash?'· '+short(p.evidence_hash):''}</div>`).join('')}`}
+
+// other tabs of this origin are told to re-hydrate immediately after a write; polling remains the fallback
+const bc=window.BroadcastChannel?new BroadcastChannel('ly-hub'):null;
+if(bc)bc.onmessage=()=>refresh();
+const _api=api;api=async function(p,b){const r=await _api(p,b);if(b!==undefined&&bc)bc.postMessage('changed');return r};
+setView(['realm','map','command','dash','bento','missions'].includes(location.hash.slice(1))?location.hash.slice(1):'realm');
+refresh();setInterval(refresh,5000);
+</script></body></html>

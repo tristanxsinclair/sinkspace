@@ -2,6 +2,8 @@
 
 Date: 2026-09-15. Status: accepted for the first development slice. Revisit before adding a live provider.
 
+For the current bounded architecture map and remaining extension gaps, see [architecture-gap-analysis.md](./architecture-gap-analysis.md).
+
 ## Decision
 
 Build a separate local TypeScript execution system for one bounded repository-health objective. Use a deterministic development adapter that performs actual inspection and produces artifacts, with separate audit and adversarial checks. Do not label it model reasoning, general autonomous intelligence, or a production system.
@@ -9,6 +11,8 @@ Build a separate local TypeScript execution system for one bounded repository-he
 Keep four boundaries: control (registry, tasks, state, budgets, authority); execution (bounded runtime/tool adapters); evidence (artifacts, observations, claims, verification and receipts); interface (operator views of stored state). The runtime boundary accepts validated task/context and returns validated output plus observable usage. Model output cannot directly alter permissions, grant approval, or establish verification.
 
 Use local development persistence first, with explicit schema versions and a storage interface. No hosted database, graph database, message broker or microservices are needed to prove this workflow. Evidence IDs and relationships provide a graph without requiring a graph database. Migration to a durable transactional store is required before multi-process or hosted execution; old receipts must retain their schema version and must never be silently rewritten.
+
+The file-backed run store serializes concurrent snapshots per run and replaces each snapshot atomically using a unique temporary file in the same directory. It remains a single-process development adapter: interrupted work is detected but not resumed, and multi-process/hosted execution still requires a transactional store and explicit recovery semantics.
 
 ## Official landscape checked on 2026-09-15
 
