@@ -1657,9 +1657,12 @@ async function performRealResearch(question, depth) {
   displayTermExplanations(RESEARCH_STATE.terminology);
   
   try {
+    console.log('Starting research with question:', question, 'depth:', depth);
     // Create research session
     const requestBody = { question, depth };
+    console.log('Calling API with:', requestBody);
     const response = await api('/api/research', requestBody);
+    console.log('API response:', response);
     
     RESEARCH_STATE.sessionId = response.session_id;
     RESEARCH_STATE.report = response;
@@ -1668,8 +1671,17 @@ async function performRealResearch(question, depth) {
     updateResearchProgress(response.stage, getCompletedStages(response));
     displayRealResearchResults(response);
     
+    // Re-enable controls if research is complete or failed
+    if (response.status === 'complete' || response.status === 'failed') {
+      $('#research-start').disabled = false;
+      $('#research-question').disabled = false;
+      $('#research-depth').disabled = false;
+      RESEARCH_STATE.inProgress = false;
+    }
+    
   } catch (error) {
     console.error('Research API error:', error);
+    console.error('Error details:', error.stack || error);
     $('#research-short-answer').innerHTML = `Research failed: ${esc(error.message || 'Unknown error')}`;
     
     // Re-enable controls
@@ -2074,7 +2086,18 @@ function proposeMissionFromResearch() {
 
 
 
-function startResearch() {
+async async function testResearchAPI() {
+  try {
+    const response = await api('/api/research/ping');
+    console.log('Research API ping:', response);
+    return response.status === 'research_api_working';
+  } catch (error) {
+    console.error('Research API ping failed:', error);
+    return false;
+  }
+}
+
+async function startResearch() {
   const question = $('#research-question').value.trim();
   const depth = $('#research-depth').value;
   
@@ -2083,14 +2106,35 @@ function startResearch() {
     return;
   }
   
+  // Test basic API connectivity
+  try {
+    const pingResponse = await api('/api/research/ping');
+    console.log('Research API ping successful:', pingResponse);
+  } catch (error) {
+    console.error('Research API ping failed:', error);
+    alert('Research service unavailable. Check server is running and try again.');
+    return;
+  }
+  
   // Reset previous results
   resetResearchProgress();
   $('#research-results').style.display = 'none';
   $('#why-panel').classList.remove('on');
   $('#advanced-view').style.display = 'none';
+  $('#propose-mission-container').style.display = 'none';
   
-  // Start the research process with real API
-  performRealResearch(question, depth);
+  try {
+    // Start the research process with real API
+    await performRealResearch(question, depth);
+  } catch (error) {
+    console.error('Research failed:', error);
+    $('#research-short-answer').innerHTML = `Research failed: ${esc(error.message || 'Unknown error')}`;
+    $('#research-results').style.display = 'block';
+    $('#research-start').disabled = false;
+    $('#research-question').disabled = false;
+    $('#research-depth').disabled = false;
+    RESEARCH_STATE.inProgress = false;
+  }
 }
 
 function toggleWhyPanel() {
@@ -2124,7 +2168,7 @@ function toggleAdvancedView() {
 // Initialize research UI
 function initResearchUI() {
   // Set up event listeners
-  $('#research-start').onclick = startResearch;
+  $('#research-start').onclick = function() { startResearch().catch(console.error); };
   $('#why-button').onclick = toggleWhyPanel;
   $('#advanced-view-toggle').onclick = toggleAdvancedView;
   $('#propose-mission-btn').onclick = proposeMissionFromResearch;

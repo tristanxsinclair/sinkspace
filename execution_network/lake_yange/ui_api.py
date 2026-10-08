@@ -891,7 +891,309 @@ def create_app(state_dir: Path, *, demo: bool = False, treasury: Optional[ThreeT
                                                     sort_keys=True, default=str).encode()).hexdigest()[:16] + f":{len(es)}"
         return out
 
+    # ---- Research Helper Functions ----
+    def extract_question_metadata(question: str) -> Dict[str, Any]:
+        """Extract metadata from research question"""
+        metadata: Dict[str, Any] = {
+            "political": False,
+            "economic": False,
+            "jurisdictions": [],
+            "topics": [],
+            "entities": []
+        }
+        
+        question_lower = question.lower()
+        
+        # Political keywords
+        political_keywords = ['policy', 'government', 'legislation', 'law', 'parliament', 'congress', 'senate', 'constitution', 'vote', 'election', 'governance']
+        if any(kw in question_lower for kw in political_keywords):
+            metadata["political"] = True
+        
+        # Economic keywords
+        economic_keywords = ['economic', 'economy', 'cost', 'budget', 'investment', 'growth', 'job', 'employment', 'infrastructure', 'tax', 'revenue']
+        if any(kw in question_lower for kw in economic_keywords):
+            metadata["economic"] = True
+        
+        # Jurisdiction detection
+        jurisdiction_map = {
+            'Commonwealth': ['commonwealth', 'federal', 'national', 'australia'],
+            'Western Australia': ['western australia', 'wa', 'perth'],
+            'State': ['state', 'states'],
+            'Local Government': ['local government', 'council', 'municipal']
+        }
+        
+        for jurisdiction, keywords in jurisdiction_map.items():
+            if any(kw in question_lower for kw in keywords):
+                metadata["jurisdictions"].append(jurisdiction)
+        
+        # Topic detection
+        topic_map = {
+            'AI': ['ai', 'artificial intelligence', 'machine learning'],
+            'Technology': ['technology', 'tech', 'digital', 'innovation'],
+            'Energy': ['energy', 'power', 'electricity', 'renewable'],
+            'Transport': ['transport', 'infrastructure', 'road', 'rail', 'port'],
+            'Health': ['health', 'medical', 'hospital'],
+            'Education': ['education', 'school', 'university']
+        }
+        
+        for topic, keywords in topic_map.items():
+            if any(kw in question_lower for kw in keywords):
+                metadata["topics"].append(topic)
+        
+        return metadata
+
+    def sources_dict_to_metadata(passage: Passage, row: EvidenceRow) -> SourceMetadata:
+        """Convert passage and evidence row to SourceMetadata"""
+        quality = "high" if row.status == "GROUNDED" else "medium" if row.status == "SINGLE_SOURCE" else "low"
+        return SourceMetadata(
+            source_id=passage.source_id,
+            title=passage.source_id,
+            publisher="Unknown",
+            publication_date=None,
+            source_type="primary" if quality == "high" else "secondary",
+            jurisdiction=None,
+            quality=quality,
+            relevance=f"Evidence for: {row.sub_question}",
+            doc_hash=passage.doc_hash,
+            chunk_hash=passage.chunk_hash
+        )
+
+    def classify_evidence_type(text: str) -> str:
+        """Classify text as fact, interpretation, claim, opinion, or unknown"""
+        text_lower = text.lower()
+        
+        if any(indicator in text_lower for indicator in ['states', 'reports', 'shows', 'demonstrates', 'indicates', 'according to']):
+            return "fact"
+        if any(indicator in text_lower for indicator in ['suggests', 'implies', 'likely', 'probably', 'may', 'could']):
+            return "interpretation"
+        if any(indicator in text_lower for indicator in ['claims', 'asserts', 'argues', 'alleges']):
+            return "claim"
+        if any(indicator in text_lower for indicator in ['believes', 'thinks', 'opinion', 'perspective']):
+            return "opinion"
+        return "unknown"
+
+    def classify_confidence(report: ResearchReport, statement: Statement) -> str:
+        """Classify confidence level based on evidence"""
+        for row in report.matrix:
+            if row.sub_question == statement.sub_question:
+                if row.status == "GROUNDED":
+                    return "high"
+                elif row.status == "SINGLE_SOURCE":
+                    return "medium"
+                else:
+                    return "low"
+        return "unknown"
+
+    def generate_short_answer(report: ResearchReport) -> str:
+        """Generate a short answer from the research results"""
+        if not report.statements:
+            return "No sufficient evidence found to provide a comprehensive answer."
+        
+        statements_text = " ".join(s.text for s in report.statements[:3])
+        return f"Based on the evidence retrieved: {statements_text}"
+
+    def run_deep_research(st: UiState, question: str, session_id: str) -> ResearchReport:
+        """Run actual deep research using existing infrastructure"""
+        depth_configs = {
+            "quick": {"max_rounds": 1, "k": 2, "min_score": 0.1},
+            "standard": {"max_rounds": 2, "k": 3, "min_score": 0.05},
+            "deep": {"max_rounds": 3, "k": 4, "min_score": 0.03},
+            "investigation": {"max_rounds": 4, "k": 5, "min_score": 0.01}
+        }
+        
+        session = st.get_research_session(session_id)
+        depth = session.get("depth", "standard") if session else "standard"
+        config = depth_configs.get(depth, depth_configs["standard"])
+        
+        research = DeepResearch(
+            st.rag, 
+            max_rounds=config["max_rounds"],
+            k=config["k"], 
+            min_score=config["min_score"]
+        )
+        
+        try:
+            st.update_research_session(session_id, {
+                "status": "crosscheck",
+                "stage": "crosscheck",
+                "progress": 50
+            })
+            
+            report = research.run(question)
+            
+            st.update_research_session(session_id, {
+                "status": "analysis", 
+                "stage": "analysis",
+                "progress": 75
+            })
+            
+            ver_audit_results = run_vera_audit(st, report)
+            
+            st.update_research_session(session_id, {
+                "status": "review",
+                "stage": "review", 
+                "progress": 90
+            })
+            
+            ledger_entry = record_research_provenance(st, question, report, ver_audit_results, session_id)
+            
+            st.update_research_session(session_id, {
+                "provenance": {
+                    "research_session_id": session_id,
+                    "question_hash": report.report_hash,
+                    "timestamp": st.clock().isoformat(),
+                    "ver_audit_results": ver_audit_results,
+                    "ledger_entry_hash": ledger_entry.hash if ledger_entry else None
+                }
+            })
+            
+            return report
+            
+        except Exception as e:
+            st.update_research_session(session_id, {
+                "status": "failed",
+                "stage": "failed",
+                "error": f"Research failed: {str(e)}",
+                "progress": 0
+            })
+            raise
+
+    def run_vera_audit(st: UiState, report: ResearchReport) -> List[str]:
+        """Run Vera audit on research results"""
+        audit_results: List[str] = []
+        
+        for row in report.matrix:
+            if row.status == "UNGROUNDED":
+                audit_results.append(f"UNGROUNDED: {row.sub_question} has no supporting evidence")
+            elif row.status == "SINGLE_SOURCE":
+                audit_results.append(f"SINGLE_SOURCE: {row.sub_question} has only one source (no corroboration)")
+            elif row.flags:
+                for flag in row.flags:
+                    audit_results.append(f"FLAG: {row.sub_question} - {flag}")
+        
+        for ungrounded in report.ungrounded:
+            audit_results.append(f"UNGROUNDED_STATEMENT: {ungrounded}")
+        
+        return audit_results
+
+    def record_research_provenance(st: UiState, question: str, report: ResearchReport, ver_audit_results: List[str], session_id: str) -> Optional[Any]:
+        """Record research provenance in Red Sink ledger"""
+        try:
+            provenance_data = {
+                "research_session_id": session_id,
+                "question": question,
+                "question_hash": report.report_hash,
+                "sub_questions": report.sub_questions,
+                "sources_retrieved": len(report.passages),
+                "evidence_matrix": [row.model_dump() for row in report.matrix],
+                "vera_audit_results": ver_audit_results,
+                "timestamp": st.clock().isoformat()
+            }
+            
+            entry = st.red_sink.record(
+                agent_id="research_engine",
+                decision="RESEARCH_COMPLETED",
+                reason=f"Research session {session_id}: {question[:100]}...",
+                evidence_hash=report.report_hash,
+                result=json.dumps(provenance_data, default=str)
+            )
+            return entry
+            
+        except Exception as e:
+            logger.warning(f"Failed to record research provenance: {e}")
+            return None
+
+    def convert_to_research_response(st: UiState, session_id: str, report: ResearchReport) -> ResearchResponse:
+        """Convert DeepResearch report to frontend ResearchResponse format"""
+        sources_dict: Dict[str, SourceMetadata] = {}
+        for sub_q, passages in report.passages.items():
+            for passage in passages:
+                if passage.source_id not in sources_dict:
+                    sources_dict[passage.source_id] = SourceMetadata(
+                        source_id=passage.source_id,
+                        title=passage.source_id,
+                        publisher="Unknown",
+                        publication_date=None,
+                        source_type="unknown",
+                        jurisdiction=None,
+                        quality="medium",
+                        relevance=f"Relevant to: {sub_q}",
+                        doc_hash=passage.doc_hash,
+                        chunk_hash=passage.chunk_hash
+                    )
+        
+        sources = list(sources_dict.values())
+        
+        findings: List[Finding] = []
+        for statement in report.statements:
+            evidence_type = classify_evidence_type(statement.text)
+            confidence = classify_confidence(report, statement)
+            
+            findings.append(Finding(
+                text=statement.text,
+                evidence_type=evidence_type,
+                confidence=confidence,
+                supporting_evidence=[],
+                contradicting_evidence=[]
+            ))
+        
+        evidence_supported: List[EvidenceItem] = []
+        for row in report.matrix:
+            if row.status == "GROUNDED":
+                passages = report.passages.get(row.sub_question, [])
+                if passages:
+                    top_passage = passages[0]
+                    evidence_supported.append(EvidenceItem(
+                        text=top_passage.text,
+                        source=sources_dict_to_metadata(top_passage, row),
+                        confidence="high",
+                        evidence_type="fact"
+                    ))
+        
+        uncertainties: List[ResearchUncertainty] = []
+        for ungrounded in report.ungrounded:
+            uncertainties.append(ResearchUncertainty(
+                text=ungrounded,
+                reason="No supporting evidence found"
+            ))
+        
+        for row in report.matrix:
+            if row.status == "SINGLE_SOURCE":
+                uncertainties.append(ResearchUncertainty(
+                    text=f"{row.sub_question} has only single source",
+                    reason="Lacks corroboration from multiple sources"
+                ))
+        
+        return ResearchResponse(
+            session_id=session_id,
+            question=report.question,
+            status="complete",
+            progress=100,
+            stage="review",
+            short_answer=generate_short_answer(report),
+            findings=findings,
+            evidence_supported=evidence_supported,
+            uncertainties=uncertainties,
+            competing_interpretations=[],
+            disagreements=[],
+            sources=sources,
+            metadata={"sub_questions": report.sub_questions, "sources_found": len(sources)},
+            provenance=None,
+            error=None,
+            timestamps={
+                "understanding": st.clock().isoformat(),
+                "sources": st.clock().isoformat(), 
+                "crosscheck": st.clock().isoformat(),
+                "analysis": st.clock().isoformat(),
+                "review": st.clock().isoformat()
+            }
+        )
+
     # ---- Research API ----
+    @app.get("/api/research/ping")
+    def research_ping() -> Dict[str, str]:
+        return {"status": "research_api_working"}
+
     @app.post("/api/research")
     def create_research(body: ResearchRequest) -> ResearchResponse:
         # Create research session
@@ -987,23 +1289,7 @@ def create_app(state_dir: Path, *, demo: bool = False, treasury: Optional[ThreeT
         success = st.delete_research_session(session_id)
         return {"success": success}
 
-    # ---- Research Helper Functions ----
-    logger = logging.getLogger(__name__)
-    
-    def extract_question_metadata(question: str) -> Dict[str, Any]:
-        """Extract metadata from research question"""
-        metadata = {
-            "political": False,
-            "economic": False,
-            "jurisdictions": [],
-            "topics": [],
-            "entities": []
-        }
-        
-        question_lower = question.lower()
-        
-        # Political keywords
-        political_keywords = ['policy', 'government', 'legislation', 'law', 'parliament', 'congress', 'senate', 'constitution', 'vote', 'election', 'governance']
+    if demo:
         if any(kw in question_lower for kw in political_keywords):
             metadata["political"] = True
         
